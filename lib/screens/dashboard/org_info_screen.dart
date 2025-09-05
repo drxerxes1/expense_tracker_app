@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -51,7 +53,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
 
       final officers = officersSnapshot.docs.map((doc) => Officer.fromMap({
         'id': doc.id,
-        ...doc.data() as Map<String, dynamic>,
+        ...doc.data(),
       })).toList();
 
       setState(() {

@@ -1,9 +1,10 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker_app/services/auth_service.dart';
 import 'package:expense_tracker_app/models/audit_trail.dart';
-import 'package:expense_tracker_app/models/expense.dart';
 
 class LogsScreen extends StatefulWidget {
   const LogsScreen({super.key});
@@ -55,7 +56,7 @@ class _LogsScreenState extends State<LogsScreen> {
 
       final auditLogs = auditSnapshot.docs.map((doc) => AuditTrail.fromMap({
         'id': doc.id,
-        ...doc.data() as Map<String, dynamic>,
+        ...doc.data(),
       })).toList();
 
       setState(() {
@@ -88,7 +89,16 @@ class _LogsScreenState extends State<LogsScreen> {
                 const SizedBox(width: 12),
                 DropdownButton<String>(
                   value: _selectedAction,
-                  items: ['All', ...AuditAction.values.map((e) => e.actionDisplayName)],
+                  items: [
+                    DropdownMenuItem<String>(
+                      value: 'All',
+                      child: Text('All'),
+                    ),
+                    ...AuditAction.values.map((e) => DropdownMenuItem<String>(
+                      value: e.actionDisplayName,
+                      child: Text(e.actionDisplayName),
+                    )),
+                  ],
                   onChanged: (value) {
                     if (value != null) {
                       setState(() {
@@ -169,7 +179,7 @@ class _LogsScreenState extends State<LogsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            auditLog.actionDisplayName,
+                            auditLog.action.actionDisplayName,
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -194,7 +204,7 @@ class _LogsScreenState extends State<LogsScreen> {
                         ),
                       ),
                       child: Text(
-                        auditLog.actionDisplayName,
+                        auditLog.action.actionDisplayName,
                         style: TextStyle(
                           color: _getActionColor(auditLog.action),
                           fontSize: 12,
@@ -271,7 +281,7 @@ class _LogsScreenState extends State<LogsScreen> {
     }
     
     return _auditLogs.where((log) => 
-        log.actionDisplayName == _selectedAction).toList();
+        log.action.actionDisplayName == _selectedAction).toList();
   }
 
   String _formatDate(DateTime date) {

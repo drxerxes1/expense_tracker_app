@@ -1,6 +1,27 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum AuditAction { created, edited, deleted, approved, denied }
+enum AuditAction { 
+  created, 
+  edited, 
+  deleted, 
+  approved, 
+  denied;
+
+  String get actionDisplayName {
+    switch (this) {
+      case AuditAction.created:
+        return 'Created';
+      case AuditAction.edited:
+        return 'Edited';
+      case AuditAction.deleted:
+        return 'Deleted';
+      case AuditAction.approved:
+        return 'Approved';
+      case AuditAction.denied:
+        return 'Denied';
+    }
+  }
+}
 
 class AuditTrail {
   final String id;
@@ -68,18 +89,4 @@ class AuditTrail {
     );
   }
 
-  String get actionDisplayName {
-    switch (action) {
-      case AuditAction.created:
-        return 'Created';
-      case AuditAction.edited:
-        return 'Edited';
-      case AuditAction.deleted:
-        return 'Deleted';
-      case AuditAction.approved:
-        return 'Approved';
-      case AuditAction.denied:
-        return 'Denied';
-    }
-  }
 }

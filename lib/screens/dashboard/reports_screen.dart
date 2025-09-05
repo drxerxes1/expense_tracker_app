@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_types_as_parameter_names
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -37,7 +39,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
       final expenses = snapshot.docs.map((doc) => Expense.fromMap({
         'id': doc.id,
-        ...doc.data() as Map<String, dynamic>,
+        ...doc.data(),
       })).toList();
 
       setState(() {
@@ -194,8 +196,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final categoryData = <String, double>{};
     
     for (final expense in filteredExpenses) {
-      categoryData[expense.categoryDisplayName] = 
-          (categoryData[expense.categoryDisplayName] ?? 0) + expense.amount;
+      categoryData[expense.category.categoryDisplayName] = 
+          (categoryData[expense.category.categoryDisplayName] ?? 0) + expense.amount;
     }
 
     final pieChartData = categoryData.entries.map((entry) {
@@ -360,9 +362,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   final expense = topExpenses[index];
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: _getCategoryColor(expense.categoryDisplayName),
+                      backgroundColor: _getCategoryColor(expense.category.categoryDisplayName),
                       child: Icon(
-                        _getCategoryIcon(expense.categoryDisplayName),
+                        _getCategoryIcon(expense.category.categoryDisplayName),
                         color: Colors.white,
                         size: 16,
                       ),
@@ -371,7 +373,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       expense.note.isNotEmpty ? expense.note : 'No description',
                       style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
-                    subtitle: Text(expense.categoryDisplayName),
+                    subtitle: Text(expense.category.categoryDisplayName),
                     trailing: Text(
                       '\$${expense.amount.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(

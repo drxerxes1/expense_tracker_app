@@ -5,23 +5,27 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 ## Features
 
 ### 🔐 Authentication & User Management
+
 - **User Registration**: Create new accounts (Organization Presidents only)
 - **User Login**: Secure authentication with Firebase Auth
 - **Role-Based Access Control**: Different permissions for different user roles
 
 ### 🏢 Organization Management
+
 - **Create Organizations**: Presidents can create new organizations
 - **QR Code Invites**: Generate QR codes for officer invitations
 - **Member Management**: Approve/deny officer requests
 - **Role Assignment**: Assign different roles (President, Treasurer, Secretary, Auditor, Moderator, Member)
 
 ### 💰 Expense Management
+
 - **Add Expenses**: Record new expenses with categories and notes
 - **Edit Expenses**: Modify existing expenses with audit trail tracking
 - **Expense Categories**: Food, Transportation, Utilities, Entertainment, Healthcare, Education, Shopping, Other
 - **Search & Filter**: Find expenses by date, category, or search terms
 
 ### 📊 Analytics & Reporting
+
 - **Dashboard**: Visual summaries with charts and metrics
 - **Category Analysis**: Pie charts showing expense distribution
 - **Monthly Trends**: Line charts for spending patterns over time
@@ -29,12 +33,14 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 - **Top Expenses**: List of highest expense items
 
 ### 🔍 Audit Trail
+
 - **Complete Tracking**: All expense actions are logged
 - **Edit Reasons**: Users must provide reasons for expense modifications
 - **Action History**: View all changes with timestamps and user information
 - **Compliance**: Maintain transparency and accountability
 
 ### 📱 User Interface
+
 - **Modern Design**: Material Design 3 with light/dark theme support
 - **Responsive Layout**: Works on all screen sizes
 - **Intuitive Navigation**: Bottom navigation with clear sections
@@ -43,6 +49,7 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 ## User Roles & Permissions
 
 ### Organization President
+
 - ✅ Create and manage organizations
 - ✅ Generate QR codes for officer invites
 - ✅ Approve/deny officer requests
@@ -50,6 +57,7 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 - ✅ Export reports and manage settings
 
 ### Officers (Treasurer, Secretary, Auditor, Moderator)
+
 - ✅ View organization information
 - ✅ Add and edit expenses
 - ✅ View reports and analytics
@@ -58,6 +66,7 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 - ❌ Cannot approve new members
 
 ### Members
+
 - ✅ View organization information
 - ✅ Add expenses (if approved)
 - ✅ View reports (limited access)
@@ -67,6 +76,7 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 ## Technical Architecture
 
 ### Frontend
+
 - **Framework**: Flutter 3.8+
 - **State Management**: Provider pattern
 - **UI Components**: Material Design 3
@@ -74,12 +84,14 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 - **QR Code**: QR Flutter for generation, QR Code Scanner for reading
 
 ### Backend
+
 - **Database**: Firebase Firestore
 - **Authentication**: Firebase Auth
 - **Storage**: Firebase Storage (for future receipt uploads)
 - **Real-time**: Firestore streams for live updates
 
 ### Data Models
+
 - **Organizations**: Company/group information
 - **Users**: User account details
 - **Officers**: Organization membership and roles
@@ -89,6 +101,7 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 ## Getting Started
 
 ### Prerequisites
+
 - Flutter SDK 3.8.1 or higher
 - Dart SDK 3.8.1 or higher
 - Firebase project setup
@@ -97,12 +110,14 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/yourusername/expense_tracker_app.git
    cd expense_tracker_app
    ```
 
 2. **Install dependencies**
+
    ```bash
    flutter pub get
    ```
@@ -120,6 +135,7 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
    - Configure authentication methods
 
 5. **Run the app**
+
    ```bash
    flutter run
    ```
@@ -127,6 +143,7 @@ A comprehensive expense tracking application built with Flutter and Firebase, de
 ### Firebase Configuration
 
 #### Firestore Security Rules
+
 ```javascript
 rules_version = '2';
 service cloud.firestore {
@@ -208,6 +225,7 @@ service cloud.firestore {
 ## Future Enhancements
 
 ### Planned Features
+
 - **Receipt Upload**: Photo/document attachment for expenses
 - **Budget Management**: Set and track spending limits
 - **Export Functionality**: PDF/CSV report generation
@@ -217,6 +235,7 @@ service cloud.firestore {
 - **Mobile Receipt Scanning**: OCR for automatic data extraction
 
 ### Technical Improvements
+
 - **Offline Support**: Local data caching
 - **Performance Optimization**: Lazy loading and pagination
 - **Testing**: Unit and integration tests
@@ -238,6 +257,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 For support and questions:
+
 - Create an issue in the GitHub repository
 - Contact the development team
 - Check the documentation and FAQ

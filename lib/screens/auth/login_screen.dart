@@ -4,6 +4,7 @@ import 'package:expense_tracker_app/services/auth_service.dart';
 import 'package:expense_tracker_app/screens/auth/signup_screen.dart';
 import 'package:expense_tracker_app/screens/organization/create_organization_screen.dart';
 import 'package:expense_tracker_app/screens/organization/scan_qr_screen.dart';
+import 'package:expense_tracker_app/screens/main_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

@@ -47,7 +47,7 @@ class ExpenseDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      expense.categoryDisplayName,
+                      expense.category.categoryDisplayName,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -73,7 +73,7 @@ class ExpenseDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     _buildDetailRow('Amount', '\$${expense.amount.toStringAsFixed(2)}'),
-                    _buildDetailRow('Category', expense.categoryDisplayName),
+                    _buildDetailRow('Category', expense.category.categoryDisplayName),
                     _buildDetailRow('Note', expense.note.isNotEmpty ? expense.note : 'No description'),
                     _buildDetailRow('Added By', expense.addedBy),
                     _buildDetailRow('Created', _formatDate(expense.createdAt)),
@@ -111,7 +111,7 @@ class ExpenseDetailScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                expense.categoryDisplayName,
+                                expense.category.categoryDisplayName,
                                 style: const TextStyle(fontWeight: FontWeight.w500),
                               ),
                               Text(

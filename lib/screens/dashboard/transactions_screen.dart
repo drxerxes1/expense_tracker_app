@@ -60,7 +60,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
-                      items: ['All', ...ExpenseCategory.values.map((e) => e.categoryDisplayName)],
+                      items: [
+                        DropdownMenuItem<String>(
+                          value: 'All',
+                          child: Text('All'),
+                        ),
+                        ...ExpenseCategory.values.map((e) => DropdownMenuItem<String>(
+                          value: e.categoryDisplayName,
+                          child: Text(e.categoryDisplayName),
+                        )),
+                      ],
                       onChanged: (value) {
                         setState(() {
                           _selectedCategory = value ?? 'All';
@@ -164,7 +173,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(expense.categoryDisplayName),
+                          Text(expense.category.categoryDisplayName),
                           Text(
                             _formatDate(expense.createdAt),
                             style: TextStyle(
@@ -229,7 +238,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   bool _filterExpense(Expense expense) {
     // Category filter
     if (_selectedCategory != 'All' && 
-        expense.categoryDisplayName != _selectedCategory) {
+        expense.category.categoryDisplayName != _selectedCategory) {
       return false;
     }
 

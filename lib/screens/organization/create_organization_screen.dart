@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -174,7 +176,7 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
                   controller: _departmentController,
                   decoration: const InputDecoration(
                     labelText: 'Department',
-                    prefixIcon: Icon(Icons.department),
+                    prefixIcon: Icon(Icons.business),
                     border: OutlineInputBorder(),
                     hintText: 'e.g., Finance, IT, Marketing',
                   ),

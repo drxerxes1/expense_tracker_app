@@ -1,6 +1,7 @@
 # Firebase Setup Guide for Expense Tracker App
 
 ## Prerequisites
+
 - Google account
 - Firebase project (free tier available)
 
@@ -71,11 +72,12 @@ service cloud.firestore {
 }
 ```
 
-3. Click "Publish"
+3.Click "Publish"
 
 ## Step 5: Get Configuration Files
 
-### For Android:
+### For Android
+
 1. Go to "Project settings" (gear icon)
 2. Scroll down to "Your apps" section
 3. Click "Add app" and select Android
@@ -83,13 +85,15 @@ service cloud.firestore {
 5. Download `google-services.json`
 6. Place it in `android/app/` directory
 
-### For iOS:
+### For iOS
+
 1. In "Your apps" section, click "Add app" and select iOS
 2. Enter your bundle ID (e.g., `com.example.expenseTrackerApp`)
 3. Download `GoogleService-Info.plist`
 4. Place it in `ios/Runner/` directory
 
-### For Web:
+### For Web
+
 1. In "Your apps" section, click "Add app" and select Web
 2. Enter a nickname for your app
 3. Copy the configuration object
@@ -97,7 +101,8 @@ service cloud.firestore {
 
 ## Step 6: Update Flutter Configuration
 
-### Android (`android/app/build.gradle`):
+### Android (`android/app/build.gradle`)
+
 Make sure you have the Google Services plugin:
 
 ```gradle
@@ -105,7 +110,8 @@ Make sure you have the Google Services plugin:
 apply plugin: 'com.google.gms.google-services'
 ```
 
-### Android (`android/build.gradle`):
+### Android (`android/build.gradle`)
+
 Add the Google Services classpath:
 
 ```gradle
@@ -125,14 +131,14 @@ buildscript {
 
 ## Troubleshooting
 
-### Common Issues:
+### Common Issues
 
 1. **"No Firebase App" error**: Make sure you've added the configuration files
 2. **Authentication errors**: Verify Email/Password is enabled in Firebase Console
 3. **Permission denied**: Check your Firestore security rules
 4. **Build errors**: Ensure all configuration files are in the correct locations
 
-### Security Notes:
+### Security Notes
 
 - The provided rules are for development. For production:
   - Add more restrictive rules
@@ -140,7 +146,7 @@ buildscript {
   - Set up proper user validation
   - Consider implementing custom claims for roles
 
-### Performance Tips:
+### Performance Tips
 
 - Use Firestore indexes for complex queries
 - Implement pagination for large datasets
@@ -160,6 +166,7 @@ After Firebase is configured:
 ## Support
 
 If you encounter issues:
+
 1. Check Firebase Console for error logs
 2. Verify your configuration files
 3. Check Flutter and Firebase plugin versions

@@ -8,7 +8,28 @@ enum ExpenseCategory {
   healthcare,
   education,
   shopping,
-  other
+  other;
+
+  String get categoryDisplayName {
+    switch (this) {
+      case ExpenseCategory.food:
+        return 'Food';
+      case ExpenseCategory.transportation:
+        return 'Transportation';
+      case ExpenseCategory.utilities:
+        return 'Utilities';
+      case ExpenseCategory.entertainment:
+        return 'Entertainment';
+      case ExpenseCategory.healthcare:
+        return 'Healthcare';
+      case ExpenseCategory.education:
+        return 'Education';
+      case ExpenseCategory.shopping:
+        return 'Shopping';
+      case ExpenseCategory.other:
+        return 'Other';
+    }
+  }
 }
 
 class Expense {
@@ -83,24 +104,4 @@ class Expense {
     );
   }
 
-  String get categoryDisplayName {
-    switch (category) {
-      case ExpenseCategory.food:
-        return 'Food';
-      case ExpenseCategory.transportation:
-        return 'Transportation';
-      case ExpenseCategory.utilities:
-        return 'Utilities';
-      case ExpenseCategory.entertainment:
-        return 'Entertainment';
-      case ExpenseCategory.healthcare:
-        return 'Healthcare';
-      case ExpenseCategory.education:
-        return 'Education';
-      case ExpenseCategory.shopping:
-        return 'Shopping';
-      case ExpenseCategory.other:
-        return 'Other';
-    }
-  }
 }
