@@ -1,7 +1,5 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:flutter/material.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker_app/services/auth_service.dart';
@@ -16,24 +14,23 @@ class ScanQRScreen extends StatefulWidget {
 }
 
 class _ScanQRScreenState extends State<ScanQRScreen> {
-  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
-  QRViewController? controller;
+  MobileScannerController cameraController = MobileScannerController();
   bool _isScanning = true;
   bool _isProcessing = false;
 
   @override
   void dispose() {
-    controller?.dispose();
+    cameraController.dispose();
     super.dispose();
   }
 
-  void _onQRViewCreated(QRViewController controller) {
-    this.controller = controller;
-    controller.scannedDataStream.listen((scanData) {
-      if (scanData.code != null && !_isProcessing) {
-        _processQRCode(scanData.code!);
+  void _onDetect(BarcodeCapture capture) {
+    if (capture.barcodes.isNotEmpty && !_isProcessing) {
+      final String? code = capture.barcodes.first.rawValue;
+      if (code != null) {
+        _processQRCode(code);
       }
-    });
+    }
   }
 
   Future<void> _processQRCode(String qrData) async {
@@ -240,16 +237,33 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: QRView(
-                        key: qrKey,
-                        onQRViewCreated: _onQRViewCreated,
-                        overlay: QrScannerOverlayShape(
-                          borderColor: Theme.of(context).colorScheme.primary,
-                          borderRadius: 10,
-                          borderLength: 30,
-                          borderWidth: 10,
-                          cutOutSize: 250,
-                        ),
+                      child: Stack(
+                        children: [
+                          MobileScanner(
+                            controller: cameraController,
+                            onDetect: _onDetect,
+                          ),
+                          // Custom overlay
+                          Positioned.fill(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: Container(
+                                  width: 250,
+                                  height: 250,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      width: 3,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   )

@@ -44,9 +44,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.9
   qr_flutter: ^4.1.0
-  qr_code_scanner: ^1.0.1
+  mobile_scanner: ^5.0.0
   image_picker: ^1.0.4
-  file_picker: ^6.1.1
+  file_picker: ^8.0.0
 
   # Charts & Visualization
   fl_chart: ^0.65.0
