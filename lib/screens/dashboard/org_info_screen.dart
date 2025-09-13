@@ -26,8 +26,9 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
   }
 
   Future<void> _loadOrganizationData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       if (authService.currentOrgId == null) return;
@@ -38,6 +39,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
           .doc(authService.currentOrgId)
           .get();
 
+      if (!mounted) return;
       if (orgDoc.exists) {
         _organization = Organization.fromMap({
           'id': orgDoc.id,
@@ -51,22 +53,22 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
           .where('orgId', isEqualTo: authService.currentOrgId)
           .get();
 
-      final officers = officersSnapshot.docs.map((doc) => Officer.fromMap({
-        'id': doc.id,
-        ...doc.data(),
-      })).toList();
+      if (!mounted) return;
+      final officers = officersSnapshot.docs
+          .map((doc) => Officer.fromMap({'id': doc.id, ...doc.data()}))
+          .toList();
 
+      if (!mounted) return;
       setState(() {
         _officers = officers;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading organization data: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading organization data: $e')),
+      );
     }
   }
 
@@ -120,17 +122,17 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
             const SizedBox(height: 20),
             Text(
               _organization!.name,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               _organization!.description,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.grey[600],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
           ],
@@ -150,17 +152,25 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
           children: [
             Text(
               'Organization Details',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             _buildInfoRow('Created', _formatDate(_organization!.createdAt)),
-            _buildInfoRow('Last Updated', _formatDate(_organization!.updatedAt)),
+            _buildInfoRow(
+              'Last Updated',
+              _formatDate(_organization!.updatedAt),
+            ),
             _buildInfoRow('Available Roles', _organization!.roles.join(', ')),
             _buildInfoRow('Total Members', _officers.length.toString()),
-            _buildInfoRow('Active Members', 
-                _officers.where((o) => o.status == OfficerStatus.approved).length.toString()),
+            _buildInfoRow(
+              'Active Members',
+              _officers
+                  .where((o) => o.status == OfficerStatus.approved)
+                  .length
+                  .toString(),
+            ),
           ],
         ),
       ),
@@ -193,7 +203,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             if (_officers.isEmpty)
               const Center(
                 child: Padding(
@@ -221,10 +231,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: _getRoleColor(officer.role),
-        child: Icon(
-          _getRoleIcon(officer.role),
-          color: Colors.white,
-        ),
+        child: Icon(_getRoleIcon(officer.role), color: Colors.white),
       ),
       title: Text(
         officer.name,
@@ -236,10 +243,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
           Text(officer.email),
           Text(
             'Joined: ${_formatDate(officer.joinedAt)}',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
           ),
         ],
       ),
@@ -291,9 +295,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
-          Expanded(
-            child: Text(value),
-          ),
+          Expanded(child: Text(value)),
         ],
       ),
     );

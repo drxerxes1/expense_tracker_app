@@ -4,7 +4,6 @@ class User {
   final String id;
   final String name;
   final String email;
-  final String password;
   final List<String> organizations;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -13,7 +12,6 @@ class User {
     required this.id,
     required this.name,
     required this.email,
-    required this.password,
     required this.organizations,
     required this.createdAt,
     required this.updatedAt,
@@ -24,10 +22,15 @@ class User {
       id: map['id'] ?? '',
       name: map['name'] ?? '',
       email: map['email'] ?? '',
-      password: map['password'] ?? '',
-      organizations: List<String>.from(map['organizations'] ?? []),
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      organizations: (map['organizations'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      createdAt: (map['createdAt'] is Timestamp)
+          ? (map['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      updatedAt: (map['updatedAt'] is Timestamp)
+          ? (map['updatedAt'] as Timestamp).toDate()
+          : DateTime.now(),
     );
   }
 
@@ -36,10 +39,9 @@ class User {
       'id': id,
       'name': name,
       'email': email,
-      'password': password,
       'organizations': organizations,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
 
@@ -47,7 +49,6 @@ class User {
     String? id,
     String? name,
     String? email,
-    String? password,
     List<String>? organizations,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -56,7 +57,6 @@ class User {
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
-      password: password ?? this.password,
       organizations: organizations ?? this.organizations,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

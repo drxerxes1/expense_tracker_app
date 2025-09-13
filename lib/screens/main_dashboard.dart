@@ -17,9 +17,10 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   int _currentIndex = 0;
   final PageController _pageController = PageController();
+  DateTimeRange? _selectedDateRange;
 
-  final List<Widget> _screens = [
-    const TransactionsScreen(),
+  List<Widget> get _screens => [
+    TransactionsScreen(dateRange: _selectedDateRange),
     const ReportsScreen(),
     const LogsScreen(),
     const OrgInfoScreen(),
@@ -45,85 +46,64 @@ class _MainDashboardState extends State<MainDashboard> {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const AddExpenseScreen(),
-                ),
-              );
-            },
-            tooltip: 'Add Expense',
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              _handleMenuSelection(value, context);
-            },
-            itemBuilder: (context) => [
-              if (authService.isPresident()) ...[
-                const PopupMenuItem(
-                  value: 'edit_org',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit),
-                      SizedBox(width: 8),
-                      Text('Edit Organization'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'manage_members',
-                  child: Row(
-                    children: [
-                      Icon(Icons.people),
-                      SizedBox(width: 8),
-                      Text('Manage Members'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'export_reports',
-                  child: Row(
-                    children: [
-                      Icon(Icons.download),
-                      SizedBox(width: 8),
-                      Text('Export Reports'),
-                    ],
-                  ),
-                ),
-              ],
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person),
-                    SizedBox(width: 8),
-                    Text('Profile'),
-                  ],
+          if (_currentIndex == 0)
+            IconButton(
+              icon: const Icon(Icons.date_range),
+              tooltip: 'Filter by date',
+              onPressed: _selectDateRange,
+            ),
+        ],
+      ),
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              UserAccountsDrawerHeader(
+                accountName: Text(authService.user?.name ?? ''),
+                accountEmail: Text(authService.user?.email ?? ''),
+                currentAccountPicture: const CircleAvatar(
+                  child: Icon(Icons.person),
                 ),
               ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout),
-                    SizedBox(width: 8),
-                    Text('Logout'),
-                  ],
+              if (authService.isPresident()) ...[
+                ListTile(
+                  leading: const Icon(Icons.edit),
+                  title: const Text('Edit Organization'),
+                  onTap: () => _handleMenuSelection('edit_org', context),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.people),
+                  title: const Text('Manage Members (Approve/Decline)'),
+                  onTap: () => _handleMenuSelection('manage_members', context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.download),
+                  title: const Text('Export Reports'),
+                  onTap: () => _handleMenuSelection('export_reports', context),
+                ),
+              ],
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('Profile'),
+                onTap: () => _handleMenuSelection('profile', context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Logout'),
+                onTap: () => _handleMenuSelection('logout', context),
               ),
             ],
           ),
-        ],
+        ),
       ),
       body: PageView(
         controller: _pageController,
@@ -149,16 +129,19 @@ class _MainDashboardState extends State<MainDashboard> {
             icon: Icon(Icons.analytics),
             label: 'Reports',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Logs',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Logs'),
           BottomNavigationBarItem(
             icon: Icon(Icons.business),
             label: 'Org Info',
           ),
         ],
       ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              onPressed: _showFabActions,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -217,6 +200,57 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _selectDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _selectedDateRange,
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDateRange = picked;
+      });
+    }
+  }
+
+  void _showFabActions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.add_circle_outline),
+                title: const Text('Add Expense'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AddExpenseScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Expense'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Could navigate to an expenses search/list to pick one for editing
+                  // For now, open transactions tab where edit is available per item
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

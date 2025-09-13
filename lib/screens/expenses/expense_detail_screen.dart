@@ -4,10 +4,7 @@ import 'package:expense_tracker_app/models/expense.dart';
 class ExpenseDetailScreen extends StatelessWidget {
   final Expense expense;
 
-  const ExpenseDetailScreen({
-    super.key,
-    required this.expense,
-  });
+  const ExpenseDetailScreen({super.key, required this.expense});
 
   @override
   Widget build(BuildContext context) {
@@ -39,11 +36,12 @@ class ExpenseDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      '\$${expense.amount.toStringAsFixed(2)}',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                      '₱${expense.amount.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -72,12 +70,24 @@ class ExpenseDetailScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildDetailRow('Amount', '\$${expense.amount.toStringAsFixed(2)}'),
-                    _buildDetailRow('Category', expense.category.categoryDisplayName),
-                    _buildDetailRow('Note', expense.note.isNotEmpty ? expense.note : 'No description'),
+                    _buildDetailRow(
+                      'Amount',
+                      '₱${expense.amount.toStringAsFixed(2)}',
+                    ),
+                    _buildDetailRow(
+                      'Category',
+                      expense.category.categoryDisplayName,
+                    ),
+                    _buildDetailRow(
+                      'Note',
+                      expense.note.isNotEmpty ? expense.note : 'No description',
+                    ),
                     _buildDetailRow('Added By', expense.addedBy),
                     _buildDetailRow('Created', _formatDate(expense.createdAt)),
-                    _buildDetailRow('Last Updated', _formatDate(expense.updatedAt)),
+                    _buildDetailRow(
+                      'Last Updated',
+                      _formatDate(expense.updatedAt),
+                    ),
                   ],
                 ),
               ),
@@ -112,7 +122,9 @@ class ExpenseDetailScreen extends StatelessWidget {
                             children: [
                               Text(
                                 expense.category.categoryDisplayName,
-                                style: const TextStyle(fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                               Text(
                                 _getCategoryDescription(expense.category),
@@ -149,9 +161,7 @@ class ExpenseDetailScreen extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
-          Expanded(
-            child: Text(value),
-          ),
+          Expanded(child: Text(value)),
         ],
       ),
     );

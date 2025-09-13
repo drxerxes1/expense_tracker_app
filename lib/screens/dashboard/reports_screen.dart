@@ -26,8 +26,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _loadExpenses() async {
+    if (!mounted) return; // prevent running if widget already disposed
     setState(() => _isLoading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       if (authService.currentOrgId == null) return;
@@ -37,22 +38,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
           .where('orgId', isEqualTo: authService.currentOrgId)
           .get();
 
-      final expenses = snapshot.docs.map((doc) => Expense.fromMap({
-        'id': doc.id,
-        ...doc.data(),
-      })).toList();
+      if (!mounted) return; // check again after async work
+
+      final expenses = snapshot.docs
+          .map((doc) => Expense.fromMap({'id': doc.id, ...doc.data()}))
+          .toList();
 
       setState(() {
         _expenses = expenses;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return; // safety
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading expenses: $e')),
-        );
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading expenses: $e')));
     }
   }
 
@@ -78,12 +79,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           const SizedBox(width: 12),
                           DropdownButton<String>(
                             value: _selectedPeriod,
-                            items: ['This Month', 'Last Month', 'This Year', 'All Time']
-                                .map((period) => DropdownMenuItem(
-                                      value: period,
-                                      child: Text(period),
-                                    ))
-                                .toList(),
+                            items:
+                                [
+                                      'This Month',
+                                      'Last Month',
+                                      'This Year',
+                                      'All Time',
+                                    ]
+                                    .map(
+                                      (period) => DropdownMenuItem(
+                                        value: period,
+                                        child: Text(period),
+                                      ),
+                                    )
+                                    .toList(),
                             onChanged: (value) {
                               if (value != null) {
                                 setState(() {
@@ -121,7 +130,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildSummaryCards() {
     final filteredExpenses = _getFilteredExpenses();
     final totalAmount = filteredExpenses.fold<double>(
-        0, (sum, expense) => sum + expense.amount);
+      0,
+      (sum, expense) => sum + expense.amount,
+    );
     final avgAmount = filteredExpenses.isNotEmpty
         ? totalAmount / filteredExpenses.length
         : 0.0;
@@ -135,7 +146,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         Expanded(
           child: _buildSummaryCard(
             'Total Expenses',
-            '\$${totalAmount.toStringAsFixed(2)}',
+            '₱${totalAmount.toStringAsFixed(2)}',
             Icons.attach_money,
             Colors.blue,
           ),
@@ -144,7 +155,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         Expanded(
           child: _buildSummaryCard(
             'Average',
-            '\$${avgAmount.toStringAsFixed(2)}',
+            '₱${avgAmount.toStringAsFixed(2)}',
             Icons.analytics,
             Colors.green,
           ),
@@ -162,7 +173,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -180,9 +196,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(height: 4),
             Text(
               title,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
           ],
@@ -194,16 +210,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildCategoryChart() {
     final filteredExpenses = _getFilteredExpenses();
     final categoryData = <String, double>{};
-    
+
     for (final expense in filteredExpenses) {
-      categoryData[expense.category.categoryDisplayName] = 
-          (categoryData[expense.category.categoryDisplayName] ?? 0) + expense.amount;
+      categoryData[expense.category.categoryDisplayName] =
+          (categoryData[expense.category.categoryDisplayName] ?? 0) +
+          expense.amount;
     }
 
     final pieChartData = categoryData.entries.map((entry) {
       return PieChartSectionData(
         value: entry.value,
-        title: '${entry.key}\n\$${entry.value.toStringAsFixed(0)}',
+        title: '${entry.key}\n₱${entry.value.toStringAsFixed(0)}',
         radius: 60,
         titleStyle: const TextStyle(
           fontSize: 12,
@@ -222,9 +239,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
           children: [
             Text(
               'Expenses by Category',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -246,7 +263,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildMonthlyTrendChart() {
     final filteredExpenses = _getFilteredExpenses();
     final monthlyData = <String, double>{};
-    
+
     for (final expense in filteredExpenses) {
       final month = '${expense.createdAt.month}/${expense.createdAt.year}';
       monthlyData[month] = (monthlyData[month] ?? 0) + expense.amount;
@@ -260,7 +277,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         final aYear = int.parse(aParts[1]);
         final bMonth = int.parse(bParts[0]);
         final bYear = int.parse(bParts[1]);
-        
+
         if (aYear != bYear) return aYear.compareTo(bYear);
         return aMonth.compareTo(bMonth);
       });
@@ -277,9 +294,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
           children: [
             Text(
               'Monthly Trend',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -344,15 +361,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
           children: [
             Text(
               'Top 5 Expenses',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             if (topExpenses.isEmpty)
-              const Center(
-                child: Text('No expenses found'),
-              )
+              const Center(child: Text('No expenses found'))
             else
               ListView.builder(
                 shrinkWrap: true,
@@ -362,7 +377,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   final expense = topExpenses[index];
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: _getCategoryColor(expense.category.categoryDisplayName),
+                      backgroundColor: _getCategoryColor(
+                        expense.category.categoryDisplayName,
+                      ),
                       child: Icon(
                         _getCategoryIcon(expense.category.categoryDisplayName),
                         color: Colors.white,
@@ -375,7 +392,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                     subtitle: Text(expense.category.categoryDisplayName),
                     trailing: Text(
-                      '\$${expense.amount.toStringAsFixed(2)}',
+                      '₱${expense.amount.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).colorScheme.primary,
@@ -396,16 +413,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     switch (_selectedPeriod) {
       case 'This Month':
-        filtered = _expenses.where((e) =>
-            e.createdAt.month == now.month && e.createdAt.year == now.year).toList();
+        filtered = _expenses
+            .where(
+              (e) =>
+                  e.createdAt.month == now.month &&
+                  e.createdAt.year == now.year,
+            )
+            .toList();
         break;
       case 'Last Month':
         final lastMonth = DateTime(now.year, now.month - 1);
-        filtered = _expenses.where((e) =>
-            e.createdAt.month == lastMonth.month && e.createdAt.year == lastMonth.year).toList();
+        filtered = _expenses
+            .where(
+              (e) =>
+                  e.createdAt.month == lastMonth.month &&
+                  e.createdAt.year == lastMonth.year,
+            )
+            .toList();
         break;
       case 'This Year':
-        filtered = _expenses.where((e) => e.createdAt.year == now.year).toList();
+        filtered = _expenses
+            .where((e) => e.createdAt.year == now.year)
+            .toList();
         break;
       case 'All Time':
         filtered = _expenses;

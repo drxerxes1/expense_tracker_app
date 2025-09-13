@@ -7,17 +7,19 @@ import 'package:expense_tracker_app/models/officer.dart';
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   User? _firebaseUser;
   app_user.User? _user;
   Officer? _currentOfficer;
   String? _currentOrgId;
+  String? _lastErrorMessage;
 
   User? get firebaseUser => _firebaseUser;
   app_user.User? get user => _user;
   Officer? get currentOfficer => _currentOfficer;
   String? get currentOrgId => _currentOrgId;
   bool get isLoggedIn => _firebaseUser != null;
+  String? get lastErrorMessage => _lastErrorMessage;
 
   AuthService() {
     _auth.authStateChanges().listen(_onAuthStateChanged);
@@ -37,19 +39,16 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _loadUserData() async {
     if (_firebaseUser == null) return;
-    
+
     try {
       final userDoc = await _firestore
           .collection('users')
           .doc(_firebaseUser!.uid)
           .get();
-      
+
       if (userDoc.exists) {
-        _user = app_user.User.fromMap({
-          'id': userDoc.id,
-          ...userDoc.data()!,
-        });
-        
+        _user = app_user.User.fromMap({'id': userDoc.id, ...userDoc.data()!});
+
         // Load current officer data if user has organizations
         if (_user!.organizations.isNotEmpty) {
           _currentOrgId = _user!.organizations.first;
@@ -63,14 +62,14 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _loadCurrentOfficerData() async {
     if (_currentOrgId == null || _firebaseUser == null) return;
-    
+
     try {
       final officerDoc = await _firestore
           .collection('officers')
           .where('orgId', isEqualTo: _currentOrgId)
           .where('userId', isEqualTo: _firebaseUser!.uid)
           .get();
-      
+
       if (officerDoc.docs.isNotEmpty) {
         _currentOfficer = Officer.fromMap({
           'id': officerDoc.docs.first.id,
@@ -88,49 +87,54 @@ class AuthService extends ChangeNotifier {
     required String password,
   }) async {
     try {
+      _lastErrorMessage = null;
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
+
       if (userCredential.user != null) {
         final user = app_user.User(
           id: userCredential.user!.uid,
           name: name,
           email: email,
-          password: password,
           organizations: [],
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        
+
         await _firestore
             .collection('users')
             .doc(userCredential.user!.uid)
             .set(user.toMap());
-        
+
         _user = user;
         notifyListeners();
         return true;
       }
       return false;
+    } on FirebaseAuthException catch (e) {
+      _lastErrorMessage = e.message ?? 'Authentication error';
+      debugPrint('Error during sign up: ${e.code} ${e.message}');
+      return false;
     } catch (e) {
+      _lastErrorMessage = 'Unexpected error occurred';
       debugPrint('Error during sign up: $e');
       return false;
     }
   }
 
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> signIn({required String email, required String password}) async {
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      _lastErrorMessage = null;
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
       return true;
+    } on FirebaseAuthException catch (e) {
+      _lastErrorMessage = e.message ?? 'Authentication error';
+      debugPrint('Error during sign in: ${e.code} ${e.message}');
+      return false;
     } catch (e) {
+      _lastErrorMessage = 'Unexpected error occurred';
       debugPrint('Error during sign in: $e');
       return false;
     }

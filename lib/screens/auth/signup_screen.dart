@@ -50,28 +50,22 @@ class _SignupScreenState extends State<SignupScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Navigate to organization creation
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const CreateOrganizationScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const CreateOrganizationScreen()),
         );
       } else if (mounted) {
+        final error =
+            authService.lastErrorMessage ?? 'Failed to create account';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to create account'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -114,9 +108,9 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Create your account to start managing expenses',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
@@ -154,8 +148,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value)) {
+                    if (!RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    ).hasMatch(value)) {
                       return 'Please enter a valid email';
                     }
                     return null;
@@ -245,10 +240,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 // Terms and Conditions
                 Text(
                   'By creating an account, you agree to our Terms of Service and Privacy Policy',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   textAlign: TextAlign.center,
                 ),
               ],

@@ -25,11 +25,19 @@ class _LogsScreenState extends State<LogsScreen> {
   }
 
   Future<void> _loadAuditLogs() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      if (authService.currentOrgId == null) return;
+      if (authService.currentOrgId == null) {
+        if (!mounted) return;
+        setState(() {
+          _auditLogs = [];
+          _isLoading = false;
+        });
+        return;
+      }
 
       // Get all expenses for the organization
       final expensesSnapshot = await FirebaseFirestore.instance
@@ -37,9 +45,12 @@ class _LogsScreenState extends State<LogsScreen> {
           .where('orgId', isEqualTo: authService.currentOrgId)
           .get();
 
+      if (!mounted) return; // <— guard after await
+
       final expenseIds = expensesSnapshot.docs.map((doc) => doc.id).toList();
 
       if (expenseIds.isEmpty) {
+        if (!mounted) return;
         setState(() {
           _auditLogs = [];
           _isLoading = false;
@@ -54,21 +65,24 @@ class _LogsScreenState extends State<LogsScreen> {
           .orderBy('createdAt', descending: true)
           .get();
 
-      final auditLogs = auditSnapshot.docs.map((doc) => AuditTrail.fromMap({
-        'id': doc.id,
-        ...doc.data(),
-      })).toList();
+      if (!mounted) return;
 
+      final auditLogs = auditSnapshot.docs
+          .map((doc) => AuditTrail.fromMap({'id': doc.id, ...doc.data()}))
+          .toList();
+
+      if (!mounted) return;
       setState(() {
         _auditLogs = auditLogs;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading audit logs: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading audit logs: $e')));
       }
     }
   }
@@ -90,14 +104,13 @@ class _LogsScreenState extends State<LogsScreen> {
                 DropdownButton<String>(
                   value: _selectedAction,
                   items: [
-                    DropdownMenuItem<String>(
-                      value: 'All',
-                      child: Text('All'),
+                    DropdownMenuItem<String>(value: 'All', child: Text('All')),
+                    ...AuditAction.values.map(
+                      (e) => DropdownMenuItem<String>(
+                        value: e.actionDisplayName,
+                        child: Text(e.actionDisplayName),
+                      ),
                     ),
-                    ...AuditAction.values.map((e) => DropdownMenuItem<String>(
-                      value: e.actionDisplayName,
-                      child: Text(e.actionDisplayName),
-                    )),
                   ],
                   onChanged: (value) {
                     if (value != null) {
@@ -130,24 +143,20 @@ class _LogsScreenState extends State<LogsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.history,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.history, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'No audit logs found',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             Text(
               'Audit logs will appear here when expenses are created or modified',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[500],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
           ],
@@ -180,9 +189,8 @@ class _LogsScreenState extends State<LogsScreen> {
                         children: [
                           Text(
                             auditLog.action.actionDisplayName,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           Text(
                             _formatDate(auditLog.createdAt),
@@ -195,12 +203,19 @@ class _LogsScreenState extends State<LogsScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: _getActionColor(auditLog.action).withOpacity(0.1),
+                        color: _getActionColor(
+                          auditLog.action,
+                        ).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _getActionColor(auditLog.action).withOpacity(0.3),
+                          color: _getActionColor(
+                            auditLog.action,
+                          ).withOpacity(0.3),
                         ),
                       ),
                       child: Text(
@@ -214,7 +229,7 @@ class _LogsScreenState extends State<LogsScreen> {
                     ),
                   ],
                 ),
-                
+
                 if (auditLog.reason.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Container(
@@ -243,18 +258,11 @@ class _LogsScreenState extends State<LogsScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(
-                      Icons.person,
-                      size: 16,
-                      color: Colors.grey[600],
-                    ),
+                    Icon(Icons.person, size: 16, color: Colors.grey[600]),
                     const SizedBox(width: 8),
                     Text(
                       'By: ${auditLog.by}',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                     const Spacer(),
                     Text(
@@ -279,9 +287,10 @@ class _LogsScreenState extends State<LogsScreen> {
     if (_selectedAction == 'All') {
       return _auditLogs;
     }
-    
-    return _auditLogs.where((log) => 
-        log.action.actionDisplayName == _selectedAction).toList();
+
+    return _auditLogs
+        .where((log) => log.action.actionDisplayName == _selectedAction)
+        .toList();
   }
 
   String _formatDate(DateTime date) {

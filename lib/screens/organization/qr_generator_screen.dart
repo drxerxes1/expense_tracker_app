@@ -7,10 +7,7 @@ import 'package:expense_tracker_app/screens/main_dashboard.dart';
 class QRGeneratorScreen extends StatefulWidget {
   final Organization organization;
 
-  const QRGeneratorScreen({
-    super.key,
-    required this.organization,
-  });
+  const QRGeneratorScreen({super.key, required this.organization});
 
   @override
   State<QRGeneratorScreen> createState() => _QRGeneratorScreenState();
@@ -49,122 +46,133 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
-              // Header
-              Icon(
-                Icons.qr_code,
-                size: 80,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Invite Officers',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Generate QR codes to invite officers to your organization',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-
-              // Role Selection
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+              // Make the content scrollable
+              Expanded(
+                child: SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Header
+                      Icon(
+                        Icons.qr_code,
+                        size: 80,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 20),
                       Text(
-                        'Select Role for Invite',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        'Invite Officers',
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Generate QR codes to invite officers to your organization',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 30),
+
+                      // Role Selection
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Select Role for Invite',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 16),
+                              DropdownButtonFormField<OfficerRole>(
+                                value: _selectedRole,
+                                decoration: const InputDecoration(
+                                  labelText: 'Role',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: OfficerRole.values.map((role) {
+                                  return DropdownMenuItem(
+                                    value: role,
+                                    child: Text(_getRoleDisplayName(role)),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _selectedRole = value;
+                                      _generateQRCode();
+                                    });
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<OfficerRole>(
-                        value: _selectedRole,
-                        decoration: const InputDecoration(
-                          labelText: 'Role',
-                          border: OutlineInputBorder(),
+                      const SizedBox(height: 30),
+
+                      // QR Code Display
+                      if (_qrData != null) ...[
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              children: [
+                                QrImageView(
+                                  data: _qrData!,
+                                  version: QrVersions.auto,
+                                  size: 200.0,
+                                  backgroundColor: Colors.white,
+                                ),
+                                const SizedBox(height: 20),
+                                Text(
+                                  'Scan this QR code to join as ${_getRoleDisplayName(_selectedRole)}',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        items: OfficerRole.values.map((role) {
-                          return DropdownMenuItem(
-                            value: role,
-                            child: Text(_getRoleDisplayName(role)),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedRole = value;
-                              _generateQRCode();
-                            });
-                          }
-                        },
-                      ),
+                        const SizedBox(height: 20),
+
+                        // Organization Info
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Organization Details',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 12),
+                                _buildInfoRow('Name', widget.organization.name),
+                                _buildInfoRow(
+                                  'Description',
+                                  widget.organization.description,
+                                ),
+                                _buildInfoRow(
+                                  'Role',
+                                  _getRoleDisplayName(_selectedRole),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 30),
 
-              // QR Code Display
-              if (_qrData != null) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      children: [
-                        QrImageView(
-                          data: _qrData!,
-                          version: QrVersions.auto,
-                          size: 200.0,
-                          backgroundColor: Colors.white,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Scan this QR code to join as ${_getRoleDisplayName(_selectedRole)}',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Organization Info
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Organization Details',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildInfoRow('Name', widget.organization.name),
-                        _buildInfoRow('Description', widget.organization.description),
-                        _buildInfoRow('Role', _getRoleDisplayName(_selectedRole)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-
-              const Spacer(),
-
-              // Action Buttons
+              // Fixed Buttons at the Bottom
               Row(
                 children: [
                   Expanded(
@@ -214,9 +222,7 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
-          Expanded(
-            child: Text(value),
-          ),
+          Expanded(child: Text(value)),
         ],
       ),
     );
