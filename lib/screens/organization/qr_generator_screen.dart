@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:expense_tracker_app/models/organization.dart';
-import 'package:expense_tracker_app/models/officer.dart';
-import 'package:expense_tracker_app/screens/main_dashboard.dart';
+import 'package:org_wallet/models/organization.dart';
+import 'package:org_wallet/models/officer.dart';
+import 'package:org_wallet/screens/main_dashboard.dart';
 
 class QRGeneratorScreen extends StatefulWidget {
   final Organization organization;

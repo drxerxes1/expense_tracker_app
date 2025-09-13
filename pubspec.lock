@@ -318,6 +318,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.1"
+  flutter_tailwind_colors:
+    dependency: "direct main"
+    description:
+      name: flutter_tailwind_colors
+      sha256: "237f5fd086c5eecba5ef920fbdc2d87646016b5d0c0b00846e2250ded2cd1227"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.3"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -328,6 +336,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  google_fonts:
+    dependency: "direct main"
+    description:
+      name: google_fonts
+      sha256: ebc94ed30fd13cefd397cb1658b593f21571f014b7d1197eeb41fb95f05d899a
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.3.1"
   http:
     dependency: transitive
     description:
@@ -456,6 +472,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.1.1"
+  lucide_icons_flutter:
+    dependency: "direct main"
+    description:
+      name: lucide_icons_flutter
+      sha256: "68d4082b26ea1a89f4431eb44642a47748a5931cdf88323100064180482a1f51"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
   matcher:
     dependency: transitive
     description:

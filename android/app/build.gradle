@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.expense_tracker_app"
+    namespace = "com.example.org_wallet"
     compileSdk = flutter.compileSdkVersion
 
     compileOptions {
@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.expense_tracker_app"
+        applicationId = "com.example.org_wallet"
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

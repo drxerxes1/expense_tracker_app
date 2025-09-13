@@ -1,5 +1,5 @@
-name: expense_tracker_app
-description: "A comprehensive expense tracking app with Firebase backend and role-based access control."
+name: org_wallet
+description: "Org Wallet - A comprehensive organization expense tracking app with Firebase backend and role-based access control."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -47,6 +47,9 @@ dependencies:
   mobile_scanner: ^5.0.0
   image_picker: ^1.0.4
   file_picker: ^8.0.0
+  lucide_icons_flutter:
+  flutter_tailwind_colors:
+  google_fonts: ^6.1.0
 
   # Charts & Visualization
   fl_chart: ^0.65.0

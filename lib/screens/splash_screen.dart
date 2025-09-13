@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/screens/auth/login_screen.dart';
-import 'package:expense_tracker_app/screens/main_dashboard.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/screens/auth/login_screen.dart';
+import 'package:org_wallet/screens/main_dashboard.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -57,60 +57,15 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: Colors.white,
       body: Center(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // App Logo
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.account_balance_wallet,
-                  size: 60,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 30),
-              
-              // App Title
-              Text(
-                'Expense Tracker',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              
-              // App Subtitle
-              Text(
-                'Smart Financial Management',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white70,
-                ),
-              ),
-              const SizedBox(height: 50),
-              
-              // Loading Indicator
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ],
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: 200,
+            height: 200,
+            fit: BoxFit.contain,
           ),
         ),
       ),

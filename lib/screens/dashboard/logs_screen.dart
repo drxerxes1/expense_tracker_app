@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/models/audit_trail.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/models/audit_trail.dart';
 
 class LogsScreen extends StatefulWidget {
   const LogsScreen({super.key});

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:expense_tracker_app/models/transaction.dart';
+import 'package:org_wallet/models/transaction.dart';
 
 class TransactionService {
   final FirebaseFirestore _db;

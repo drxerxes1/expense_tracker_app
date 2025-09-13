@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/screens/organization/create_organization_screen.dart';
+import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/screens/organization/create_organization_screen.dart';
+import 'package:org_wallet/widgets/custom_text_field.dart';
+import 'package:org_wallet/widgets/custom_button.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -77,7 +80,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Create Account'),
         backgroundColor: Colors.transparent,
@@ -85,44 +90,35 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.fromLTRB(24, screenHeight * 0.05, 24, 24),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // App Logo and Title
-                Icon(
-                  Icons.account_balance_wallet,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
                 const SizedBox(height: 20),
                 Text(
-                  'Join Expense Tracker',
+                  'Sign Up',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: TWColors.slate.shade900,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Create your account to start managing expenses',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+                  'Create your account to start managing your organization',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: TWColors.slate.shade400,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
 
                 // Name Field
-                TextFormField(
+                CustomTextField(
                   controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
-                  ),
+                  hintText: 'Enter your full name',
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your name';
@@ -136,14 +132,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 20),
 
                 // Email Field
-                TextFormField(
+                CustomTextField(
                   controller: _emailController,
+                  hintText: 'email@email.com',
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
-                  ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
@@ -159,25 +151,22 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 20),
 
                 // Password Field
-                TextFormField(
+                CustomTextField(
                   controller: _passwordController,
+                  hintText: 'Enter your password',
                   obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: TWColors.slate.shade400,
                     ),
-                    border: const OutlineInputBorder(),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -192,25 +181,22 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 20),
 
                 // Confirm Password Field
-                TextFormField(
+                CustomTextField(
                   controller: _confirmPasswordController,
+                  hintText: 'Confirm your password',
                   obscureText: _obscureConfirmPassword,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm Password',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                        });
-                      },
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: TWColors.slate.shade400,
                     ),
-                    border: const OutlineInputBorder(),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -225,22 +211,20 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 30),
 
                 // Sign Up Button
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _signUp,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Create Account'),
+                CustomButton(
+                  text: 'Create Account',
+                  onPressed: _signUp,
+                  isLoading: _isLoading,
                 ),
                 const SizedBox(height: 20),
 
                 // Terms and Conditions
                 Text(
                   'By creating an account, you agree to our Terms of Service and Privacy Policy',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(
+                    color: TWColors.slate.shade400,
+                    fontSize: 12,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],

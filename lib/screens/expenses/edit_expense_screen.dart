@@ -3,17 +3,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/models/expense.dart';
-import 'package:expense_tracker_app/models/audit_trail.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/models/expense.dart';
+import 'package:org_wallet/models/audit_trail.dart';
 
 class EditExpenseScreen extends StatefulWidget {
   final Expense expense;
 
-  const EditExpenseScreen({
-    super.key,
-    required this.expense,
-  });
+  const EditExpenseScreen({super.key, required this.expense});
 
   @override
   State<EditExpenseScreen> createState() => _EditExpenseScreenState();
@@ -51,7 +48,7 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final firestore = FirebaseFirestore.instance;
-      
+
       if (authService.currentOrgId == null) {
         throw Exception('No organization selected');
       }
@@ -144,9 +141,9 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Update expense details and provide a reason for the change',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
@@ -237,7 +234,8 @@ class _EditExpenseScreenState extends State<EditExpenseScreen> {
                     labelText: 'Reason for Edit *',
                     prefixIcon: Icon(Icons.edit_note),
                     border: OutlineInputBorder(),
-                    hintText: 'Please provide a reason for editing this expense',
+                    hintText:
+                        'Please provide a reason for editing this expense',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {

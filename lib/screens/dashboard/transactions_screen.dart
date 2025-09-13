@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 // ignore: unused_import
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/models/transaction.dart' as model;
-import 'package:expense_tracker_app/services/transaction_service.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/models/transaction.dart' as model;
+import 'package:org_wallet/services/transaction_service.dart';
 
 class TransactionsScreen extends StatefulWidget {
   final DateTimeRange? dateRange;

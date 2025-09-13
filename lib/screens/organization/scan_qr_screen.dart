@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/models/officer.dart';
-import 'package:expense_tracker_app/screens/main_dashboard.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/models/officer.dart';
+import 'package:org_wallet/screens/main_dashboard.dart';
 
 class ScanQRScreen extends StatefulWidget {
   const ScanQRScreen({super.key});
@@ -43,7 +43,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
       // Parse QR data (assuming it's a string representation of a map)
       // In a real app, you'd want to use proper JSON encoding/decoding
       final data = _parseQRData(qrData);
-      
+
       if (data == null) {
         _showError('Invalid QR code format');
         return;
@@ -97,8 +97,8 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
           .collection('users')
           .doc(authService.firebaseUser!.uid)
           .update({
-        'organizations': FieldValue.arrayUnion([data['orgId']]),
-      });
+            'organizations': FieldValue.arrayUnion([data['orgId']]),
+          });
 
       if (mounted) {
         _showSuccess(data['orgName']);
@@ -117,7 +117,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
       // Remove the curly braces and split by comma
       final cleanData = qrData.replaceAll('{', '').replaceAll('}', '');
       final pairs = cleanData.split(',');
-      
+
       final Map<String, dynamic> data = {};
       for (final pair in pairs) {
         final keyValue = pair.split(':');
@@ -127,7 +127,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
           data[key] = value;
         }
       }
-      
+
       return data;
     } catch (e) {
       return null;
@@ -154,10 +154,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
   void _showError(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
       setState(() {
         _isScanning = true;
@@ -171,7 +168,9 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Success!'),
-        content: Text('You have successfully requested to join $orgName. Please wait for approval from the organization president.'),
+        content: Text(
+          'You have successfully requested to join $orgName. Please wait for approval from the organization president.',
+        ),
         actions: [
           ElevatedButton(
             onPressed: () {
@@ -217,9 +216,9 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Scan the QR code provided by the organization president to join',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -254,7 +253,9 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
                                   height: 250,
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                       width: 3,
                                     ),
                                     borderRadius: BorderRadius.circular(12),

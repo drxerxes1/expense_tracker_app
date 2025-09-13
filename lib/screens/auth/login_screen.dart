@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/screens/auth/signup_screen.dart';
-import 'package:expense_tracker_app/screens/organization/create_organization_screen.dart';
-import 'package:expense_tracker_app/screens/organization/scan_qr_screen.dart';
-import 'package:expense_tracker_app/screens/main_dashboard.dart';
+import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/screens/auth/signup_screen.dart';
+import 'package:org_wallet/screens/organization/create_organization_screen.dart';
+import 'package:org_wallet/screens/organization/scan_qr_screen.dart';
+import 'package:org_wallet/screens/main_dashboard.dart';
+import 'package:org_wallet/widgets/custom_text_field.dart';
+import 'package:org_wallet/widgets/custom_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,13 +43,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (success && mounted) {
-        // Check if user has organizations
         if (authService.user?.organizations.isNotEmpty == true) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const MainDashboard()),
           );
         } else {
-          // User needs to scan QR code or create organization
           _showOrganizationOptions();
         }
       } else if (mounted) {
@@ -105,143 +106,124 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // App Logo and Title
-                        Icon(
-                          Icons.account_balance_wallet,
-                          size: 80,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Welcome Back',
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Sign in to continue managing your expenses',
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(color: Colors.grey[600]),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 40),
-
-                        // Email Field
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email),
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!RegExp(
-                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                            ).hasMatch(value)) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Password Field
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                            ),
-                            border: const OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 30),
-
-                        // Sign In Button
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _signIn,
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('Sign In'),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Sign Up Link
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Don't have an account? ",
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const SignupScreen(),
-                                  ),
-                                );
-                              },
-                              child: const Text('Sign Up'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(24, screenHeight * 0.15, 24, 24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 12),
+                Text(
+                  'Login',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: TWColors.slate.shade900,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-            );
-          },
+                const SizedBox(height: 10),
+                Text(
+                  'Enter your details below to login',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: TWColors.slate.shade400,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+
+                // Email Field
+                CustomTextField(
+                  controller: _emailController,
+                  hintText: 'email@email.com',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    if (!RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    ).hasMatch(value)) {
+                      return 'Please enter a valid email';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Password Field
+                CustomTextField(
+                  controller: _passwordController,
+                  hintText: 'Enter your password',
+                  obscureText: _obscurePassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: TWColors.slate.shade400,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 30),
+
+                // Sign In Button
+                CustomButton(
+                  text: 'Login',
+                  onPressed: _signIn,
+                  isLoading: _isLoading,
+                ),
+                const SizedBox(height: 20),
+
+                // Sign Up Link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Don't have an account? ",
+                      style: TextStyle(color: TWColors.slate.shade400),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SignupScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'Sign Up',
+                        style: TextStyle(
+                          color: TWColors.slate.shade900,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
         ),
       ),
     );

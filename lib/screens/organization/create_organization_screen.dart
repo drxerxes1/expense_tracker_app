@@ -3,16 +3,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/models/organization.dart';
-import 'package:expense_tracker_app/models/officer.dart';
-import 'package:expense_tracker_app/screens/organization/qr_generator_screen.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/models/organization.dart';
+import 'package:org_wallet/models/officer.dart';
+import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
 
 class CreateOrganizationScreen extends StatefulWidget {
   const CreateOrganizationScreen({super.key});
 
   @override
-  State<CreateOrganizationScreen> createState() => _CreateOrganizationScreenState();
+  State<CreateOrganizationScreen> createState() =>
+      _CreateOrganizationScreenState();
 }
 
 class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
@@ -38,7 +39,7 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final firestore = FirebaseFirestore.instance;
-      
+
       // Create organization
       final orgDoc = firestore.collection('organizations').doc();
       final organization = Organization(
@@ -46,7 +47,14 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         createdBy: authService.firebaseUser!.uid,
-        roles: ['president', 'treasurer', 'secretary', 'auditor', 'moderator', 'member'],
+        roles: [
+          'president',
+          'treasurer',
+          'secretary',
+          'auditor',
+          'moderator',
+          'member',
+        ],
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -75,8 +83,8 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
           .collection('users')
           .doc(authService.firebaseUser!.uid)
           .update({
-        'organizations': FieldValue.arrayUnion([orgDoc.id]),
-      });
+            'organizations': FieldValue.arrayUnion([orgDoc.id]),
+          });
 
       if (mounted) {
         // Show success message
@@ -143,9 +151,9 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Set up your organization to start tracking expenses',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),

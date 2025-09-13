@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/screens/dashboard/transactions_screen.dart';
-import 'package:expense_tracker_app/screens/dashboard/reports_screen.dart';
-import 'package:expense_tracker_app/screens/dashboard/logs_screen.dart';
-import 'package:expense_tracker_app/screens/dashboard/org_info_screen.dart';
-import 'package:expense_tracker_app/screens/expenses/add_expense_screen.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/screens/dashboard/transactions_screen.dart';
+import 'package:org_wallet/screens/dashboard/reports_screen.dart';
+import 'package:org_wallet/screens/dashboard/logs_screen.dart';
+import 'package:org_wallet/screens/dashboard/org_info_screen.dart';
+import 'package:org_wallet/screens/expenses/add_expense_screen.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});

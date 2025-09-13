@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:expense_tracker_app/services/auth_service.dart';
-import 'package:expense_tracker_app/models/expense.dart';
-import 'package:expense_tracker_app/models/audit_trail.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/models/expense.dart';
+import 'package:org_wallet/models/audit_trail.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -34,7 +34,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final firestore = FirebaseFirestore.instance;
-      
+
       if (authService.currentOrgId == null) {
         throw Exception('No organization selected');
       }
@@ -129,9 +129,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Record a new expense for your organization',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),

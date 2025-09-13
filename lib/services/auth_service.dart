@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:expense_tracker_app/models/user.dart' as app_user;
-import 'package:expense_tracker_app/models/officer.dart';
+import 'package:org_wallet/models/user.dart' as app_user;
+import 'package:org_wallet/models/officer.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
