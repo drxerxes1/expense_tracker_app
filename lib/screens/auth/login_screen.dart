@@ -121,8 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'Login',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: TWColors.slate.shade900,
                   ),
                   textAlign: TextAlign.center,

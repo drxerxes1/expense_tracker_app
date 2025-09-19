@@ -13,10 +13,20 @@ class AppTheme {
 
   // Light Theme
   static ThemeData get lightTheme {
+    final baseTextTheme = GoogleFonts.poppinsTextTheme();
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      textTheme: GoogleFonts.poppinsTextTheme(),
+      textTheme: baseTextTheme.copyWith(
+        bodyLarge: GoogleFonts.poppins(fontWeight: FontWeight.w400), // normal
+        bodyMedium: GoogleFonts.poppins(fontWeight: FontWeight.w400),
+        bodySmall: GoogleFonts.poppins(fontWeight: FontWeight.w400),
+        titleLarge: GoogleFonts.poppins(fontWeight: FontWeight.bold), // bold
+        titleMedium: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        titleSmall: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        labelLarge: GoogleFonts.poppins(fontWeight: FontWeight.bold), // button text
+      ),
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         brightness: Brightness.light,
@@ -26,11 +36,17 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        titleTextStyle: GoogleFonts.poppins(
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+          color: Colors.white,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
+          textStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
