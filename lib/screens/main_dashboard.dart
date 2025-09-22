@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/screens/dashboard/transactions_screen.dart';
@@ -50,7 +51,7 @@ class _MainDashboardState extends State<MainDashboard> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
-        backgroundColor: Colors.transparent,
+        backgroundColor: TWColors.slate.shade400,
         elevation: 0,
         actions: [
           if (_currentIndex == 0)

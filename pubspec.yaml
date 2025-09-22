@@ -60,6 +60,10 @@ dependencies:
   shared_preferences: ^2.2.2
   permission_handler: ^11.1.0
 
+  # Local Database
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
   # PDF Generation
   pdf: ^3.10.7
   path_provider: ^2.1.1
@@ -67,6 +71,10 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Hive code generation
+  build_runner: ^2.4.7
+  hive_generator: ^2.0.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

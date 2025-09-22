@@ -1,3 +1,5 @@
+import 'package:hive/hive.dart';
+import 'package:org_wallet/models/user_login.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,18 +25,38 @@ class AuthService extends ChangeNotifier {
 
   AuthService() {
     _auth.authStateChanges().listen(_onAuthStateChanged);
+    _loadLoginFromHive();
   }
 
   void _onAuthStateChanged(User? user) {
     _firebaseUser = user;
+    final loginBox = Hive.box<UserLogin>('userLogin');
     if (user != null) {
       _loadUserData();
+      // Save login info to Hive
+      final login = UserLogin(
+        userId: user.uid,
+        email: user.email ?? '',
+        name: user.displayName,
+      );
+      loginBox.put('current', login);
     } else {
       _user = null;
       _currentOfficer = null;
       _currentOrgId = null;
+      // Remove login info from Hive
+      loginBox.delete('current');
     }
     notifyListeners();
+  }
+  void _loadLoginFromHive() {
+    final loginBox = Hive.box<UserLogin>('userLogin');
+    final login = loginBox.get('current');
+    if (login != null) {
+      // Optionally, you can auto-login or restore state here
+      // For now, just print for debug
+      debugPrint('Loaded login from Hive: ${login.email}');
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -127,7 +149,18 @@ class AuthService extends ChangeNotifier {
   Future<bool> signIn({required String email, required String password}) async {
     try {
       _lastErrorMessage = null;
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      // Save login info to Hive
+      final user = userCredential.user;
+      final loginBox = Hive.box<UserLogin>('userLogin');
+      if (user != null) {
+        final login = UserLogin(
+          userId: user.uid,
+          email: user.email ?? '',
+          name: user.displayName,
+        );
+        loginBox.put('current', login);
+      }
       return true;
     } on FirebaseAuthException catch (e) {
       _lastErrorMessage = e.message ?? 'Authentication error';
@@ -143,6 +176,9 @@ class AuthService extends ChangeNotifier {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
+      // Remove login info from Hive
+      final loginBox = Hive.box<UserLogin>('userLogin');
+      loginBox.delete('current');
     } catch (e) {
       debugPrint('Error during sign out: $e');
     }

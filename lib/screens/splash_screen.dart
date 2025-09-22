@@ -1,3 +1,5 @@
+import 'package:hive/hive.dart';
+import 'package:org_wallet/models/user_login.dart';
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
@@ -42,7 +44,9 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) {
       final authService = Provider.of<AuthService>(context, listen: false);
-      if (authService.isLoggedIn) {
+      final loginBox = Hive.box<UserLogin>('userLogin');
+      final savedLogin = loginBox.get('current');
+      if (authService.isLoggedIn || savedLogin != null) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const MainDashboard()),
         );
