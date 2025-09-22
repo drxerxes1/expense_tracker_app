@@ -9,6 +9,8 @@ class AppTransaction {
   final String addedBy;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String type; // 'expense' or 'fund'
+  final String categoryName;
 
   AppTransaction({
     required this.id,
@@ -19,19 +21,56 @@ class AppTransaction {
     required this.addedBy,
     required this.createdAt,
     required this.updatedAt,
+    required this.type,
+    required this.categoryName,
   });
 
-  factory AppTransaction.fromFirestore(DocumentSnapshot doc) {
+  static Future<AppTransaction> fromFirestoreAsync(
+    DocumentSnapshot doc,
+    CollectionReference categoriesRef,
+  ) async {
     final data = doc.data() as Map<String, dynamic>? ?? {};
+    String type = (data['type'] ?? 'expense').toString();
+    String categoryId = (data['categoryId'] ?? '').toString();
+    String categoryName = '';
+    if (categoryId.isNotEmpty) {
+      final catSnap = await categoriesRef.doc(categoryId).get();
+      if (catSnap.exists) {
+        final catData = catSnap.data() as Map<String, dynamic>?;
+        categoryName = (catData?['name'] ?? '').toString();
+      }
+    }
+    if (categoryName.isEmpty) {
+      // fallback to default names
+      if (categoryId == 'food') {
+        categoryName = 'Food';
+      } else if (categoryId == 'transportation') {
+        categoryName = 'Transportation';
+      } else if (categoryId == 'supplies') {
+        categoryName = 'Supplies';
+      } else if (categoryId == 'utilities') {
+        categoryName = 'Utilities';
+      } else if (categoryId == 'miscellaneous') {
+        categoryName = 'Miscellaneous';
+      } else if (categoryId == 'school_funds') {
+        categoryName = 'School Funds';
+      } else if (categoryId == 'club_funds') {
+        categoryName = 'Club Funds';
+      } else {
+        categoryName = 'Unknown';
+      }
+    }
     return AppTransaction(
       id: doc.id,
       orgId: (data['orgId'] ?? '').toString(),
       amount: (data['amount'] ?? 0).toDouble(),
-      categoryId: (data['categoryId'] ?? '').toString(),
+      categoryId: categoryId,
       note: (data['note'] ?? '').toString(),
       addedBy: (data['addedBy'] ?? '').toString(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      type: type,
+      categoryName: categoryName,
     );
   }
 
@@ -44,6 +83,8 @@ class AppTransaction {
       'addedBy': addedBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'type': type,
+      'categoryName': categoryName,
     };
   }
 }

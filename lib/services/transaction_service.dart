@@ -31,7 +31,6 @@ class TransactionService {
       'createdAt': Timestamp.fromDate(DateTime.now()),
       'updatedAt': Timestamp.fromDate(DateTime.now()),
     });
-    // TODO: Add audit trail logic here
   }
   final FirebaseFirestore _db;
   TransactionService({FirebaseFirestore? db})
@@ -59,34 +58,33 @@ class TransactionService {
             isLessThanOrEqualTo: Timestamp.fromDate(range.end),
           );
     }
-    if (type != null) {
-      // Join with categories to filter by type
-      // This requires client-side filtering since Firestore doesn't support joins
-      return query.snapshots().asyncMap((snap) async {
-        final txs = snap.docs.map((d) => AppTransaction.fromFirestore(d)).toList();
-        final filtered = <AppTransaction>[];
-        for (final tx in txs) {
-          final catSnap = await _categories(orgId).doc(tx.categoryId).get();
+    final categoriesRef = _categories(orgId);
+    return query.snapshots().asyncMap((snap) async {
+      final txs = <AppTransaction>[];
+      for (final d in snap.docs) {
+        final tx = await AppTransaction.fromFirestoreAsync(d, categoriesRef);
+        if (type != null) {
+          final catSnap = await categoriesRef.doc(tx.categoryId).get();
           if (!catSnap.exists) continue;
           final category = CategoryModel.fromFirestore(catSnap);
-          if (category.type == type) filtered.add(tx);
+          if (category.type != type) continue;
         }
-        return filtered;
-      });
-    }
-    return query.snapshots().map(
-      (snap) => snap.docs.map((d) => AppTransaction.fromFirestore(d)).toList(),
-    );
+        txs.add(tx);
+      }
+      return txs;
+    });
   }
 
-  Future<double> getTotalBalance(String orgId, {DateTimeRange? range}) async {
+
+  Future<List<AppTransaction>> getAllTransactions(String orgId, {DateTimeRange? range}) async {
     final querySnap = await _rangeQuery(orgId, range).get();
-    double total = 0;
+    final categoriesRef = _categories(orgId);
+    final txs = <AppTransaction>[];
     for (final doc in querySnap.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      total += (data['amount'] ?? 0).toDouble();
+      final tx = await AppTransaction.fromFirestoreAsync(doc, categoriesRef);
+      txs.add(tx);
     }
-    return total;
+    return txs;
   }
 
   // Get total for a specific type (expense or fund)

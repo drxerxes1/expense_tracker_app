@@ -68,6 +68,9 @@ dependencies:
   pdf: ^3.10.7
   path_provider: ^2.1.1
 
+  # Math Expression Parser
+  math_expressions: ^2.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

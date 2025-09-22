@@ -44,8 +44,9 @@ class _MainDashboardState extends State<MainDashboard> {
 
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
         title: Text(
-          _getAppBarTitle(),
+          authService.organization?.name ?? 'Organization',
           style: const TextStyle(color: Colors.black),
         ),
         backgroundColor: TWColors.slate.shade200,
@@ -136,20 +137,7 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  String _getAppBarTitle() {
-    switch (_currentIndex) {
-      case 0:
-        return 'Transactions';
-      case 1:
-        return 'Reports';
-      case 2:
-        return 'Audit Logs';
-      case 3:
-        return 'Organization';
-      default:
-        return 'Dashboard';
-    }
-  }
+  // Removed _getAppBarTitle, will use organization name in app bar
 
   void _handleMenuSelection(String value, BuildContext context) {
     switch (value) {

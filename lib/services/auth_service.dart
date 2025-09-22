@@ -4,9 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/models/user.dart' as app_user;
+import 'package:org_wallet/models/organization.dart';
 import 'package:org_wallet/models/officer.dart';
 
 class AuthService extends ChangeNotifier {
+  Organization? _organization;
+
+  Organization? get organization => _organization;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -75,11 +79,31 @@ class AuthService extends ChangeNotifier {
         if (_user!.organizations.isNotEmpty) {
           _currentOrgId = _user!.organizations.first;
           await _loadCurrentOfficerData();
+          await _loadOrganization();
         }
       }
     } catch (e) {
       debugPrint('Error loading user data: $e');
     }
+  }
+
+  Future<void> _loadOrganization() async {
+    if (_currentOrgId == null) {
+      _organization = null;
+      return;
+    }
+    try {
+      final orgDoc = await _firestore.collection('organizations').doc(_currentOrgId).get();
+      if (orgDoc.exists) {
+        _organization = Organization.fromMap({'id': orgDoc.id, ...orgDoc.data()!});
+      } else {
+        _organization = null;
+      }
+    } catch (e) {
+      debugPrint('Error loading organization: $e');
+      _organization = null;
+    }
+    notifyListeners();
   }
 
   Future<void> _loadCurrentOfficerData() async {
@@ -187,6 +211,7 @@ class AuthService extends ChangeNotifier {
   Future<void> switchOrganization(String orgId) async {
     _currentOrgId = orgId;
     await _loadCurrentOfficerData();
+  await _loadOrganization();
     notifyListeners();
   }
 
