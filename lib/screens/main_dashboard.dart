@@ -50,13 +50,17 @@ class _MainDashboardState extends State<MainDashboard> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_getAppBarTitle()),
-        backgroundColor: TWColors.slate.shade400,
+        title: Text(
+          _getAppBarTitle(),
+          style: const TextStyle(color: Colors.black),
+        ),
+        backgroundColor: TWColors.slate.shade200,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           if (_currentIndex == 0)
             IconButton(
-              icon: const Icon(Icons.date_range),
+              icon: const Icon(Icons.date_range, color: Colors.black),
               tooltip: 'Filter by date',
               onPressed: _selectDateRange,
             ),

@@ -1,11 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// ignore: unused_import
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/transaction.dart' as model;
 import 'package:org_wallet/services/transaction_service.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class CurrencyAmount extends StatelessWidget {
+  final double value;
+  final double iconSize;
+  final TextStyle? textStyle;
+  const CurrencyAmount({
+    super.key,
+    required this.value,
+    this.iconSize = 16,
+    this.textStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SvgPicture.asset(
+          'assets/svg/philippine-peso-icon.svg',
+          width: iconSize,
+          height: iconSize,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value.toStringAsFixed(2),
+          style: textStyle,
+        ),
+      ],
+    );
+  }
+}
 
 class TransactionsScreen extends StatefulWidget {
   final DateTimeRange? dateRange;
@@ -29,131 +61,142 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
     return Column(
       children: [
-        // Header balances and search
-        Column(
-          children: [
-            // Top Layer: Balances
-            Container(
-              color: TWColors.slate.shade300,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Card(
-                    elevation: 0,
-                    color: TWColors.slate.shade300,
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Total Balance',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: TWColors.slate.shade900),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _formatAmount(_totalBalance),
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: TWColors.slate.shade900,
+        // Header section with balances and search bar
+        SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              Container(
+                color: TWColors.slate.shade200,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Card(
+                      elevation: 0,
+                      color: TWColors.slate.shade200,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Total Balance',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: TWColors.slate.shade900),
+                            ),
+                            const SizedBox(height: 8),
+                                CurrencyAmount(
+                                  value: _totalBalance,
+                                  iconSize: 18,
+                                  textStyle: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.bold,
+                                    color: TWColors.slate.shade900,
+                                    fontSize: 36,
+                                  ),
                                 ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Card(
+                              elevation: 0,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Club Funds',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: TWColors.slate.shade900,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    CurrencyAmount(
+                                      value: _clubFunds,
+                                      iconSize: 14,
+                                      textStyle: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        color: TWColors.slate.shade900,
+                                        fontSize: 24,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Card(
+                              elevation: 0,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'School Funds',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: TWColors.slate.shade900,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    CurrencyAmount(
+                                      value: _schoolFunds,
+                                      iconSize: 14,
+                                      textStyle: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        color: TWColors.slate.shade900,
+                                        fontSize: 24,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Card(
-                          elevation: 0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Remaining Club Funds',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: TWColors.slate.shade900,
-                                      ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _formatAmount(_clubFunds),
-                                  style: Theme.of(context).textTheme.titleLarge
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: TWColors.slate.shade900,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Card(
-                          elevation: 0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Remaining School Funds',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: TWColors.slate.shade900,
-                                      ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _formatAmount(_schoolFunds),
-                                  style: Theme.of(context).textTheme.titleLarge
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: TWColors.slate.shade900,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // Second Layer: Search Bar
-            Container(
-              // color: Colors.black,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: TextField(
-                style: TextStyle(color: TWColors.slate.shade900),
-                decoration: InputDecoration(
-                  hintText: 'Search transactions...',
-                  hintStyle: TextStyle(color: TWColors.slate.shade900),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: TWColors.slate.shade900,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  filled: true,
-                  fillColor: TWColors.slate.shade200,
+                  ],
                 ),
-                onChanged: (value) => setState(() => _searchQuery = value),
               ),
-            ),
-          ],
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: TextField(
+                  style: TextStyle(color: TWColors.slate.shade900),
+                  decoration: InputDecoration(
+                    hintText: 'Search transactions...',
+                    hintStyle: TextStyle(color: TWColors.slate.shade900),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: TWColors.slate.shade900,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: TWColors.slate.shade200,
+                  ),
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                ),
+              ),
+            ],
+          ),
         ),
 
         // Expenses List

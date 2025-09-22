@@ -13,19 +13,18 @@ class AppTheme {
 
   // Light Theme
   static ThemeData get lightTheme {
-    final baseTextTheme = GoogleFonts.poppinsTextTheme();
-
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      textTheme: baseTextTheme.copyWith(
-        bodyLarge: GoogleFonts.poppins(fontWeight: FontWeight.w400), // normal
+      fontFamily: 'Poppins',
+      textTheme: GoogleFonts.poppinsTextTheme().copyWith(
+        bodyLarge: GoogleFonts.poppins(fontWeight: FontWeight.w400),
         bodyMedium: GoogleFonts.poppins(fontWeight: FontWeight.w400),
         bodySmall: GoogleFonts.poppins(fontWeight: FontWeight.w400),
-        titleLarge: GoogleFonts.poppins(fontWeight: FontWeight.bold), // bold
+        titleLarge: GoogleFonts.poppins(fontWeight: FontWeight.bold),
         titleMedium: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         titleSmall: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        labelLarge: GoogleFonts.poppins(fontWeight: FontWeight.bold), // button text
+        labelLarge: GoogleFonts.poppins(fontWeight: FontWeight.bold),
       ),
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
