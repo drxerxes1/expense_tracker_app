@@ -6,7 +6,7 @@ import 'package:org_wallet/screens/dashboard/transactions_screen.dart';
 import 'package:org_wallet/screens/dashboard/reports_screen.dart';
 import 'package:org_wallet/screens/dashboard/logs_screen.dart';
 import 'package:org_wallet/screens/dashboard/org_info_screen.dart';
-import 'package:org_wallet/screens/expenses/add_expense_screen.dart';
+import 'package:org_wallet/screens/transaction/add_transaction_screen.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -112,6 +112,7 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
       body: PageView(
         controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
         onPageChanged: (index) {
           setState(() {
             _currentIndex = index;
@@ -239,7 +240,9 @@ class _MainDashboardState extends State<MainDashboard> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AddExpenseScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const AddTransactionScreen(),
+                    ),
                   );
                 },
               ),
@@ -248,8 +251,6 @@ class _MainDashboardState extends State<MainDashboard> {
                 title: const Text('Edit Expense'),
                 onTap: () {
                   Navigator.pop(context);
-                  // Could navigate to an expenses search/list to pick one for editing
-                  // For now, open transactions tab where edit is available per item
                 },
               ),
             ],

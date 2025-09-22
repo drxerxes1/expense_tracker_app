@@ -1,11 +1,9 @@
 // ignore_for_file: avoid_types_as_parameter_names
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:org_wallet/services/auth_service.dart';
-import 'package:org_wallet/models/expense.dart';
+import 'package:org_wallet/models/transaction.dart';
+// import 'package:org_wallet/models/expense.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -16,45 +14,12 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   String _selectedPeriod = 'This Month';
-  List<Expense> _expenses = [];
-  bool _isLoading = true;
+  final List<AppTransaction> _transactions = [];
+  final bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadExpenses();
-  }
-
-  Future<void> _loadExpenses() async {
-    if (!mounted) return; // prevent running if widget already disposed
-    setState(() => _isLoading = true);
-
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      if (authService.currentOrgId == null) return;
-
-      final snapshot = await FirebaseFirestore.instance
-          .collection('expenses')
-          .where('orgId', isEqualTo: authService.currentOrgId)
-          .get();
-
-      if (!mounted) return; // check again after async work
-
-      final expenses = snapshot.docs
-          .map((doc) => Expense.fromMap({'id': doc.id, ...doc.data()}))
-          .toList();
-
-      setState(() {
-        _expenses = expenses;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return; // safety
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error loading expenses: $e')));
-    }
   }
 
   @override
@@ -128,18 +93,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildSummaryCards() {
-    final filteredExpenses = _getFilteredExpenses();
-    final totalAmount = filteredExpenses.fold<double>(
+    final filteredTxs = _getFilteredTransactions();
+    final totalAmount = filteredTxs.fold<double>(
       0,
-      (sum, expense) => sum + expense.amount,
+      (sum, tx) => sum + tx.amount,
     );
-    final avgAmount = filteredExpenses.isNotEmpty
-        ? totalAmount / filteredExpenses.length
+    final avgAmount = filteredTxs.isNotEmpty
+        ? totalAmount / filteredTxs.length
         : 0.0;
-    final categoryCount = filteredExpenses
-        .map((e) => e.category)
-        .toSet()
-        .length;
+    final categoryCount = filteredTxs.map((e) => e.categoryId).toSet().length;
 
     return Row(
       children: [
@@ -208,13 +170,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildCategoryChart() {
-    final filteredExpenses = _getFilteredExpenses();
+    final filteredTxs = _getFilteredTransactions();
     final categoryData = <String, double>{};
-
-    for (final expense in filteredExpenses) {
-      categoryData[expense.category.categoryDisplayName] =
-          (categoryData[expense.category.categoryDisplayName] ?? 0) +
-          expense.amount;
+    for (final tx in filteredTxs) {
+      categoryData[tx.categoryId] =
+          (categoryData[tx.categoryId] ?? 0) + tx.amount;
     }
 
     final pieChartData = categoryData.entries.map((entry) {
@@ -261,12 +221,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildMonthlyTrendChart() {
-    final filteredExpenses = _getFilteredExpenses();
+    final filteredTxs = _getFilteredTransactions();
     final monthlyData = <String, double>{};
-
-    for (final expense in filteredExpenses) {
-      final month = '${expense.createdAt.month}/${expense.createdAt.year}';
-      monthlyData[month] = (monthlyData[month] ?? 0) + expense.amount;
+    for (final tx in filteredTxs) {
+      final month = '${tx.createdAt.month}/${tx.createdAt.year}';
+      monthlyData[month] = (monthlyData[month] ?? 0) + tx.amount;
     }
 
     final sortedMonths = monthlyData.keys.toList()
@@ -347,11 +306,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildTopExpenses() {
-    final filteredExpenses = _getFilteredExpenses();
-    final sortedExpenses = List<Expense>.from(filteredExpenses)
+    final filteredTxs = _getFilteredTransactions();
+    final sortedTxs = List<AppTransaction>.from(filteredTxs)
       ..sort((a, b) => b.amount.compareTo(a.amount));
-
-    final topExpenses = sortedExpenses.take(5).toList();
+    final topTxs = sortedTxs.take(5).toList();
 
     return Card(
       child: Padding(
@@ -360,39 +318,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Top 5 Expenses',
+              'Top 5 Transactions',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            if (topExpenses.isEmpty)
-              const Center(child: Text('No expenses found'))
+            if (topTxs.isEmpty)
+              const Center(child: Text('No transactions found'))
             else
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: topExpenses.length,
+                itemCount: topTxs.length,
                 itemBuilder: (context, index) {
-                  final expense = topExpenses[index];
+                  final tx = topTxs[index];
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: _getCategoryColor(
-                        expense.category.categoryDisplayName,
-                      ),
+                      backgroundColor: Colors.teal,
                       child: Icon(
-                        _getCategoryIcon(expense.category.categoryDisplayName),
+                        Icons.category,
                         color: Colors.white,
                         size: 16,
                       ),
                     ),
                     title: Text(
-                      expense.note.isNotEmpty ? expense.note : 'No description',
+                      tx.note.isNotEmpty ? tx.note : 'No description',
                       style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
-                    subtitle: Text(expense.category.categoryDisplayName),
+                    subtitle: Text(tx.categoryId),
                     trailing: Text(
-                      '₱${expense.amount.toStringAsFixed(2)}',
+                      '₱${tx.amount.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).colorScheme.primary,
@@ -407,13 +363,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  List<Expense> _getFilteredExpenses() {
+  List<AppTransaction> _getFilteredTransactions() {
     final now = DateTime.now();
-    List<Expense> filtered = [];
-
+    List<AppTransaction> filtered = [];
     switch (_selectedPeriod) {
       case 'This Month':
-        filtered = _expenses
+        filtered = _transactions
             .where(
               (e) =>
                   e.createdAt.month == now.month &&
@@ -423,7 +378,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         break;
       case 'Last Month':
         final lastMonth = DateTime(now.year, now.month - 1);
-        filtered = _expenses
+        filtered = _transactions
             .where(
               (e) =>
                   e.createdAt.month == lastMonth.month &&
@@ -432,15 +387,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
             .toList();
         break;
       case 'This Year':
-        filtered = _expenses
+        filtered = _transactions
             .where((e) => e.createdAt.year == now.year)
             .toList();
         break;
       case 'All Time':
-        filtered = _expenses;
+        filtered = _transactions;
         break;
     }
-
     return filtered;
   }
 
@@ -464,29 +418,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return Colors.grey;
       default:
         return Colors.grey;
-    }
-  }
-
-  IconData _getCategoryIcon(String categoryName) {
-    switch (categoryName) {
-      case 'Food':
-        return Icons.restaurant;
-      case 'Transportation':
-        return Icons.directions_car;
-      case 'Utilities':
-        return Icons.power;
-      case 'Entertainment':
-        return Icons.movie;
-      case 'Healthcare':
-        return Icons.local_hospital;
-      case 'Education':
-        return Icons.school;
-      case 'Shopping':
-        return Icons.shopping_cart;
-      case 'Other':
-        return Icons.more_horiz;
-      default:
-        return Icons.more_horiz;
     }
   }
 }

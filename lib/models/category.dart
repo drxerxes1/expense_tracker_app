@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum CategoryType {
@@ -13,6 +14,10 @@ enum CategoryType {
       default:
         return CategoryType.expense;
     }
+  }
+
+  String toShortString() {
+    return toString().split('.').last;
   }
 }
 
@@ -34,6 +39,14 @@ class CategoryModel {
       name: (data['name'] ?? '').toString(),
       type: CategoryType.fromString((data['type'] ?? 'expense').toString()),
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'type': type.toShortString(),
+    };
   }
 }
 

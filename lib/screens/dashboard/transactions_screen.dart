@@ -250,48 +250,60 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   final tx = txs[index];
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.swap_horiz),
-                      ),
-                      title: Text(
-                        tx.note.isNotEmpty ? tx.note : 'No description',
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      subtitle: Column(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _formatDate(tx.createdAt),
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
+                          const CircleAvatar(
+                            child: Icon(Icons.swap_horiz),
                           ),
-                        ],
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            _formatAmount(tx.amount),
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tx.note.isNotEmpty ? tx.note : 'No description',
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                          ),
-                          if (authService.canEditExpenses())
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 16),
-                              onPressed: () {
-                                // Navigate to edit transaction/expense screen if applicable
-                              },
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatDate(tx.createdAt),
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                _formatAmount(tx.amount),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                              ),
+                              if (authService.canEditExpenses())
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 16),
+                                  onPressed: () {
+                                    // Navigate to edit transaction/expense screen if applicable
+                                  },
+                                ),
+                            ],
+                          ),
                         ],
                       ),
-                      onTap: () {},
                     ),
                   );
                 },
