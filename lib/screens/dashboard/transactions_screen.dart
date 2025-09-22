@@ -259,7 +259,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             child: Icon(Icons.swap_horiz),
                           ),
                           const SizedBox(width: 12),
-                          Expanded(
+                          Flexible(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -276,6 +276,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                     color: Colors.grey[600],
                                     fontSize: 12,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
@@ -292,6 +294,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                       fontWeight: FontWeight.bold,
                                       color: Theme.of(context).colorScheme.primary,
                                     ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               if (authService.canEditExpenses())
                                 IconButton(

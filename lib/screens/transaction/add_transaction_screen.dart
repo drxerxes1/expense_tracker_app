@@ -210,7 +210,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         children: [
                           Icon(Icons.category, color: Colors.teal),
                           const SizedBox(width: 12),
-                          Text(category.name + ' (${category.type.toShortString()})'),
+                          Text('${category.name} (${category.type.toShortString()})'),
                         ],
                       ),
                     );

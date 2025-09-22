@@ -17,7 +17,7 @@ class MainDashboard extends StatefulWidget {
 
 class _MainDashboardState extends State<MainDashboard> {
   int _currentIndex = 0;
-  final PageController _pageController = PageController();
+  // Removed PageController, not needed for non-swipable tabs
   DateTimeRange? _selectedDateRange;
 
   List<Widget> get _screens => [
@@ -29,19 +29,13 @@ class _MainDashboardState extends State<MainDashboard> {
 
   @override
   void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  super.dispose();
   }
 
   void _onTabTapped(int index) {
     setState(() {
       _currentIndex = index;
     });
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
   }
 
   @override
@@ -110,16 +104,7 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
         ),
       ),
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        children: _screens,
-      ),
+      body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
