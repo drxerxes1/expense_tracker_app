@@ -3,6 +3,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:org_wallet/models/organization.dart';
 import 'package:org_wallet/models/officer.dart';
 import 'package:org_wallet/screens/main_dashboard.dart';
+import 'package:flutter/services.dart';
 
 class QRGeneratorScreen extends StatefulWidget {
   final Organization organization;
@@ -37,7 +38,6 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Generate QR Code', style: TextStyle(color: Colors.black)),
         iconTheme: const IconThemeData(color: Colors.black),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -54,21 +54,16 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Header
-                      Icon(
-                        Icons.qr_code,
-                        size: 80,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(height: 20),
                       Text(
-                        'Invite Officers',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        'Invite Members',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Generate QR codes to invite officers to your organization',
+                        'Generate QR codes to invite members to your organization',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Colors.grey[600],
                         ),
@@ -135,6 +130,21 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
                                   style: Theme.of(context).textTheme.bodyMedium,
                                   textAlign: TextAlign.center,
                                 ),
+                                const SizedBox(height: 12),
+
+                                // Invite code (text) with copy action
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () async {
+                                    await Clipboard.setData(ClipboardData(text: _qrData ?? ''));
+                                    // ignore: use_build_context_synchronously
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Invite code copied')),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.copy),
+                                  label: const Text('Copy code'),
+                                ),
                               ],
                             ),
                           ),
@@ -185,20 +195,7 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
                           ),
                         );
                       },
-                      child: const Text('Skip for Now'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) => const MainDashboard(),
-                          ),
-                        );
-                      },
-                      child: const Text('Continue'),
+                      child: const Text('Done'),
                     ),
                   ),
                 ],

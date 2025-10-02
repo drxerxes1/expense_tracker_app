@@ -257,7 +257,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
               children: [
                 Text(
                   'Join Organization',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,

@@ -170,6 +170,56 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Create an account (sign up) and join the provided organization with the
+  /// given role. Returns true on success.
+  Future<bool> createAccountAndJoin({
+    required String name,
+    required String email,
+    required String password,
+    required String orgId,
+    required String role,
+  }) async {
+    final created = await signUp(name: name, email: email, password: password);
+    if (!created) return false;
+
+    try {
+      final userId = _firebaseUser!.uid;
+      // Create officer record
+      await _firestore.collection('officers').add({
+        'orgId': orgId,
+        'userId': userId,
+        'name': name,
+        'email': email,
+        'role': role,
+        'status': OfficerStatus.pending.index,
+        'joinedAt': DateTime.now().toIso8601String(),
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      // Update user's organizations list
+      await _firestore.collection('users').doc(userId).update({
+        'organizations': FieldValue.arrayUnion([orgId]),
+      });
+
+      // Save to Hive meta
+      try {
+        final metaBox = await Hive.openBox('userMeta');
+        await metaBox.put(userId, {'orgId': orgId, 'role': role});
+      } catch (e) {
+        debugPrint('Error saving user meta to Hive: $e');
+      }
+
+      // Reload user data
+      await _loadUserData();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Error in createAccountAndJoin: $e');
+      return false;
+    }
+  }
+
   Future<bool> signIn({required String email, required String password}) async {
     try {
       _lastErrorMessage = null;
