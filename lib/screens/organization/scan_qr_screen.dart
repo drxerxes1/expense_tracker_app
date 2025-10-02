@@ -5,6 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/officer.dart';
 import 'package:org_wallet/screens/main_dashboard.dart';
+import 'package:org_wallet/screens/auth/create_account_screen.dart';
+import 'package:hive/hive.dart';
+import 'package:org_wallet/models/user_login.dart';
 
 class ScanQRScreen extends StatefulWidget {
   const ScanQRScreen({super.key});
@@ -17,6 +20,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
   MobileScannerController cameraController = MobileScannerController();
   bool _isScanning = true;
   bool _isProcessing = false;
+  bool _torchEnabled = false;
 
   @override
   void dispose() {
@@ -51,6 +55,27 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
 
       final authService = Provider.of<AuthService>(context, listen: false);
       final firestore = FirebaseFirestore.instance;
+
+      // Check Hive for existing logged-in user
+      final loginBox = Hive.box<UserLogin>('userLogin');
+      final currentLogin = loginBox.get('current');
+
+      // If no user exists locally, navigate to create-account flow and
+      // pass the scanned role and orgId so the new user can be created
+      // and immediately join the organization.
+      if (currentLogin == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => CreateAccountScreen(
+                role: data['role'] ?? 'member',
+                orgId: data['orgId'],
+              ),
+            ),
+          );
+        }
+        return;
+      }
 
       // Check if organization exists
       final orgDoc = await firestore
@@ -99,6 +124,17 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
           .update({
             'organizations': FieldValue.arrayUnion([data['orgId']]),
           });
+
+      // Save joined org and role to Hive under a simple meta box keyed by userId
+      try {
+        final metaBox = await Hive.openBox('userMeta');
+        await metaBox.put(authService.firebaseUser!.uid, {
+          'orgId': data['orgId'],
+          'role': data['role'] ?? 'member',
+        });
+      } catch (e) {
+        debugPrint('Error saving user meta to Hive: $e');
+      }
 
       if (mounted) {
         _showSuccess(data['orgName']);
@@ -189,9 +225,28 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan QR Code'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: Icon(_torchEnabled ? Icons.flash_on : Icons.flash_off),
+            onPressed: () async {
+              await cameraController.toggleTorch();
+              setState(() {
+                _torchEnabled = !_torchEnabled;
+              });
+            },
+            tooltip: 'Toggle torch',
+          ),
+          IconButton(
+            icon: const Icon(Icons.cameraswitch),
+            onPressed: () async {
+              await cameraController.switchCamera();
+            },
+            tooltip: 'Switch camera',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -200,12 +255,6 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                Icon(
-                  Icons.qr_code_scanner,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(height: 20),
                 Text(
                   'Join Organization',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -229,10 +278,13 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
           Expanded(
             child: _isScanning
                 ? Container(
-                    margin: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
+                      color: Colors.black,
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
@@ -241,27 +293,43 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
                           MobileScanner(
                             controller: cameraController,
                             onDetect: _onDetect,
+                            fit: BoxFit.cover,
                           ),
-                          // Custom overlay
-                          Positioned.fill(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: Container(
-                                  width: 250,
-                                  height: 250,
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                      width: 3,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+
+                          // Center scanning area overlay
+                          Center(
+                            child: Container(
+                              width: 260,
+                              height: 260,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 3,
                                 ),
+                                color: Colors.black.withOpacity(0.2),
                               ),
+                            ),
+                          ),
+
+                          // Top instruction overlay
+                          Positioned(
+                            top: 24,
+                            left: 24,
+                            right: 24,
+                            child: Text(
+                              'Align the QR code inside the frame',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    shadows: [
+                                      const Shadow(
+                                        blurRadius: 4,
+                                        color: Colors.black45,
+                                      ),
+                                    ],
+                                  ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ],
@@ -278,42 +346,102 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
               children: [
                 if (_isScanning) ...[
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 6,
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
                         Icon(
                           Icons.info_outline,
-                          color: Colors.blue[700],
+                          color: Theme.of(context).colorScheme.primary,
                           size: 20,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Point your camera at the QR code. The app will automatically scan and process it.',
+                            'Point your camera at the QR code. It will scan automatically.',
                             style: TextStyle(
-                              color: Colors.blue[700],
-                              fontSize: 12,
+                              color: Colors.grey[800],
+                              fontSize: 13,
                             ),
                           ),
+                        ),
+                        TextButton(
+                          onPressed: _showManualEntryDialog,
+                          child: const Text('Enter code'),
                         ),
                       ],
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Cancel'),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _isScanning = true;
+                          });
+                        },
+                        child: const Text('Scan Again'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManualEntryDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter Invite Code'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: 'Paste invite string',
+              ),
+              minLines: 1,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final code = controller.text.trim();
+              Navigator.of(context).pop();
+              if (code.isNotEmpty) _processQRCode(code);
+            },
+            child: const Text('Submit'),
           ),
         ],
       ),

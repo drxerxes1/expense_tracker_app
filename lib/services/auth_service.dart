@@ -184,6 +184,8 @@ class AuthService extends ChangeNotifier {
           name: user.displayName,
         );
         loginBox.put('current', login);
+        await _loadUserData();
+        notifyListeners();
       }
       return true;
     } on FirebaseAuthException catch (e) {

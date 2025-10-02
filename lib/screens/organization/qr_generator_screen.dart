@@ -37,7 +37,8 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Generate QR Code'),
+        title: const Text('Generate QR Code', style: TextStyle(color: Colors.black)),
+        iconTheme: const IconThemeData(color: Colors.black),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),

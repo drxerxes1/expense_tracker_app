@@ -7,6 +7,8 @@ import 'package:org_wallet/screens/dashboard/reports_screen.dart';
 import 'package:org_wallet/screens/dashboard/logs_screen.dart';
 import 'package:org_wallet/screens/dashboard/org_info_screen.dart';
 import 'package:org_wallet/screens/transaction/add_transaction_screen.dart';
+import 'package:org_wallet/screens/auth/login_screen.dart';
+import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -83,6 +85,26 @@ class _MainDashboardState extends State<MainDashboard> {
                   leading: const Icon(Icons.people),
                   title: const Text('Manage Members (Approve/Decline)'),
                   onTap: () => _handleMenuSelection('manage_members', context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.qr_code),
+                  title: const Text('Invite QR'),
+                  onTap: () {
+                    // Open QR generator screen for current organization
+                    if (authService.organization != null) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => QRGeneratorScreen(
+                            organization: authService.organization!,
+                          ),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('No organization selected')),
+                      );
+                    }
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.download),
@@ -174,6 +196,10 @@ class _MainDashboardState extends State<MainDashboard> {
             onPressed: () {
               Navigator.of(context).pop();
               Provider.of<AuthService>(context, listen: false).signOut();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
             },
             child: const Text('Logout'),
           ),
