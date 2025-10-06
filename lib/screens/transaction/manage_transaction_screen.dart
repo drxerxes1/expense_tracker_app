@@ -202,6 +202,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                 for (final c in [...defaultExpenseCategories, ...defaultFundCategories]) {
                                   catsMap.putIfAbsent(c.id, () => CategoryModel(id: c.id, name: c.name, type: c.type));
                                 }
+                                // Remove explicit School Fund and Club Fund entries from the selectable category list
+                                // These are special fund buckets; users should select specific fund categories instead
+                                catsMap.removeWhere((key, value) => key == 'school_funds' || key == 'club_funds');
                               }
                               _categories = catsMap.values.toList();
                               if (_categories.isEmpty) {

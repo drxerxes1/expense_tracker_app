@@ -49,68 +49,7 @@ class TransactionsScreen extends StatefulWidget {
 }
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
-  // Track optimistic deletions (tombstones) to hide items immediately
   final Set<String> _tombstonedIds = {};
-  Future<void> _showServerDebugInfo(BuildContext context, String? orgId) async {
-    if (orgId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No organization selected')),
-      );
-      return;
-    }
-    try {
-      final txs = await TransactionService().getAllTransactions(orgId, range: widget.dateRange);
-      final totalCount = txs.length;
-      double fundsAdded = 0, expenses = 0;
-      double schoolFundsAdded = 0, schoolFundsExpense = 0;
-      double clubFundsAdded = 0, clubFundsExpense = 0;
-      for (final tx in txs) {
-        final amt = tx.amount;
-        if (tx.type == 'fund') {
-          fundsAdded += amt;
-          if (tx.categoryId == 'school_funds') schoolFundsAdded += amt;
-          if (tx.categoryId == 'club_funds') clubFundsAdded += amt;
-        } else if (tx.type == 'expense') {
-          expenses += amt;
-          if (tx.categoryId == 'school_funds') schoolFundsExpense += amt;
-          if (tx.categoryId == 'club_funds') clubFundsExpense += amt;
-        }
-      }
-      final totalBalance = fundsAdded - expenses;
-      final schoolRemaining = schoolFundsAdded - schoolFundsExpense;
-      final clubRemaining = clubFundsAdded - clubFundsExpense;
-
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Server transactions (debug)'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Count: $totalCount'),
-                const SizedBox(height: 8),
-                Text('Total balance: ${totalBalance.toStringAsFixed(2)}'),
-                Text('School funds remaining: ${schoolRemaining.toStringAsFixed(2)}'),
-                Text('Club funds remaining: ${clubRemaining.toStringAsFixed(2)}'),
-                const SizedBox(height: 12),
-                const Text('Sample (first 5):', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                ...txs.take(5).map((t) => Text('- ${t.id}: ${t.type} ${t.amount.toStringAsFixed(2)} (${t.categoryId})'))
-              ],
-            ),
-          ),
-          actions: [
-            FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
-          ],
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching server transactions: $e')),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,41 +67,42 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final txs = (snapshot.data ?? []).where((t) => !_tombstonedIds.contains(t.id)).toList();
-
-              // Calculate balances (sums are kept raw, display uses abs to avoid
-              // confusing negatives if stored values are negative). Totals are
-              // computed as funds added minus expenses.
+              final txs = (snapshot.data ?? [])
+                  .where((t) => !_tombstonedIds.contains(t.id))
+                  .toList();
               double fundsAdded = 0, expenses = 0;
               double schoolFundsAdded = 0, schoolFundsExpense = 0;
               double clubFundsAdded = 0, clubFundsExpense = 0;
               for (final tx in txs) {
                 final amt = tx.amount;
+                final targetId = tx.fundId.isNotEmpty
+                    ? tx.fundId
+                    : tx.categoryId;
                 if (tx.type == 'fund') {
                   fundsAdded += amt;
-                  if (tx.categoryId == 'school_funds') {
+                  if (targetId == 'school_funds') {
                     schoolFundsAdded += amt;
                   }
-                  if (tx.categoryId == 'club_funds') {
+                  if (targetId == 'club_funds') {
                     clubFundsAdded += amt;
                   }
                 } else if (tx.type == 'expense') {
                   expenses += amt;
-                  if (tx.categoryId == 'school_funds') {
+                  if (targetId == 'school_funds') {
                     schoolFundsExpense += amt;
                   }
-                  if (tx.categoryId == 'club_funds') {
+                  if (targetId == 'club_funds') {
                     clubFundsExpense += amt;
                   }
                 }
               }
               final totalBalance = fundsAdded - expenses;
-              final schoolFundsRemaining = schoolFundsAdded - schoolFundsExpense;
+              final schoolFundsRemaining =
+                  schoolFundsAdded - schoolFundsExpense;
               final clubFundsRemaining = clubFundsAdded - clubFundsExpense;
 
               return Column(
                 children: [
-                  // 🔹 Section 1: Balances block
                   Container(
                     width: double.infinity,
                     color: TWColors.slate.shade200,
@@ -181,25 +121,29 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 color: TWColors.slate.shade900.withOpacity(0.5),
                               ),
                             ),
-                            if (kDebugMode) ...[
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.bug_report, size: 18),
-                                tooltip: 'Debug: fetch server transactions',
-                                onPressed: () => _showServerDebugInfo(context, Provider.of<AuthService>(context, listen: false).currentOrgId),
-                              ),
-                            ]
                           ],
                         ),
                         const SizedBox(height: 6),
-                        CurrencyAmount(
-                          value: totalBalance.abs(),
-                          iconSize: 18,
-                          textStyle: GoogleFonts.poppins(
-                            fontWeight: FontWeight.bold,
-                            color: TWColors.slate.shade900,
-                            fontSize: 28,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SvgPicture.asset(
+                              'assets/svg/philippine-peso-icon.svg',
+                              width: 18,
+                              height: 18,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${totalBalance < 0 ? '-' : ''}${totalBalance.abs().toStringAsFixed(2)}',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                color: totalBalance < 0
+                                    ? Colors.red
+                                    : TWColors.slate.shade900,
+                                fontSize: 28,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
 
@@ -227,14 +171,26 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    CurrencyAmount(
-                                      value: schoolFundsRemaining.abs(),
-                                      iconSize: 14,
-                                      textStyle: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.bold,
-                                        color: TWColors.slate.shade900,
-                                        fontSize: 20,
-                                      ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SvgPicture.asset(
+                                          'assets/svg/philippine-peso-icon.svg',
+                                          width: 14,
+                                          height: 14,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '${schoolFundsRemaining < 0 ? '-' : ''}${schoolFundsRemaining.abs().toStringAsFixed(2)}',
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.bold,
+                                            color: schoolFundsRemaining < 0
+                                                ? Colors.red
+                                                : TWColors.slate.shade900,
+                                            fontSize: 20,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -261,14 +217,26 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    CurrencyAmount(
-                                      value: clubFundsRemaining.abs(),
-                                      iconSize: 14,
-                                      textStyle: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.bold,
-                                        color: TWColors.slate.shade900,
-                                        fontSize: 20,
-                                      ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SvgPicture.asset(
+                                          'assets/svg/philippine-peso-icon.svg',
+                                          width: 14,
+                                          height: 14,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '${clubFundsRemaining < 0 ? '-' : ''}${clubFundsRemaining.abs().toStringAsFixed(2)}',
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.bold,
+                                            color: clubFundsRemaining < 0
+                                                ? Colors.red
+                                                : TWColors.slate.shade900,
+                                            fontSize: 20,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -284,7 +252,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   const SizedBox(height: 16),
                   Expanded(
                     child: txs.isEmpty
-            ? Center(
+                        ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -309,16 +277,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             ),
                           )
                         : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount: txs.length,
-                              itemBuilder: (context, index) {
-                                final tx = txs[index];
-                                return TransactionListItem(
-                                  transaction: tx,
-                                  onRequestDelete: (id) => _handleRequestDelete(id, tx.orgId),
-                                );
-                              },
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: txs.length,
+                            itemBuilder: (context, index) {
+                              final tx = txs[index];
+                              return TransactionListItem(
+                                transaction: tx,
+                                onRequestDelete: (id) =>
+                                    _handleRequestDelete(id, tx.orgId),
+                                onEdited: () {
+                                  // trigger rebuild to refresh balances immediately
+                                  setState(() {});
+                                },
+                              );
+                            },
+                          ),
                   ),
                 ],
               );
@@ -341,13 +314,19 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     });
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
-      await TransactionService().deleteTransaction(orgId, id, by: auth.firebaseUser?.uid);
+      await TransactionService().deleteTransaction(
+        orgId,
+        id,
+        by: auth.firebaseUser?.uid,
+      );
     } catch (e) {
       // revert tombstone
       setState(() {
         _tombstonedIds.remove(id);
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
     }
   }
 
@@ -358,7 +337,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 class TransactionListItem extends StatelessWidget {
   final model.AppTransaction transaction;
   final Future<void> Function(String id)? onRequestDelete;
-  const TransactionListItem({super.key, required this.transaction, this.onRequestDelete});
+  final VoidCallback? onEdited;
+  const TransactionListItem({
+    super.key,
+    required this.transaction,
+    this.onRequestDelete,
+    this.onEdited,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -372,9 +357,14 @@ class TransactionListItem extends StatelessWidget {
     final icon = getCategoryIcon(transaction.categoryId);
     return GestureDetector(
       onTap: () async {
-        await Navigator.of(context).push<bool?>(
-          MaterialPageRoute(builder: (_) => TransactionScreen(transaction: transaction)),
+        final changed = await Navigator.of(context).push<bool?>(
+          MaterialPageRoute(
+            builder: (_) => TransactionScreen(transaction: transaction),
+          ),
         );
+        if (changed == true) {
+          if (onEdited != null) onEdited!();
+        }
       },
       onLongPress: () async {
         showModalBottomSheet(
@@ -386,24 +376,43 @@ class TransactionListItem extends StatelessWidget {
                   ListTile(
                     leading: const Icon(Icons.edit),
                     title: const Text('Edit'),
-                    onTap: () {
+                    onTap: () async {
                       Navigator.of(ctx).pop();
-                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => TransactionScreen(transaction: transaction)));
+                      final changed = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              TransactionScreen(transaction: transaction),
+                        ),
+                      );
+                      if (changed == true) {
+                        if (onEdited != null) onEdited!();
+                      }
                     },
                   ),
                   ListTile(
                     leading: const Icon(Icons.delete, color: Colors.red),
-                    title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                    title: const Text(
+                      'Delete',
+                      style: TextStyle(color: Colors.red),
+                    ),
                     onTap: () async {
                       Navigator.of(ctx).pop();
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (dctx) => AlertDialog(
                           title: const Text('Delete transaction'),
-                          content: const Text('Are you sure you want to delete this transaction?'),
+                          content: const Text(
+                            'Are you sure you want to delete this transaction?',
+                          ),
                           actions: [
-                            TextButton(onPressed: () => Navigator.of(dctx).pop(false), child: const Text('Cancel')),
-                            ElevatedButton(onPressed: () => Navigator.of(dctx).pop(true), child: const Text('Delete')),
+                            TextButton(
+                              onPressed: () => Navigator.of(dctx).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(dctx).pop(true),
+                              child: const Text('Delete'),
+                            ),
                           ],
                         ),
                       );
@@ -448,7 +457,10 @@ class TransactionListItem extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 4.0),
                         child: Text(
                           transaction.note,
-                          style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 14,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),

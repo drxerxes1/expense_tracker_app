@@ -9,8 +9,9 @@ class AppTransaction {
   final String addedBy;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final String type; // 'expense' or 'fund'
+  final String type;
   final String categoryName;
+  final String fundId;
 
   AppTransaction({
     required this.id,
@@ -23,6 +24,7 @@ class AppTransaction {
     required this.updatedAt,
     required this.type,
     required this.categoryName,
+    required this.fundId,
   });
 
   static Future<AppTransaction> fromFirestoreAsync(
@@ -60,6 +62,7 @@ class AppTransaction {
         categoryName = 'Unknown';
       }
     }
+    final fundId = (data['fundId'] ?? '').toString();
     return AppTransaction(
       id: doc.id,
       orgId: (data['orgId'] ?? '').toString(),
@@ -71,6 +74,7 @@ class AppTransaction {
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       type: type,
       categoryName: categoryName,
+      fundId: fundId,
     );
   }
 
@@ -85,6 +89,7 @@ class AppTransaction {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'type': type,
       'categoryName': categoryName,
+      'fundId': fundId,
     };
   }
 }
