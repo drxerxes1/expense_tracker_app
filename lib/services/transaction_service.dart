@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:org_wallet/models/transaction.dart';
@@ -12,13 +14,22 @@ class TransactionService {
     required String note,
     required String addedBy,
     required CategoryType expectedType,
+    required String type, // 'expense' or 'fund'
+    String? fundId,
+    DateTime? date,
   }) async {
     // Validate category type
     final catSnap = await _categories(orgId).doc(categoryId).get();
-    if (!catSnap.exists) throw Exception('Category not found');
-    final category = CategoryModel.fromFirestore(catSnap);
-    if (category.type != expectedType) {
-      throw Exception('Category type mismatch: expected ${expectedType.toShortString()}, got ${category.type.toShortString()}');
+    CategoryModel category;
+    if (!catSnap.exists) {
+      // Allow creating transactions for categories that exist only locally (defaults).
+      // Fall back to the expectedType provided by the caller instead of failing.
+      category = CategoryModel(id: categoryId, name: categoryId, type: expectedType);
+    } else {
+      category = CategoryModel.fromFirestore(catSnap);
+      if (category.type != expectedType) {
+        throw Exception('Category type mismatch: expected ${expectedType.toShortString()}, got ${category.type.toShortString()}');
+      }
     }
     final txDoc = _org(orgId).doc();
     await txDoc.set({
@@ -28,8 +39,10 @@ class TransactionService {
       'categoryId': categoryId,
       'note': note,
       'addedBy': addedBy,
-      'createdAt': Timestamp.fromDate(DateTime.now()),
-      'updatedAt': Timestamp.fromDate(DateTime.now()),
+      'type': type,
+      'fundId': fundId ?? '',
+      'createdAt': Timestamp.fromDate(date ?? DateTime.now()),
+      'updatedAt': Timestamp.fromDate(date ?? DateTime.now()),
     });
   }
   final FirebaseFirestore _db;
@@ -59,7 +72,35 @@ class TransactionService {
           );
     }
     final categoriesRef = _categories(orgId);
-    return query.snapshots().asyncMap((snap) async {
+    // Important: do an initial server-only fetch to avoid showing stale/cache-first
+    // data (for example when local auditTrail/transactions were deleted in the
+    // backend). Emit the server snapshot first, then continue with realtime
+    // snapshots so the UI quickly reflects the authoritative server state.
+    final controller = StreamController<List<AppTransaction>>();
+
+    () async {
+      try {
+        final serverSnap = await query.get(const GetOptions(source: Source.server));
+        final serverTxs = <AppTransaction>[];
+        for (final d in serverSnap.docs) {
+          final tx = await AppTransaction.fromFirestoreAsync(d, categoriesRef);
+          if (type != null) {
+            final catSnap = await categoriesRef.doc(tx.categoryId).get();
+            if (!catSnap.exists) continue;
+            final category = CategoryModel.fromFirestore(catSnap);
+            if (category.type != type) continue;
+          }
+          serverTxs.add(tx);
+        }
+        controller.add(serverTxs);
+      } catch (e) {
+        // If server fetch fails (offline), ignore — realtime snapshots will still
+        // provide cached data.
+        debugPrint('TransactionService.watchTransactions server fetch error: $e');
+      }
+    }();
+
+    final sub = query.snapshots().asyncMap((snap) async {
       final txs = <AppTransaction>[];
       for (final d in snap.docs) {
         final tx = await AppTransaction.fromFirestoreAsync(d, categoriesRef);
@@ -72,7 +113,17 @@ class TransactionService {
         txs.add(tx);
       }
       return txs;
+    }).listen((txs) {
+      controller.add(txs);
+    }, onError: (e, s) {
+      controller.addError(e, s);
     });
+
+    controller.onCancel = () {
+      sub.cancel();
+    };
+
+    return controller.stream;
   }
 
 
@@ -129,6 +180,50 @@ class TransactionService {
       }
     }
     return {'clubFunds': clubFunds, 'schoolFunds': schoolFunds};
+  }
+
+  /// Update an existing transaction document.
+  Future<void> updateTransaction(String orgId, String txId, Map<String, dynamic> updates) async {
+    final docRef = _org(orgId).doc(txId);
+    final data = Map<String, dynamic>.from(updates);
+    data['updatedAt'] = Timestamp.fromDate(DateTime.now());
+    await docRef.update(data);
+
+    // Write audit trail entry for edit
+    try {
+      final auditRef = _db.collection('auditTrail').doc();
+      await auditRef.set({
+        'id': auditRef.id,
+        'expenseId': txId,
+        'action': 'edited',
+        'reason': data['reason'] ?? '',
+        'by': data['updatedBy'] ?? '',
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      debugPrint('Failed to write audit trail for update: $e');
+    }
+  }
+
+  /// Delete a transaction and write an audit trail entry.
+  Future<void> deleteTransaction(String orgId, String txId, {String? by}) async {
+    final docRef = _org(orgId).doc(txId);
+    await docRef.delete();
+    try {
+      final auditRef = _db.collection('auditTrail').doc();
+      await auditRef.set({
+        'id': auditRef.id,
+        'expenseId': txId,
+        'action': 'deleted',
+        'reason': '',
+        'by': by ?? '',
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      debugPrint('Failed to write audit trail for delete: $e');
+    }
   }
 
   Query _rangeQuery(String orgId, DateTimeRange? range) {

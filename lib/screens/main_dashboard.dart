@@ -6,7 +6,7 @@ import 'package:org_wallet/screens/dashboard/transactions_screen.dart';
 import 'package:org_wallet/screens/dashboard/reports_screen.dart';
 import 'package:org_wallet/screens/dashboard/logs_screen.dart';
 import 'package:org_wallet/screens/dashboard/org_info_screen.dart';
-import 'package:org_wallet/screens/transaction/add_transaction_screen.dart';
+import 'package:org_wallet/screens/transaction/manage_transaction_screen.dart';
 import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
 
@@ -152,7 +152,7 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
-              onPressed: _showFabActions,
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionScreen())),
               child: const Icon(Icons.add),
             )
           : null,
@@ -220,42 +220,5 @@ class _MainDashboardState extends State<MainDashboard> {
         _selectedDateRange = picked;
       });
     }
-  }
-
-  void _showFabActions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.add_circle_outline),
-                title: const Text('Add Expense'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AddTransactionScreen(),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.edit),
-                title: const Text('Edit Expense'),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 }
