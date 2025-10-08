@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+    match /databases/{database}/documents {
+
+    // Organization-level data: dues and due_payments are stored under each organization
+    match /organizations/{orgId}/dues/{dueId} {
+      // Readable by org members
+      allow read: if isOrgMember(orgId);
+
+      // Create: must be an org member and must include required fields with correct types
+      allow create: if isOrgMember(orgId)
+        && request.resource.data.keys().hasAll(['orgId','name','amount','frequency','dueDate','createdBy','createdAt'])
+        && request.resource.data.orgId == orgId
+        && request.resource.data.name is string
+        && (request.resource.data.amount is number || request.resource.data.amount is int)
+        && request.resource.data.frequency is string
+        && request.resource.data.createdBy is string
+        && request.resource.data.dueDate is timestamp;
+
+      // Update/Delete: creator or org admin can modify/delete
+      allow update, delete: if isOrgMember(orgId) && (resource.data.createdBy == request.auth.uid || isOrgAdmin(orgId));
+
+      // Subcollection: due_payments
+      match /due_payments/{paymentId} {
+        // Members of the org can read payments
+        allow read: if isOrgMember(orgId);
+
+        // Enforce payment doc id == userId to guarantee uniqueness (dueId, userId)
+        allow create: if isOrgMember(orgId)
+          && request.auth.uid == request.resource.id
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.dueId == dueId
+          && (request.resource.data.amount is number || request.resource.data.amount is int)
+          && (request.resource.data.transactionId is string || request.resource.data.transactionId == null);
+
+        // Allow the payment owner or org admins to update their payment (e.g., attach transactionId / paidAt)
+        allow update: if isOrgMember(orgId) && (request.auth.uid == resource.data.userId || isOrgAdmin(orgId));
+
+        // Only org admins can delete payment records
+        allow delete: if isOrgMember(orgId) && isOrgAdmin(orgId);
+      }
+
+      // Protect meta/summary docs (only org admins or server functions should write)
+      match /meta/{docId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgAdmin(orgId);
+      }
+    }
+
+    // Helper rules
+    function isOrgMember(orgId) {
+      return request.auth != null && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function isOrgAdmin(orgId) {
+      return request.auth != null && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
