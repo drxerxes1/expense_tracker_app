@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+
 class DueModel {
   final String id;
   final String orgId;
@@ -22,6 +23,28 @@ class DueModel {
     this.createdAt,
     this.updatedAt,
   });
+
+  /// Named constructor for creating a new Due (no id, no timestamps)
+  factory DueModel.create({
+    required String orgId,
+    required String name,
+    required double amount,
+    required String frequency,
+    required DateTime dueDate,
+    required String createdBy,
+  }) {
+    return DueModel(
+      id: '',
+      orgId: orgId,
+      name: name,
+      amount: amount,
+      frequency: frequency,
+      dueDate: dueDate,
+      createdBy: createdBy,
+      createdAt: null,
+      updatedAt: null,
+    );
+  }
 
   factory DueModel.fromFirestore(DocumentSnapshot snap) {
     final data = snap.data() as Map<String, dynamic>? ?? {};

@@ -14,10 +14,19 @@ class DuesService {
   CollectionReference _duePayments(String orgId, String dueId) => _dueDoc(orgId, dueId).collection('due_payments');
 
   // Create a due and return the new document id
+  /// Accepts a partial DueModel (id can be empty, timestamps null)
   Future<DueModel> createDue({required DueModel due}) async {
     final docRef = _orgDues(due.orgId).doc();
-    // toMap uses serverTimestamp for createdAt when null
-    await docRef.set(due.toMap());
+    // Use toMap, but don't include id (Firestore will assign doc id)
+    await docRef.set({
+      'orgId': due.orgId,
+      'name': due.name,
+      'amount': due.amount,
+      'frequency': due.frequency,
+      'dueDate': Timestamp.fromDate(due.dueDate),
+      'createdBy': due.createdBy,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
     final snap = await docRef.get();
     return DueModel.fromFirestore(snap);
   }
