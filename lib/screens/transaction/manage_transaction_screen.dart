@@ -10,6 +10,7 @@ import 'package:org_wallet/models/category.dart';
 import 'package:org_wallet/constants/default_categories.dart';
 import 'package:org_wallet/widgets/custom_text_field.dart';
 import 'package:org_wallet/services/transaction_service.dart';
+import 'package:org_wallet/screens/transaction/collection_tab.dart';
 import 'package:org_wallet/services/auth_service.dart';
 
 class TransactionScreen extends StatefulWidget {
@@ -62,8 +63,31 @@ class _TransactionScreenState extends State<TransactionScreen> {
       final orgId = widget.transaction?.orgId ?? auth.currentOrgId;
       if (orgId == null) throw Exception('No organization selected');
       final amount = double.parse(_amountController.text);
-      final type = _tabIndex == 0 ? 'expense' : 'fund';
-      final fundId = _selectedFundId;
+      String type;
+      String? fundId;
+      String categoryIdToUse = _selectedCategoryId ?? '';
+      if (_tabIndex == 2) {
+        // Collection tab: treat as fund addition to club_funds and category 'collections'
+        type = 'fund';
+        fundId = 'club_funds';
+        categoryIdToUse = 'collections';
+        // Ensure 'collections' category exists in org categories with type 'fund'
+        final catRef = FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(orgId)
+            .collection('categories')
+            .doc(categoryIdToUse);
+        final catSnap = await catRef.get();
+        if (!catSnap.exists) {
+          await catRef.set({
+            'name': 'Collections',
+            'type': 'fund',
+          });
+        }
+      } else {
+        type = _tabIndex == 0 ? 'expense' : 'fund';
+        fundId = _selectedFundId;
+      }
       if (widget.transaction == null) {
         // Add mode
         if (_selectedCategoryModel == null) {
@@ -79,7 +103,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
         await TransactionService().createTransaction(
           orgId: orgId,
           amount: amount,
-          categoryId: _selectedCategoryId ?? '',
+          categoryId: categoryIdToUse,
           note: _noteController.text.trim(),
           addedBy: userId,
           expectedType: _selectedCategoryModel?.type ?? CategoryType.fund,
@@ -172,20 +196,48 @@ class _TransactionScreenState extends State<TransactionScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              ToggleButtons(
-                isSelected: [_tabIndex == 0, _tabIndex == 1],
-                onPressed: (i) => setState(() => _tabIndex = i),
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+              // Show/hide tabs based on the tapped transaction type (if present).
+              // Rules:
+              // - If transaction.type == 'collection' => only show Collection tab
+              // - If transaction.type == 'fund' or 'expense' => hide Collection tab (show Expense+Fund)
+              // - If no transaction (creating new) => show all tabs
+              Builder(builder: (context) {
+                final txType = widget.transaction?.type;
+                List<int> visibleIndices;
+                if (txType == null) {
+                  visibleIndices = [0, 1, 2];
+                } else if (txType == 'collection') {
+                  visibleIndices = [2];
+                } else {
+                  // 'fund' or 'expense' or unknown -> show expense and fund
+                  visibleIndices = [0, 1];
+                }
+                // Ensure current tab index is valid
+                if (!visibleIndices.contains(_tabIndex)) {
+                  _tabIndex = visibleIndices.first;
+                }
+
+                final labels = <int, Widget>{
+                  0: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text('Expense'),
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+                  1: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text('Fund'),
                   ),
-                ],
-              ),
+                  2: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('Collection'),
+                  ),
+                };
+
+                return ToggleButtons(
+                  isSelected: visibleIndices.map((i) => _tabIndex == i).toList(),
+                  onPressed: (i) => setState(() => _tabIndex = visibleIndices[i]),
+                  children: visibleIndices.map((i) => labels[i]!).toList(),
+                );
+              }),
               const SizedBox(height: 12),
               Expanded(
                 child: SingleChildScrollView(
@@ -210,6 +262,14 @@ class _TransactionScreenState extends State<TransactionScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
+                        if (_tabIndex == 2)
+                          CollectionTab(
+                            orgId: orgId ?? '',
+                            onAmountChanged: (val) {
+                              _amountController.text = val.toStringAsFixed(2);
+                            },
+                          ),
+                        if (_tabIndex != 2) ...[
                         // Category dropdown
                         if (orgId == null)
                           const Text('No organization selected')
@@ -453,7 +513,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
                             labelText: 'Note (optional)',
                           ),
                         ),
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 20),
+                        ],
                         if (!isEdit)
                           FilledButton(
                             onPressed: _isLoading ? null : _save,

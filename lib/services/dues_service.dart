@@ -62,9 +62,16 @@ class DuesService {
     required DuePaymentModel payment,
   }) async {
     final docRef = _duePayments(orgId, payment.dueId).doc(payment.id);
-    await docRef.set(payment.toMap());
-    final snap = await docRef.get();
-    return DuePaymentModel.fromFirestore(snap);
+    // Use a transaction to ensure we don't create duplicate payments for the same user+due
+    return await _db.runTransaction<DuePaymentModel>((tx) async {
+      final existing = await tx.get(docRef);
+      if (existing.exists) {
+        return DuePaymentModel.fromFirestore(existing);
+      }
+      tx.set(docRef, payment.toMap());
+      final created = await tx.get(docRef);
+      return DuePaymentModel.fromFirestore(created);
+    });
   }
 
   Future<DuePaymentModel> updateDuePayment({
