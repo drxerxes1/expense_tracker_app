@@ -9,6 +9,7 @@ import 'package:org_wallet/screens/dashboard/org_info_screen.dart';
 import 'package:org_wallet/screens/transaction/manage_transaction_screen.dart';
 import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
+import 'package:org_wallet/screens/dues/manage_dues_screen.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -80,6 +81,13 @@ class _MainDashboardState extends State<MainDashboard> {
                   leading: const Icon(Icons.edit),
                   title: const Text('Edit Organization'),
                   onTap: () => _handleMenuSelection('edit_org', context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.playlist_add),
+                  title: const Text('Manage Dues'),
+                  onTap: () {
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ManageDuesScreen()));
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.people),
