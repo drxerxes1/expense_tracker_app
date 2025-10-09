@@ -7,6 +7,7 @@ import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/models/due_payment.dart';
 import 'package:org_wallet/models/due.dart';
+import 'package:org_wallet/models/officer.dart';
 
 class CollectionTab extends StatefulWidget {
   final String orgId;
@@ -295,23 +296,33 @@ class _CollectionTabState extends State<CollectionTab> {
           const SizedBox(height: 8),
           // Use shrinkWrap list so this tab can be placed inside a scrollable parent
           StreamBuilder<QuerySnapshot>(
+            // Query only by orgId; status representations vary (string vs index),
+            // so filter approved members client-side to handle both forms.
             stream: FirebaseFirestore.instance
                 .collection('officers')
                 .where('orgId', isEqualTo: widget.orgId)
-                .where('status', isEqualTo: 'approved')
                 .snapshots(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               final docs = snap.data?.docs ?? [];
-              if (docs.isEmpty) return const Center(child: Text('No members'));
+              // normalize/filter approved
+              final approved = docs.where((doc) {
+                final m = doc.data() as Map<String, dynamic>;
+                final status = m['status'];
+                if (status == null) return false;
+                if (status is String) return status == 'approved';
+                if (status is int) return status == OfficerStatus.approved.index;
+                return false;
+              }).toList();
+              if (approved.isEmpty) return const Center(child: Text('No members'));
               return ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: docs.length,
+                itemCount: approved.length,
                 itemBuilder: (context, i) {
-                  final m = docs[i].data() as Map<String, dynamic>;
+                  final m = approved[i].data() as Map<String, dynamic>;
                   final userId = (m['userId'] ?? '').toString();
                   final name = (m['name'] ?? m['email'] ?? userId).toString();
                   final processing = _processing[userId] == true;

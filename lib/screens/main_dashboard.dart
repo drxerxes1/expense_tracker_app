@@ -10,6 +10,7 @@ import 'package:org_wallet/screens/transaction/manage_transaction_screen.dart';
 import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
 import 'package:org_wallet/screens/dues/manage_dues_screen.dart';
+import 'package:org_wallet/screens/organization/manage_members_screen.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -91,7 +92,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.people),
-                  title: const Text('Manage Members (Approve/Decline)'),
+                  title: const Text('Manage Members'),
                   onTap: () => _handleMenuSelection('manage_members', context),
                 ),
                 ListTile(
@@ -175,7 +176,7 @@ class _MainDashboardState extends State<MainDashboard> {
         // Navigate to edit organization screen
         break;
       case 'manage_members':
-        // Navigate to manage members screen
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ManageMembersScreen()));
         break;
       case 'export_reports':
         // Navigate to export reports screen
