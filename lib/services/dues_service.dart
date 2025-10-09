@@ -48,7 +48,9 @@ class DuesService {
     // Delete the due and its subcollection documents (client-side cascading)
     final payments = await _duePayments(orgId, dueId).get();
     final batch = _db.batch();
-    for (final p in payments.docs) batch.delete(p.reference);
+    for (final p in payments.docs) {
+      batch.delete(p.reference);
+    }
     batch.delete(_dueDoc(orgId, dueId));
     await batch.commit();
   }
