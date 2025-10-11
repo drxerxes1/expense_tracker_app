@@ -31,39 +31,24 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
 
   // payment status map userId -> paid
   final Map<String, bool> _paid = {};
+  // Map of session-created payment doc ids for undoing creations: userId -> docId
+  final Map<String, String> _sessionCreatedDocIds = {};
 
   @override
   void initState() {
     super.initState();
     _dueService = DueService();
     _duesService = DuesService();
+    // initialize text controllers with existing values when editing
     _nameCtrl = TextEditingController(text: widget.existing?.name ?? '');
     _amountCtrl = TextEditingController(
-      text: widget.existing?.amount.toString() ?? '',
-    );
-    _dueDate = widget.existing?.dueDate ?? DateTime.now();
-    _frequency = widget.existing?.frequency ?? 'monthly';
+        text: widget.existing != null ? widget.existing!.amount.toString() : '');
     if (widget.existing != null) {
-      _loadPayments();
+      _dueDate = widget.existing!.dueDate;
+      _frequency = widget.existing!.frequency;
     }
   }
-
-  Future<void> _loadPayments() async {
-    if (widget.existing == null) return;
-    try {
-      final payments = await _duesService.listDuePayments(
-        widget.orgId,
-        widget.existing!.id,
-      );
-      setState(() {
-        _paid.clear();
-        for (final p in payments) {
-          _paid[p.userId] = true;
-        }
-      });
-    } catch (_) {}
-  }
-
+  
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -252,74 +237,100 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                             final paid = _paid[userId] == true;
                             return ListTile(
                               title: Text(name),
-                              trailing: paid
-                                  ? const Chip(label: Text('Paid'))
-                                  : const Text('Unpaid'),
+                              trailing: paid ? const Chip(label: Text('Paid')) : const Text('Unpaid'),
                               onTap: () async {
-                                // toggle payment
                                 if (widget.existing == null) return;
                                 final dueId = widget.existing!.id;
+                                final createdDocId = _sessionCreatedDocIds[userId];
                                 if (paid) {
-                                  // delete payment
+                                  // Attempt to delete session-created or existing payment
                                   try {
-                                    await _duesService.deleteDuePayment(
-                                      orgId: widget.orgId,
-                                      dueId: dueId,
-                                      paymentId: userId,
-                                    );
-                                    setState(() {
-                                      _paid.remove(userId);
-                                    });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Payment removed'),
-                                      ),
-                                    );
+                                    if (createdDocId != null) {
+                                      await FirebaseFirestore.instance
+                                          .collection('organizations')
+                                          .doc(widget.orgId)
+                                          .collection('dues')
+                                          .doc(dueId)
+                                          .collection('due_payments')
+                                          .doc(createdDocId)
+                                          .delete();
+                                      _sessionCreatedDocIds.remove(userId);
+                                    } else {
+                                      // try delete doc with id == userId
+                                      final docRef = FirebaseFirestore.instance
+                                          .collection('organizations')
+                                          .doc(widget.orgId)
+                                          .collection('dues')
+                                          .doc(dueId)
+                                          .collection('due_payments')
+                                          .doc(userId);
+                                      final doc = await docRef.get();
+                                      if (doc.exists) {
+                                        await docRef.delete();
+                                      } else {
+                                        final q = await FirebaseFirestore.instance
+                                            .collection('organizations')
+                                            .doc(widget.orgId)
+                                            .collection('dues')
+                                            .doc(dueId)
+                                            .collection('due_payments')
+                                            .where('userId', isEqualTo: userId)
+                                            .limit(1)
+                                            .get();
+                                        if (q.docs.isNotEmpty) await q.docs.first.reference.delete();
+                                        else throw Exception('Payment doc not found');
+                                      }
+                                    }
+                                    setState(() => _paid.remove(userId));
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment removed')));
                                   } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Failed to remove payment: $e',
-                                        ),
-                                      ),
-                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to remove payment: $e')));
                                   }
                                 } else {
-                                  // create payment (id == userId to enforce uniqueness)
+                                  // create payment with fallback
                                   try {
                                     final payment = DuePaymentModel(
                                       id: userId,
                                       dueId: dueId,
                                       userId: userId,
                                       transactionId: '',
-                                      amount:
-                                          double.tryParse(_amountCtrl.text) ??
-                                          widget.existing?.amount ??
-                                          0.0,
+                                      amount: double.tryParse(_amountCtrl.text) ?? widget.existing?.amount ?? 0.0,
                                       paidAt: DateTime.now(),
                                       createdAt: DateTime.now(),
                                       updatedAt: DateTime.now(),
                                     );
-                                    await _duesService.createDuePayment(
-                                      orgId: widget.orgId,
-                                      payment: payment,
-                                    );
+                                    final created = await _duesService.createDuePayment(orgId: widget.orgId, payment: payment);
                                     setState(() {
                                       _paid[userId] = true;
+                                      _sessionCreatedDocIds[userId] = created.id;
                                     });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Payment recorded'),
-                                      ),
-                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded')));
                                   } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Failed to record payment: $e',
-                                        ),
-                                      ),
-                                    );
+                                    try {
+                                      final paymentsColl = FirebaseFirestore.instance
+                                          .collection('organizations')
+                                          .doc(widget.orgId)
+                                          .collection('dues')
+                                          .doc(dueId)
+                                          .collection('due_payments');
+                                      final now = DateTime.now();
+                                      final ref = await paymentsColl.add({
+                                        'dueId': dueId,
+                                        'userId': userId,
+                                        'transactionId': '',
+                                        'amount': double.tryParse(_amountCtrl.text) ?? widget.existing?.amount ?? 0.0,
+                                        'paidAt': Timestamp.fromDate(now),
+                                        'createdAt': Timestamp.fromDate(now),
+                                        'updatedAt': Timestamp.fromDate(now),
+                                      });
+                                      setState(() {
+                                        _paid[userId] = true;
+                                        _sessionCreatedDocIds[userId] = ref.id;
+                                      });
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded')));
+                                    } catch (e2) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to record payment: $e')));
+                                    }
                                   }
                                 }
                               },

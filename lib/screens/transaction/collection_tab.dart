@@ -12,7 +12,17 @@ import 'package:org_wallet/models/officer.dart';
 class CollectionTab extends StatefulWidget {
   final String orgId;
   final ValueChanged<double>? onAmountChanged;
-  const CollectionTab({super.key, required this.orgId, this.onAmountChanged});
+  final ValueChanged<Set<String>>? onSelectionChanged;
+  final ValueChanged<String?>? onSelectedDueChanged;
+  final bool createPaymentsImmediately;
+  const CollectionTab({
+    super.key,
+    required this.orgId,
+    this.onAmountChanged,
+    this.onSelectionChanged,
+    this.onSelectedDueChanged,
+    this.createPaymentsImmediately = true,
+  });
 
   @override
   State<CollectionTab> createState() => _CollectionTabState();
@@ -27,6 +37,8 @@ class _CollectionTabState extends State<CollectionTab> {
   List<DueModel> _dues = [];
   // Track which userIds we created payments for during this session to avoid duplicates
   final Set<String> _sessionPaidUserIds = {};
+  // Map userId -> created payment doc id (may be userId or auto-id) for undo
+  final Map<String, String> _sessionCreatedDocIds = {};
   // Track userIds that already had payments before this session (loaded from Firestore)
   final Set<String> _existingPaidUserIds = {};
 
@@ -66,11 +78,27 @@ class _CollectionTabState extends State<CollectionTab> {
     String userName,
     bool checked,
   ) async {
+    // If createPaymentsImmediately is false (we're in Add Transaction flow),
+    // only update selection state locally and notify parent; do not write payments yet.
+    if (widget.createPaymentsImmediately == false) {
+      setState(() {
+        if (!checked) {
+          _selected.remove(userId);
+        } else {
+          _selected[userId] = true;
+        }
+      });
+      if (widget.onSelectionChanged != null) widget.onSelectionChanged!(_selected.keys.toSet());
+      _recalculateTotalForSelectedMembers();
+      if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+      return;
+    }
+
     if (!checked) {
       setState(() {
         _selected.remove(userId);
       });
-      // For simplicity we don't rollback payments when unchecked
+      // For simplicity we don't rollback payments when unchecked (immediate-mode)
       return;
     }
 
@@ -114,28 +142,68 @@ class _CollectionTabState extends State<CollectionTab> {
         return;
       }
 
-      // Use userId as payment id to ensure uniqueness per due (DuesService uses the doc id)
-      final payment = DuePaymentModel(
-        id: userId,
-        dueId: selectedDue.id,
-        userId: userId,
-        transactionId: '',
-        amount: dueAmount,
-        paidAt: DateTime.now(),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      await _duesService.createDuePayment(orgId: widget.orgId, payment: payment);
+      // Try to create the payment using the DuesService (doc id == userId).
+      // If that fails due to permission rules (e.g., president writing another user's doc id),
+      // fall back to creating an auto-id payment document that contains the userId field.
+      bool created = false;
+      String? createdDocId;
+      try {
+        final payment = DuePaymentModel(
+          id: userId,
+          dueId: selectedDue.id,
+          userId: userId,
+          transactionId: '',
+          amount: dueAmount,
+          paidAt: DateTime.now(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        final createdPayment = await _duesService.createDuePayment(orgId: widget.orgId, payment: payment);
+        created = true;
+        createdDocId = createdPayment.id;
+      } catch (e) {
+        // Fallback: create an auto-id payment doc with userId field set
+        try {
+          final paymentsColl = FirebaseFirestore.instance
+              .collection('organizations')
+              .doc(widget.orgId)
+              .collection('dues')
+              .doc(selectedDue.id)
+              .collection('due_payments');
+          final now = DateTime.now();
+          final ref = await paymentsColl.add({
+            'dueId': selectedDue.id,
+            'userId': userId,
+            'transactionId': '',
+            'amount': dueAmount,
+            'paidAt': Timestamp.fromDate(now),
+            'createdAt': Timestamp.fromDate(now),
+            'updatedAt': Timestamp.fromDate(now),
+          });
+          created = true;
+          createdDocId = ref.id;
+        } catch (e2) {
+          // if fallback also fails, rethrow original error to be shown to user
+          rethrow;
+        }
+      }
 
-      setState(() {
-        _selected[userId] = true;
-        _sessionPaidUserIds.add(userId);
-        _totalCollected += dueAmount;
-      });
-      if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+      if (created) {
+        setState(() {
+          _selected[userId] = true;
+          _sessionPaidUserIds.add(userId);
+          if (createdDocId != null) _sessionCreatedDocIds[userId] = createdDocId;
+          _totalCollected += dueAmount;
+        });
+      }
+      if (widget.onAmountChanged != null) {
+        widget.onAmountChanged!(_totalCollected);
+      }
       // After creating payment, recalc to ensure consistency
       _recalculateTotalForSelectedMembers();
-      if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+      if (widget.onAmountChanged != null) {
+        widget.onAmountChanged!(_totalCollected);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error collecting for $userName: $e')),
@@ -164,18 +232,29 @@ class _CollectionTabState extends State<CollectionTab> {
     }
   }
 
+  // Expose selected user ids for parent when in delayed mode
+  Set<String> getSelectedUserIds() => _selected.keys.toSet();
+
+  String? get selectedDueId => _selectedDueId;
+
   Future<bool> _hasExistingPayment(String userId, String dueId) async {
     try {
       // check for a payment doc with id == userId under the due's subcollection
-      final doc = await FirebaseFirestore.instance
+      final paymentsColl = FirebaseFirestore.instance
           .collection('organizations')
           .doc(widget.orgId)
           .collection('dues')
           .doc(dueId)
-          .collection('due_payments')
-          .doc(userId)
-          .get();
-      return doc.exists;
+          .collection('due_payments');
+
+      // 1) Check doc with id == userId (the fast path used elsewhere)
+      final doc = await paymentsColl.doc(userId).get();
+      if (doc.exists) return true;
+
+      // 2) Fallback: some payments may be created with auto-ids and include a userId field.
+      // Query for any payment with the same userId
+      final q = await paymentsColl.where('userId', isEqualTo: userId).limit(1).get();
+      return q.docs.isNotEmpty;
     } catch (_) {
       return false;
     }
@@ -185,7 +264,9 @@ class _CollectionTabState extends State<CollectionTab> {
   void _recalculateTotalForSelectedMembers() {
     if (_selectedDueId == null) {
       setState(() => _totalCollected = 0.0);
-      if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+      if (widget.onAmountChanged != null) {
+        widget.onAmountChanged!(_totalCollected);
+      }
       return;
     }
     double dueAmount = 0.0;
@@ -198,7 +279,9 @@ class _CollectionTabState extends State<CollectionTab> {
     setState(() {
       _totalCollected = selectedCount * dueAmount;
     });
-    if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+    if (widget.onAmountChanged != null) {
+      widget.onAmountChanged!(_totalCollected);
+    }
   }
 
   @override
@@ -313,10 +396,14 @@ class _CollectionTabState extends State<CollectionTab> {
                 final status = m['status'];
                 if (status == null) return false;
                 if (status is String) return status == 'approved';
-                if (status is int) return status == OfficerStatus.approved.index;
+                if (status is int) {
+                  return status == OfficerStatus.approved.index;
+                }
                 return false;
               }).toList();
-              if (approved.isEmpty) return const Center(child: Text('No members'));
+              if (approved.isEmpty) {
+                return const Center(child: Text('No members'));
+              }
               return ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -326,7 +413,9 @@ class _CollectionTabState extends State<CollectionTab> {
                   final userId = (m['userId'] ?? '').toString();
                   final name = (m['name'] ?? m['email'] ?? userId).toString();
                   final processing = _processing[userId] == true;
-                  final isPaid = _existingPaidUserIds.contains(userId) || _sessionPaidUserIds.contains(userId);
+                  final isPaid =
+                      _existingPaidUserIds.contains(userId) ||
+                      _sessionPaidUserIds.contains(userId);
                   return CheckboxListTile(
                     value: isPaid ? true : _selected[userId] == true,
                     title: Text(name),
@@ -338,25 +427,95 @@ class _CollectionTabState extends State<CollectionTab> {
                             child: CircularProgressIndicator(),
                           )
                         : (isPaid
-                            ? Chip(
-                                label: const Text('Paid'),
-                                backgroundColor: Colors.greenAccent.shade100,
-                              )
-                            : null),
-                    onChanged: isPaid
-                        ? null
-                        : (v) {
-                            if (v == true) {
-                              _toggleMember(userId, name, true);
+                              ? Chip(
+                                  label: const Text('Paid'),
+                                  backgroundColor: Colors.greenAccent.shade100,
+                                )
+                              : null),
+                    onChanged: (v) async {
+                      // if already paid (existing) and not created this session,
+                      // attempt to allow uncheck only if we can delete the existing payment doc
+                      final createdDocId = _sessionCreatedDocIds[userId];
+                      if (isPaid) {
+                        if (createdDocId != null) {
+                          // We created this payment in this session: delete it to uncheck
+                          setState(() {
+                            _processing[userId] = true;
+                          });
+                          try {
+                            await FirebaseFirestore.instance
+                                .collection('organizations')
+                                .doc(widget.orgId)
+                                .collection('dues')
+                                .doc(_selectedDueId)
+                                .collection('due_payments')
+                                .doc(createdDocId)
+                                .delete();
+                            setState(() {
+                              _sessionCreatedDocIds.remove(userId);
+                              _sessionPaidUserIds.remove(userId);
+                              _selected.remove(userId);
+                              _recalculateTotalForSelectedMembers();
+                            });
+                            if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to remove payment: $e')));
+                          } finally {
+                            setState(() {
+                              _processing.remove(userId);
+                            });
+                          }
+                        } else {
+                          // Existing payment (from before this session). Try to find and delete it by id==userId first,
+                          // otherwise find any payment doc with userId field and delete it.
+                          bool deleted = false;
+                          try {
+                            final coll = FirebaseFirestore.instance
+                                .collection('organizations')
+                                .doc(widget.orgId)
+                                .collection('dues')
+                                .doc(_selectedDueId)
+                                .collection('due_payments');
+                            final docRef = coll.doc(userId);
+                            final doc = await docRef.get();
+                            if (doc.exists) {
+                              await docRef.delete();
+                              deleted = true;
                             } else {
-                              setState(() {
-                                _selected.remove(userId);
-                                // subtract amount immediately for UI consistency
-                                _recalculateTotalForSelectedMembers();
-                              });
-                              if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+                              // try searching by userId field
+                              final q = await coll.where('userId', isEqualTo: userId).limit(1).get();
+                              if (q.docs.isNotEmpty) {
+                                await q.docs.first.reference.delete();
+                                deleted = true;
+                              }
                             }
-                          },
+                          } catch (_) {}
+                          if (deleted) {
+                            setState(() {
+                              _existingPaidUserIds.remove(userId);
+                              _selected.remove(userId);
+                              _recalculateTotalForSelectedMembers();
+                            });
+                            if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+                          } else {
+                            // cannot delete existing payment - show notice
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot uncheck: existing payment cannot be removed here')));
+                          }
+                        }
+                        return;
+                      }
+
+                      // Not paid yet: toggle selection
+                      if (v == true) {
+                        _toggleMember(userId, name, true);
+                      } else {
+                        setState(() {
+                          _selected.remove(userId);
+                          _recalculateTotalForSelectedMembers();
+                        });
+                        if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+                      }
+                    },
                   );
                 },
               );

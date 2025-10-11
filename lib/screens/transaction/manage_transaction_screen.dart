@@ -11,6 +11,8 @@ import 'package:org_wallet/constants/default_categories.dart';
 import 'package:org_wallet/widgets/custom_text_field.dart';
 import 'package:org_wallet/services/transaction_service.dart';
 import 'package:org_wallet/screens/transaction/collection_tab.dart';
+import 'package:org_wallet/services/dues_service.dart';
+import 'package:org_wallet/models/due_payment.dart';
 import 'package:org_wallet/services/auth_service.dart';
 
 class TransactionScreen extends StatefulWidget {
@@ -33,6 +35,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
   List<CategoryModel> _funds = [];
   int _tabIndex = 0; // 0 = Expense, 1 = Fund
   bool _isLoading = false;
+  // track collection selections reported by CollectionTab
+  Set<String> _collectionSelectedUserIds = {};
+  String? _collectionSelectedDueId;
 
   @override
   void initState() {
@@ -66,8 +71,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
       String type;
       String? fundId;
       String categoryIdToUse = _selectedCategoryId ?? '';
-      if (_tabIndex == 2) {
-        // Collection tab: treat as fund addition to club_funds and category 'collections'
+    if (_tabIndex == 2) {
+      // Collection tab: treat as fund addition to club_funds and category 'collections'
         type = 'fund';
         fundId = 'club_funds';
         categoryIdToUse = 'collections';
@@ -91,16 +96,21 @@ class _TransactionScreenState extends State<TransactionScreen> {
       if (widget.transaction == null) {
         // Add mode
         if (_selectedCategoryModel == null) {
-          // try to fetch category model
+          // try to fetch category model using the actual category id we're going to use
           final catDoc = await FirebaseFirestore.instance
               .collection('organizations')
               .doc(orgId)
               .collection('categories')
-              .doc(_selectedCategoryId)
+              .doc(categoryIdToUse)
               .get();
-          _selectedCategoryModel = CategoryModel.fromFirestore(catDoc);
+          if (catDoc.exists) {
+            _selectedCategoryModel = CategoryModel.fromFirestore(catDoc);
+          } else {
+            // leave _selectedCategoryModel as null; TransactionService will handle missing category
+            _selectedCategoryModel = null;
+          }
         }
-        await TransactionService().createTransaction(
+        final txId = await TransactionService().createTransaction(
           orgId: orgId,
           amount: amount,
           categoryId: categoryIdToUse,
@@ -111,6 +121,50 @@ class _TransactionScreenState extends State<TransactionScreen> {
           fundId: fundId,
           date: _selectedDate,
         );
+
+        // If this is a Collection (we used Collections category), create due_payments for selected members
+        if (_tabIndex == 2 && _collectionSelectedUserIds.isNotEmpty && _collectionSelectedDueId != null) {
+          final duesService = DuesService();
+          for (final memberId in _collectionSelectedUserIds) {
+            try {
+              final payment = DuePaymentModel(
+                id: memberId,
+                dueId: _collectionSelectedDueId!,
+                userId: memberId,
+                transactionId: txId,
+                amount: double.tryParse(_amountController.text) ?? 0.0,
+                paidAt: DateTime.now(),
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              );
+              await duesService.createDuePayment(orgId: orgId, payment: payment);
+            } catch (e) {
+              // Fallback: if writing with doc id == memberId is disallowed by rules,
+              // create an auto-id payment doc with the same fields (best-effort)
+              try {
+                final paymentsColl = FirebaseFirestore.instance
+                    .collection('organizations')
+                    .doc(orgId)
+                    .collection('dues')
+                    .doc(_collectionSelectedDueId!)
+                    .collection('due_payments');
+                final now = DateTime.now();
+                await paymentsColl.add({
+                  'dueId': _collectionSelectedDueId!,
+                  'userId': memberId,
+                  'transactionId': txId,
+                  'amount': double.tryParse(_amountController.text) ?? 0.0,
+                  'paidAt': Timestamp.fromDate(now),
+                  'createdAt': Timestamp.fromDate(now),
+                  'updatedAt': Timestamp.fromDate(now),
+                });
+              } catch (_) {
+                // ignore fallback failure too
+              }
+            }
+          }
+        }
+
         Navigator.of(context).pop(true);
       } else {
         // Edit mode
@@ -265,9 +319,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
                         if (_tabIndex == 2)
                           CollectionTab(
                             orgId: orgId ?? '',
+                            createPaymentsImmediately: false,
                             onAmountChanged: (val) {
                               _amountController.text = val.toStringAsFixed(2);
                             },
+                            onSelectionChanged: (set) => _collectionSelectedUserIds = set,
+                            onSelectedDueChanged: (dueId) => _collectionSelectedDueId = dueId,
                           ),
                         if (_tabIndex != 2) ...[
                         // Category dropdown

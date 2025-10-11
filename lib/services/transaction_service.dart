@@ -7,7 +7,7 @@ import 'package:org_wallet/models/category.dart';
 
 class TransactionService {
   // Create a transaction with category type validation
-  Future<void> createTransaction({
+  Future<String> createTransaction({
     required String orgId,
     required double amount,
     required String categoryId,
@@ -44,6 +44,7 @@ class TransactionService {
       'createdAt': Timestamp.fromDate(date ?? DateTime.now()),
       'updatedAt': Timestamp.fromDate(date ?? DateTime.now()),
     });
+    return txDoc.id;
   }
   final FirebaseFirestore _db;
   TransactionService({FirebaseFirestore? db})
