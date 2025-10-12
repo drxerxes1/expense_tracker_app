@@ -25,7 +25,7 @@ enum AuditAction {
 
 class AuditTrail {
   final String id;
-  final String expenseId;
+  final String transactionId; // Changed from expenseId to be more generic
   final AuditAction action;
   final String reason;
   final String by;
@@ -34,7 +34,7 @@ class AuditTrail {
 
   AuditTrail({
     required this.id,
-    required this.expenseId,
+    required this.transactionId,
     required this.action,
     required this.reason,
     required this.by,
@@ -45,7 +45,7 @@ class AuditTrail {
   factory AuditTrail.fromMap(Map<String, dynamic> map) {
     return AuditTrail(
       id: map['id'] ?? '',
-      expenseId: map['expenseId'] ?? '',
+      transactionId: map['transactionId'] ?? map['expenseId'] ?? '', // Support both field names for backward compatibility
       action: AuditAction.values.firstWhere(
         (e) => e.toString().split('.').last == map['action'],
         orElse: () => AuditAction.created,
@@ -60,7 +60,7 @@ class AuditTrail {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'expenseId': expenseId,
+      'transactionId': transactionId,
       'action': action.toString().split('.').last,
       'reason': reason,
       'by': by,
@@ -71,7 +71,7 @@ class AuditTrail {
 
   AuditTrail copyWith({
     String? id,
-    String? expenseId,
+    String? transactionId,
     AuditAction? action,
     String? reason,
     String? by,
@@ -80,7 +80,7 @@ class AuditTrail {
   }) {
     return AuditTrail(
       id: id ?? this.id,
-      expenseId: expenseId ?? this.expenseId,
+      transactionId: transactionId ?? this.transactionId,
       action: action ?? this.action,
       reason: reason ?? this.reason,
       by: by ?? this.by,

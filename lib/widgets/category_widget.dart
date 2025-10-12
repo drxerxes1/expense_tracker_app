@@ -22,6 +22,9 @@ class CategoryDisplayWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: padding ?? const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      constraints: const BoxConstraints(
+        minHeight: 24.0,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -39,16 +42,19 @@ class CategoryDisplayWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
+          Flexible(
+            fit: FlexFit.loose,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   category.name,
                   style: TextStyle(
                     fontSize: fontSize ?? 14,
                     fontWeight: FontWeight.w500,
+                    height: 1.2, // Reduced line height to prevent overflow
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -59,6 +65,7 @@ class CategoryDisplayWidget extends StatelessWidget {
                     style: TextStyle(
                       fontSize: (fontSize ?? 14) - 2,
                       color: Colors.grey.shade600,
+                      height: 1.2, // Reduced line height to prevent overflow
                     ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
@@ -90,31 +97,35 @@ class CategoryDropdownWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      value: selectedCategoryId,
-      decoration: InputDecoration(
-        labelText: labelText,
-        border: const OutlineInputBorder(),
+    return Container(
+      constraints: const BoxConstraints(
+        minHeight: 68.0, // Even more increased minimum height
       ),
-      items: categories.map((category) {
-        return DropdownMenuItem<String>(
-          value: category.id,
-          child: showIcons
-              ? SizedBox(
-                  width: double.infinity,
-                  child: CategoryDisplayWidget(
+      child: DropdownButtonFormField<String>(
+        value: selectedCategoryId,
+        decoration: InputDecoration(
+          labelText: labelText,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        ),
+        isExpanded: true,
+        items: categories.map((category) {
+          return DropdownMenuItem<String>(
+            value: category.id,
+            child: showIcons
+                ? CategoryDisplayWidget(
                     category: category,
                     iconSize: 20,
                     fontSize: 14,
+                  )
+                : Text(
+                    category.name,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                )
-              : Text(
-                  category.name,
-                  overflow: TextOverflow.ellipsis,
-                ),
-        );
-      }).toList(),
-      onChanged: onChanged,
+          );
+        }).toList(),
+        onChanged: onChanged,
+      ),
     );
   }
 }

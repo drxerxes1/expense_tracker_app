@@ -16,15 +16,23 @@ class ReportsScreen extends StatefulWidget {
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateMixin {
   final String _selectedPeriod = 'This Month';
   List<AppTransaction> _transactions = [];
   bool _isLoading = true;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadTransactions();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTransactions() async {
@@ -88,34 +96,70 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Category Chart
-                  _buildCategoryChart(),
-                  const SizedBox(height: 20),
-
-                  // Expense Ranking
-                  _buildExpenseRanking(),
-                  const SizedBox(height: 20),
-
-                  // Expense Forecast
-                  _buildExpenseForecast(),
-                ],
-              ),
+          : Column(
+              children: [
+                // Tab Bar
+                Container(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  child: TabBar(
+                    controller: _tabController,
+                    tabs: const [
+                      Tab(text: 'Expenses'),
+                      Tab(text: 'Funds'),
+                    ],
+                    labelColor: Theme.of(context).colorScheme.primary,
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                // Tab Content
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Expense Tab
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildCategoryChart('expense'),
+                            const SizedBox(height: 20),
+                            _buildExpenseRanking('expense'),
+                            const SizedBox(height: 20),
+                            _buildExpenseForecast('expense'),
+                          ],
+                        ),
+                      ),
+                      // Fund Tab
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildCategoryChart('fund'),
+                            const SizedBox(height: 20),
+                            _buildExpenseRanking('fund'),
+                            const SizedBox(height: 20),
+                            _buildExpenseForecast('fund'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
     );
   }
 
-  Widget _buildCategoryChart() {
+  Widget _buildCategoryChart(String transactionType) {
     final filteredTxs = _getFilteredTransactions();
-    // Filter to only include expense transactions, exclude fund transactions
-    final expenseTxs = filteredTxs.where((tx) => tx.type == 'expense').toList();
+    // Filter to only include transactions of the specified type
+    final filteredTxsByType = filteredTxs.where((tx) => tx.type == transactionType).toList();
     
     final categoryData = <String, double>{};
-    for (final tx in expenseTxs) {
+    for (final tx in filteredTxsByType) {
       // Use categoryName instead of categoryId for better display
       final categoryName = tx.categoryName.isNotEmpty ? tx.categoryName : tx.categoryId;
       categoryData[categoryName] =
@@ -147,7 +191,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Expenses by Category',
+              '${transactionType == 'expense' ? 'Expenses' : 'Funds'} by Category',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -210,13 +254,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildExpenseRanking() {
+  Widget _buildExpenseRanking(String transactionType) {
     final filteredTxs = _getFilteredTransactions();
-    // Filter to only include expense transactions, exclude fund transactions
-    final expenseTxs = filteredTxs.where((tx) => tx.type == 'expense').toList();
+    // Filter to only include transactions of the specified type
+    final filteredTxsByType = filteredTxs.where((tx) => tx.type == transactionType).toList();
     
     final categoryData = <String, double>{};
-    for (final tx in expenseTxs) {
+    for (final tx in filteredTxsByType) {
       // Use categoryName instead of categoryId for better display
       final categoryName = tx.categoryName.isNotEmpty ? tx.categoryName : tx.categoryId;
       categoryData[categoryName] =
@@ -237,17 +281,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Expense Ranking',
+              '${transactionType == 'expense' ? 'Expense' : 'Fund'} Ranking',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 16),
             if (sortedCategories.isEmpty)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('No expense data available'),
+                  padding: const EdgeInsets.all(32),
+                  child: Text('No $transactionType data available'),
                 ),
               )
             else
@@ -369,19 +413,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildExpenseForecast() {
+  Widget _buildExpenseForecast(String transactionType) {
     final filteredTxs = _getFilteredTransactions();
-    // Filter to only include expense transactions, exclude fund transactions
-    final expenseTxs = filteredTxs.where((tx) => tx.type == 'expense').toList();
+    // Filter to only include transactions of the specified type
+    final filteredTxsByType = filteredTxs.where((tx) => tx.type == transactionType).toList();
     
     final now = DateTime.now();
     final currentMonth = now.month;
     final currentYear = now.year;
     final currentDay = now.day;
     
-    // Group expenses by day for the current month
+    // Group transactions by day for the current month
     final dailyData = <int, double>{};
-    for (final tx in expenseTxs) {
+    for (final tx in filteredTxsByType) {
       if (tx.createdAt.year == currentYear && tx.createdAt.month == currentMonth) {
         final day = tx.createdAt.day;
         dailyData[day] = (dailyData[day] ?? 0) + tx.amount;
@@ -399,16 +443,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Expense Forecast',
+                '${transactionType == 'expense' ? 'Expense' : 'Fund'} Forecast',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('No expense data available for forecasting'),
+                  padding: const EdgeInsets.all(32),
+                  child: Text('No $transactionType data available for forecasting'),
                 ),
               ),
             ],
@@ -421,7 +465,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final forecastData = <int, double>{};
     final actualData = <int, double>{};
     
-    // Calculate average daily expense for forecasting
+    // Calculate average daily transaction amount for forecasting
     double totalActualAmount = 0;
     int actualDaysCount = 0;
     
@@ -432,8 +476,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         if (actualData[day]! > 0) actualDaysCount++;
       } else {
         // Forecast for future days
-        final avgDailyExpense = actualDaysCount > 0 ? totalActualAmount / actualDaysCount : 0.0;
-        forecastData[day] = avgDailyExpense;
+        final avgDailyAmount = actualDaysCount > 0 ? totalActualAmount / actualDaysCount : 0.0;
+        forecastData[day] = avgDailyAmount;
       }
     }
 
@@ -494,7 +538,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Expense Forecast',
+              '${transactionType == 'expense' ? 'Expense' : 'Fund'} Forecast',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),

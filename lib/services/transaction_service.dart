@@ -52,6 +52,24 @@ class TransactionService {
       'createdAt': Timestamp.fromDate(date ?? DateTime.now()),
       'updatedAt': Timestamp.fromDate(date ?? DateTime.now()),
     });
+
+    // Write audit trail entry for creation
+    try {
+      final auditRef = _db.collection('auditTrail').doc();
+      await auditRef.set({
+        'id': auditRef.id,
+        'transactionId': txDoc.id,
+        'orgId': orgId, // Add organization ID for efficient querying
+        'action': 'created',
+        'reason': '',
+        'by': addedBy,
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      debugPrint('Failed to write audit trail for creation: $e');
+    }
+
     return txDoc.id;
   }
   final FirebaseFirestore _db;
@@ -203,7 +221,8 @@ class TransactionService {
       final auditRef = _db.collection('auditTrail').doc();
       await auditRef.set({
         'id': auditRef.id,
-        'expenseId': txId,
+        'transactionId': txId,
+        'orgId': orgId, // Add organization ID for efficient querying
         'action': 'edited',
         'reason': data['reason'] ?? '',
         'by': data['updatedBy'] ?? '',
@@ -223,7 +242,8 @@ class TransactionService {
       final auditRef = _db.collection('auditTrail').doc();
       await auditRef.set({
         'id': auditRef.id,
-        'expenseId': txId,
+        'transactionId': txId,
+        'orgId': orgId, // Add organization ID for efficient querying
         'action': 'deleted',
         'reason': '',
         'by': by ?? '',

@@ -17,11 +17,117 @@ class _LogsScreenState extends State<LogsScreen> {
   List<AuditTrail> _auditLogs = [];
   bool _isLoading = true;
   String _selectedAction = 'All';
+  Map<String, String> _userNames = {}; // Cache for user ID to name mapping
+  Map<String, String> _userRoles = {}; // Cache for user ID to role mapping
+  Map<String, String> _transactionTypes = {}; // Cache for transaction ID to type mapping
 
   @override
   void initState() {
     super.initState();
     _loadAuditLogs();
+  }
+
+  Future<String> _getUserName(String userId) async {
+    if (_userNames.containsKey(userId)) {
+      return _userNames[userId]!;
+    }
+    
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        final userName = userData?['name'] ?? userData?['email'] ?? 'Unknown User';
+        _userNames[userId] = userName;
+        return userName;
+      }
+    } catch (e) {
+      debugPrint('Error fetching user name for $userId: $e');
+    }
+    
+    _userNames[userId] = 'Unknown User';
+    return 'Unknown User';
+  }
+
+  Future<String> _getUserRole(String userId) async {
+    if (_userRoles.containsKey(userId)) {
+      return _userRoles[userId]!;
+    }
+    
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final orgId = authService.currentOrgId;
+      
+      if (orgId != null) {
+        final officerSnapshot = await FirebaseFirestore.instance
+            .collection('officers')
+            .where('orgId', isEqualTo: orgId)
+            .where('userId', isEqualTo: userId)
+            .get();
+        
+        if (officerSnapshot.docs.isNotEmpty) {
+          final officerData = officerSnapshot.docs.first.data();
+          final role = officerData['role'] ?? 'member';
+          _userRoles[userId] = role;
+          return role;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching user role for $userId: $e');
+    }
+    
+    _userRoles[userId] = 'member';
+    return 'member';
+  }
+
+  Future<String> _getTransactionType(String transactionId) async {
+    if (_transactionTypes.containsKey(transactionId)) {
+      return _transactionTypes[transactionId]!;
+    }
+    
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final orgId = authService.currentOrgId;
+      
+      if (orgId != null) {
+        final transactionDoc = await FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(orgId)
+            .collection('transactions')
+            .doc(transactionId)
+            .get();
+        
+        if (transactionDoc.exists) {
+          final transactionData = transactionDoc.data();
+          final type = transactionData?['type'] ?? 'expense';
+          _transactionTypes[transactionId] = type;
+          return type;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching transaction type for $transactionId: $e');
+    }
+    
+    _transactionTypes[transactionId] = 'expense';
+    return 'expense';
+  }
+
+  String _getActionTitle(AuditTrail auditLog) {
+    final action = auditLog.action.actionDisplayName;
+    final transactionType = _transactionTypes[auditLog.transactionId] ?? 'expense';
+    
+    if (action == 'Created') {
+      return transactionType == 'fund' ? 'Created Fund' : 'Created Expense';
+    } else if (action == 'Edited') {
+      return transactionType == 'fund' ? 'Edited Fund' : 'Edited Expense';
+    } else if (action == 'Deleted') {
+      return transactionType == 'fund' ? 'Deleted Fund' : 'Deleted Expense';
+    }
+    
+    return action; // Return original action for other types
   }
 
   Future<void> _loadAuditLogs() async {
@@ -39,37 +145,34 @@ class _LogsScreenState extends State<LogsScreen> {
         return;
       }
 
-      // Get all expenses for the organization
-      final expensesSnapshot = await FirebaseFirestore.instance
-          .collection('expenses')
-          .where('orgId', isEqualTo: authService.currentOrgId)
-          .get();
-
-      if (!mounted) return; // <— guard after await
-
-      final expenseIds = expensesSnapshot.docs.map((doc) => doc.id).toList();
-
-      if (expenseIds.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _auditLogs = [];
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Get audit trail for all expenses
+      // Get audit trail for the organization
+      // Note: We avoid orderBy in query to prevent composite index requirement
       final auditSnapshot = await FirebaseFirestore.instance
           .collection('auditTrail')
-          .where('expenseId', whereIn: expenseIds)
-          .orderBy('createdAt', descending: true)
+          .where('orgId', isEqualTo: authService.currentOrgId)
           .get();
 
       if (!mounted) return;
 
       final auditLogs = auditSnapshot.docs
           .map((doc) => AuditTrail.fromMap({'id': doc.id, ...doc.data()}))
-          .toList();
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Sort by createdAt descending
+
+      // Resolve user names, roles, and transaction types for all audit logs
+      for (final auditLog in auditLogs) {
+        if (auditLog.by.isNotEmpty) {
+          if (!_userNames.containsKey(auditLog.by)) {
+            await _getUserName(auditLog.by);
+          }
+          if (!_userRoles.containsKey(auditLog.by)) {
+            await _getUserRole(auditLog.by);
+          }
+        }
+        if (!_transactionTypes.containsKey(auditLog.transactionId)) {
+          await _getTransactionType(auditLog.transactionId);
+        }
+      }
 
       if (!mounted) return;
       setState(() {
@@ -105,12 +208,14 @@ class _LogsScreenState extends State<LogsScreen> {
                   value: _selectedAction,
                   items: [
                     DropdownMenuItem<String>(value: 'All', child: Text('All')),
-                    ...AuditAction.values.map(
-                      (e) => DropdownMenuItem<String>(
-                        value: e.actionDisplayName,
-                        child: Text(e.actionDisplayName),
-                      ),
-                    ),
+                    DropdownMenuItem<String>(value: 'Created Expense', child: Text('Created Expense')),
+                    DropdownMenuItem<String>(value: 'Created Fund', child: Text('Created Fund')),
+                    DropdownMenuItem<String>(value: 'Edited Expense', child: Text('Edited Expense')),
+                    DropdownMenuItem<String>(value: 'Edited Fund', child: Text('Edited Fund')),
+                    DropdownMenuItem<String>(value: 'Deleted Expense', child: Text('Deleted Expense')),
+                    DropdownMenuItem<String>(value: 'Deleted Fund', child: Text('Deleted Fund')),
+                    DropdownMenuItem<String>(value: 'Approved', child: Text('Approved')),
+                    DropdownMenuItem<String>(value: 'Denied', child: Text('Denied')),
                   ],
                   onChanged: (value) {
                     if (value != null) {
@@ -188,7 +293,7 @@ class _LogsScreenState extends State<LogsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            auditLog.action.actionDisplayName,
+                            _getActionTitle(auditLog),
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
@@ -260,17 +365,20 @@ class _LogsScreenState extends State<LogsScreen> {
                   children: [
                     Icon(Icons.person, size: 16, color: Colors.grey[600]),
                     const SizedBox(width: 8),
-                    Text(
-                      'By: ${auditLog.by}',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    Expanded(
+                      child: Text(
+                        'By: ${_userNames[auditLog.by] ?? auditLog.by}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Text(
-                      'Expense ID: ${auditLog.expenseId.substring(0, 8)}...',
+                      'Role: ${_userRoles[auditLog.by] ?? 'member'}',
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 11,
-                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -289,7 +397,7 @@ class _LogsScreenState extends State<LogsScreen> {
     }
 
     return _auditLogs
-        .where((log) => log.action.actionDisplayName == _selectedAction)
+        .where((log) => _getActionTitle(log) == _selectedAction)
         .toList();
   }
 

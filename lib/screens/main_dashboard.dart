@@ -280,6 +280,9 @@ class _MainDashboardState extends State<MainDashboard> {
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TransactionScreen()),
               ),
+              backgroundColor: TWColors.slate.shade900,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
               child: const Icon(Icons.add),
             )
           : null,

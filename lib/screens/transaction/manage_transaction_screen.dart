@@ -14,7 +14,8 @@ import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/models/due_payment.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/services/category_service.dart';
-import 'package:org_wallet/widgets/category_widget.dart';
+import 'package:org_wallet/widgets/safe_category_dropdown.dart';
+import 'package:org_wallet/widgets/edit_reason_dialog.dart';
 
 class TransactionScreen extends StatefulWidget {
   final AppTransaction? transaction;
@@ -40,7 +41,7 @@ class _TransactionScreenState extends State<TransactionScreen>
   // UI state
   int _tabIndex = 0;
   bool _isLoading = false;
-  late TabController _tabController;
+  TabController? _tabController;
 
   // Category/fund selections
   String? _selectedCategoryId;
@@ -73,16 +74,41 @@ class _TransactionScreenState extends State<TransactionScreen>
         await _initializeTransactionData();
       }
 
-      // Initialize TabController
+      // Initialize TabController with dynamic length based on transaction type
+      final tx = widget.transaction;
+      final txType = tx?.type;
+      final txCatId = (tx?.categoryId ?? '').toLowerCase();
+      final txCatName = (tx?.categoryName ?? '').toLowerCase();
+      
+      final bool detectedCollection =
+          _isCollectionOnly ||
+          txType == 'collection' ||
+          txCatId == 'collections' ||
+          txCatName.contains('collect');
+      
+      int tabLength;
+      if (tx == null) {
+        tabLength = 3; // All tabs for new transactions
+      } else if (detectedCollection) {
+        tabLength = 1; // Only collection tab
+      } else {
+        tabLength = 2; // Only expense and fund tabs
+      }
+      
       _tabController = TabController(
-        length: 3,
+        length: tabLength,
         vsync: this,
-        initialIndex: _tabIndex.clamp(0, 2),
+        initialIndex: _tabIndex.clamp(0, tabLength - 1),
       );
-      _tabController.addListener(_onTabChanged);
+      _tabController!.addListener(_onTabChanged);
 
       // Load data
       await _loadData();
+      
+      // Trigger rebuild after initialization
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
       debugPrint('Error in initialization: $e');
     }
@@ -173,9 +199,34 @@ class _TransactionScreenState extends State<TransactionScreen>
   }
 
   void _onTabChanged() {
-    if (_tabController.indexIsChanging) return;
-    if (mounted && _tabIndex != _tabController.index) {
-      setState(() => _tabIndex = _tabController.index);
+    if (_tabController?.indexIsChanging ?? true) return;
+    if (mounted) {
+      // Get the visible indices for the current transaction type
+      final tx = widget.transaction;
+      final txType = tx?.type;
+      final txCatId = (tx?.categoryId ?? '').toLowerCase();
+      final txCatName = (tx?.categoryName ?? '').toLowerCase();
+      
+      final bool detectedCollection =
+          _isCollectionOnly ||
+          txType == 'collection' ||
+          txCatId == 'collections' ||
+          txCatName.contains('collect');
+      
+      List<int> visibleIndices;
+      if (tx == null) {
+        visibleIndices = [0, 1, 2];
+      } else if (detectedCollection) {
+        visibleIndices = [2];
+      } else {
+        visibleIndices = [0, 1];
+      }
+      
+      // Map the TabController index to the actual tab index
+      final actualIndex = visibleIndices[_tabController!.index];
+      if (_tabIndex != actualIndex) {
+        setState(() => _tabIndex = actualIndex);
+      }
     }
   }
 
@@ -209,13 +260,30 @@ class _TransactionScreenState extends State<TransactionScreen>
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     
+    // Check if this is an edit operation and ask for reason
+    if (widget.transaction != null) {
+      final editReason = await showEditReasonDialog(context);
+      if (editReason == null) {
+        // User cancelled, don't proceed with save
+        return;
+      }
+      
+      // Proceed with save using the provided reason
+      await _performSave(editReason);
+    } else {
+      // Create new transaction - no reason needed
+      await _performSave('');
+    }
+  }
+
+  Future<void> _performSave(String editReason) async {
     setState(() => _isLoading = true);
     
     try {
@@ -246,7 +314,7 @@ class _TransactionScreenState extends State<TransactionScreen>
       }
 
       final type = _tabIndex == 0 ? 'expense' : 'fund';
-      final expectedType = _tabIndex == 2 ? CategoryType.fund : CategoryType.fund;
+      final expectedType = _tabIndex == 0 ? CategoryType.expense : CategoryType.fund;
 
       if (widget.transaction == null) {
         // Create new transaction
@@ -271,7 +339,7 @@ class _TransactionScreenState extends State<TransactionScreen>
 
         if (mounted) Navigator.of(context).pop(true);
       } else {
-        // Update existing transaction
+        // Update existing transaction with edit reason
         await TransactionService().updateTransaction(orgId, widget.transaction!.id, {
           'amount': amount,
           'categoryId': categoryIdToUse,
@@ -280,6 +348,7 @@ class _TransactionScreenState extends State<TransactionScreen>
           'type': type,
           'fundId': fundId,
           'createdAt': Timestamp.fromDate(_selectedDate),
+          'reason': editReason, // Include the edit reason
         });
         
         if (mounted) Navigator.of(context).pop(true);
@@ -403,13 +472,27 @@ class _TransactionScreenState extends State<TransactionScreen>
       visibleIndices = [0, 1];
     }
 
-    // Ensure controller index is valid
-    if (!visibleIndices.contains(_tabController.index)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && visibleIndices.isNotEmpty) {
-          _tabController.index = visibleIndices.first;
-        }
-      });
+    // Ensure controller index is valid and map to visible indices
+    if (_tabController != null) {
+      // Find the TabController index that corresponds to the current _tabIndex
+      final controllerIndex = visibleIndices.indexOf(_tabIndex);
+      if (controllerIndex != -1 && _tabController!.index != controllerIndex) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && controllerIndex < _tabController!.length) {
+            _tabController!.index = controllerIndex;
+          }
+        });
+      }
+    }
+
+    // Build tabs dynamically based on visible indices
+    final List<Widget> tabs = [];
+    const List<String> tabLabels = ['Expense', 'Fund', 'Collection'];
+    
+    for (int i = 0; i < tabLabels.length; i++) {
+      if (visibleIndices.contains(i)) {
+        tabs.add(Tab(text: tabLabels[i]));
+      }
     }
 
     return Container(
@@ -421,14 +504,11 @@ class _TransactionScreenState extends State<TransactionScreen>
       child: TabBar(
         controller: _tabController,
         onTap: (index) {
-          if (!visibleIndices.contains(index)) return;
-          setState(() => _tabIndex = index);
+          // Map the tapped index to the actual tab index
+          final actualIndex = visibleIndices[index];
+          setState(() => _tabIndex = actualIndex);
         },
-        tabs: const [
-          Tab(text: 'Expense'),
-          Tab(text: 'Fund'),
-          Tab(text: 'Collection'),
-        ],
+        tabs: tabs,
         labelPadding: EdgeInsets.zero,
         labelColor: Colors.black,
         indicatorColor: Colors.black,
@@ -454,7 +534,7 @@ class _TransactionScreenState extends State<TransactionScreen>
       );
     }
 
-    return CategoryDropdownWidget(
+    return SafeCategoryDropdown(
       categories: categories,
       selectedCategoryId: _selectedCategoryId,
       onChanged: (v) {
@@ -465,6 +545,7 @@ class _TransactionScreenState extends State<TransactionScreen>
         }
       },
       labelText: 'Category',
+      showIcons: true,
     );
   }
 
@@ -483,7 +564,7 @@ class _TransactionScreenState extends State<TransactionScreen>
       );
     }
 
-    return CategoryDropdownWidget(
+    return SafeCategoryDropdown(
       categories: _fundAccounts,
       selectedCategoryId: _selectedFundId,
       onChanged: (v) {
@@ -492,225 +573,215 @@ class _TransactionScreenState extends State<TransactionScreen>
         }
       },
       labelText: _tabIndex == 0 ? 'Deduct from fund' : 'Add to fund',
+      showIcons: true,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    try {
-      final auth = Provider.of<AuthService>(context);
-      final orgId = widget.transaction?.orgId ?? auth.currentOrgId;
-      final isEdit = widget.transaction != null;
-
+    // Check if TabController is initialized
+    if (_tabController == null) {
       return Scaffold(
         appBar: AppBar(
           iconTheme: const IconThemeData(color: Colors.black),
           title: Text(
-            isEdit ? 'Transaction' : 'Add Transaction',
+            widget.transaction != null ? 'Transaction' : 'Add Transaction',
             style: const TextStyle(color: Colors.black),
           ),
           centerTitle: false,
           backgroundColor: TWColors.slate.shade200,
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildTabBar(),
-              const SizedBox(height: 12),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: _formKey,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          CustomTextField(
-                            controller: _amountController,
-                            hintText: 'Amount',
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            enabled: _tabIndex != 2,
-                            validator: (v) {
-                              if (v == null || v.isEmpty) return 'Enter amount';
-                              final parsed = double.tryParse(v);
-                              if (parsed == null || parsed <= 0) {
-                                return 'Enter a valid amount';
-                              }
-                              return null;
-                            },
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // Safely get auth service
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final orgId = widget.transaction?.orgId ?? auth.currentOrgId;
+    final isEdit = widget.transaction != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.black),
+        title: Text(
+          isEdit ? 'Transaction' : 'Add Transaction',
+          style: const TextStyle(color: Colors.black),
+        ),
+        centerTitle: false,
+        backgroundColor: TWColors.slate.shade200,
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTabBar(),
+            const SizedBox(height: 12),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        CustomTextField(
+                          controller: _amountController,
+                          hintText: 'Amount',
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
                           ),
-                          const SizedBox(height: 12),
-                          
-                          // Collection Tab
-                          if (_tabIndex == 2)
-                            orgId != null && orgId.isNotEmpty
-                                ? CollectionTab(
-                                    orgId: orgId,
-                                    createPaymentsImmediately: false,
-                                    initialDueId: _collectionSelectedDueId,
-                                    currentTransactionId: widget.transaction?.id,
-                                    onAmountChanged: (val) =>
-                                        _amountController.text = val.toStringAsFixed(2),
-                                    onSelectionChanged: (set) =>
-                                        _collectionSelectedUserIds = set,
-                                    onSelectedDueChanged: (dueId) =>
-                                        _collectionSelectedDueId = dueId,
-                                  )
-                                : const Padding(
-                                    padding: EdgeInsets.all(16.0),
-                                    child: Text('No organization selected for collection'),
-                                  ),
-                          
-                          // Expense/Fund Tabs
-                          if (_tabIndex != 2) ...[
-                            if (orgId == null || orgId.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child: Text('No organization selected'),
-                              )
-                            else ...[
-                              _buildCategoryDropdown(),
-                              const SizedBox(height: 12),
-                              _buildFundDropdown(),
-                              const SizedBox(height: 12),
-                            ],
+                          enabled: _tabIndex != 2,
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Enter amount';
+                            final parsed = double.tryParse(v);
+                            if (parsed == null || parsed <= 0) {
+                              return 'Enter a valid amount';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Collection Tab
+                        if (_tabIndex == 2)
+                          orgId != null && orgId.isNotEmpty
+                              ? CollectionTab(
+                                  orgId: orgId,
+                                  createPaymentsImmediately: false,
+                                  initialDueId: _collectionSelectedDueId,
+                                  currentTransactionId: widget.transaction?.id,
+                                  onAmountChanged: (val) =>
+                                      _amountController.text = val.toStringAsFixed(2),
+                                  onSelectionChanged: (set) =>
+                                      _collectionSelectedUserIds = set,
+                                  onSelectedDueChanged: (dueId) =>
+                                      _collectionSelectedDueId = dueId,
+                                )
+                              : const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Text('No organization selected for collection'),
+                                ),
+                        
+                        // Expense/Fund Tabs
+                        if (_tabIndex != 2) ...[
+                          if (orgId == null || orgId.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('No organization selected'),
+                            )
+                          else ...[
+                            _buildCategoryDropdown(),
+                            const SizedBox(height: 12),
+                            _buildFundDropdown(),
+                            const SizedBox(height: 12),
                           ],
-                          
-                          // Date picker
+                        ],
+                        
+                        // Date picker
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Date: ${_selectedDate.toLocal().toString().split(' ')[0]}',
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _selectedDate,
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (picked != null) {
+                                  setState(() => _selectedDate = picked);
+                                }
+                              },
+                              child: const Text('Change'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Note field
+                        TextFormField(
+                          controller: _noteController,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            labelText: 'Note (optional)',
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        // Action buttons
+                        if (!isEdit)
+                          FilledButton(
+                            onPressed: _isLoading ? null : _save,
+                            style: ButtonStyle(
+                              padding: MaterialStateProperty.all(
+                                const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Add Transaction'),
+                          )
+                        else
                           Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  'Date: ${_selectedDate.toLocal().toString().split(' ')[0]}',
+                                child: FilledButton(
+                                  onPressed: _isLoading ? null : _save,
+                                  style: ButtonStyle(
+                                    padding: MaterialStateProperty.all(
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                    ),
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 18,
+                                          width: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text('Save Changes'),
                                 ),
                               ),
-                              TextButton(
-                                onPressed: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _selectedDate,
-                                    firstDate: DateTime(2000),
-                                    lastDate: DateTime.now(),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _selectedDate = picked);
-                                  }
-                                },
-                                child: const Text('Change'),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isLoading ? null : _delete,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.red,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                  child: const Text('Delete'),
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          
-                          // Note field
-                          TextFormField(
-                            controller: _noteController,
-                            maxLines: 3,
-                            decoration: const InputDecoration(
-                              labelText: 'Note (optional)',
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          
-                          // Action buttons
-                          if (!isEdit)
-                            FilledButton(
-                              onPressed: _isLoading ? null : _save,
-                              style: ButtonStyle(
-                                padding: MaterialStateProperty.all(
-                                  const EdgeInsets.symmetric(vertical: 14),
-                                ),
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Add Transaction'),
-                            )
-                          else
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: FilledButton(
-                                    onPressed: _isLoading ? null : _save,
-                                    style: ButtonStyle(
-                                      padding: MaterialStateProperty.all(
-                                        const EdgeInsets.symmetric(vertical: 14),
-                                      ),
-                                    ),
-                                    child: _isLoading
-                                        ? const SizedBox(
-                                            height: 18,
-                                            width: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : const Text('Save Changes'),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: _isLoading ? null : _delete,
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.red,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                    ),
-                                    child: const Text('Delete'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    } catch (e) {
-      debugPrint('Error in TransactionScreen build: $e');
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Error'),
-          backgroundColor: TWColors.slate.shade200,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              const Text(
-                'Something went wrong',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text('Error: $e'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Go Back'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+      ),
+    );
   }
 }

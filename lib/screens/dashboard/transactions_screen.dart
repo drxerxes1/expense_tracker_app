@@ -10,6 +10,77 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:org_wallet/constants/category_constants.dart';
+import 'package:intl/intl.dart';
+
+// Helper class to group transactions by date
+class TransactionDateGroup {
+  final DateTime date;
+  final List<model.AppTransaction> transactions;
+  
+  TransactionDateGroup({
+    required this.date,
+    required this.transactions,
+  });
+  
+  String get formattedDate {
+    return DateFormat('MMMM d, yyyy').format(date);
+  }
+}
+
+// Helper function to group transactions by date
+List<TransactionDateGroup> groupTransactionsByDate(List<model.AppTransaction> transactions) {
+  // Sort transactions by creation date (most recent first)
+  final sortedTransactions = List<model.AppTransaction>.from(transactions)
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  
+  // Group by date
+  final Map<String, List<model.AppTransaction>> groupedMap = {};
+  
+  for (final transaction in sortedTransactions) {
+    final dateKey = DateFormat('yyyy-MM-dd').format(transaction.createdAt);
+    groupedMap.putIfAbsent(dateKey, () => []).add(transaction);
+  }
+  
+  // Convert to TransactionDateGroup list and sort by date (most recent first)
+  final groups = groupedMap.entries.map((entry) {
+    final date = DateTime.parse(entry.key);
+    return TransactionDateGroup(
+      date: date,
+      transactions: entry.value,
+    );
+  }).toList();
+  
+  groups.sort((a, b) => b.date.compareTo(a.date));
+  
+  return groups;
+}
+
+// Date Header Widget
+class DateHeaderWidget extends StatelessWidget {
+  final String dateText;
+  
+  const DateHeaderWidget({
+    super.key,
+    required this.dateText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Text(
+        dateText,
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+          color: TWColors.slate.shade700,
+        ),
+      ),
+    );
+  }
+}
 
 class CurrencyAmount extends StatelessWidget {
   final double value;
@@ -280,46 +351,34 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   const SizedBox(height: 16),
                   Expanded(
                     child: txs.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.receipt_long,
-                                  size: 64,
-                                  color: Colors.grey[400],
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No transactions found',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(color: Colors.grey[600]),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Add your first transaction to get started',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: Colors.grey[500]),
-                                ),
-                              ],
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 100), // Added bottom padding for FAB
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.receipt_long,
+                                    size: 64,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No transactions available',
+                                    style: Theme.of(context).textTheme.titleMedium
+                                        ?.copyWith(color: Colors.grey[600]),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Add your first transaction to get started',
+                                    style: Theme.of(context).textTheme.bodyMedium
+                                        ?.copyWith(color: Colors.grey[500]),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: txs.length,
-                            itemBuilder: (context, index) {
-                              final tx = txs[index];
-                              return TransactionListItem(
-                                transaction: tx,
-                                onRequestDelete: (id) =>
-                                    _handleRequestDelete(id, tx.orgId),
-                                onEdited: () {
-                                  // trigger rebuild to refresh balances immediately
-                                  setState(() {});
-                                },
-                              );
-                            },
-                          ),
+                        : _buildGroupedTransactionList(txs),
                   ),
                 ],
               );
@@ -358,6 +417,54 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
   }
 
+  Widget _buildGroupedTransactionList(List<model.AppTransaction> transactions) {
+    final groupedTransactions = groupTransactionsByDate(transactions);
+    
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Added bottom padding for FAB
+      itemCount: _getTotalItemCount(groupedTransactions),
+      itemBuilder: (context, index) {
+        return _buildListItem(groupedTransactions, index);
+      },
+    );
+  }
+
+  int _getTotalItemCount(List<TransactionDateGroup> groups) {
+    // Each group has 1 date header + number of transactions
+    return groups.fold(0, (total, group) => total + 1 + group.transactions.length);
+  }
+
+  Widget _buildListItem(List<TransactionDateGroup> groups, int index) {
+    int currentIndex = 0;
+    
+    for (final group in groups) {
+      // Check if this index is for the date header
+      if (currentIndex == index) {
+        return DateHeaderWidget(dateText: group.formattedDate);
+      }
+      currentIndex++;
+      
+      // Check if this index is for one of the transactions in this group
+      for (int i = 0; i < group.transactions.length; i++) {
+        if (currentIndex == index) {
+          final tx = group.transactions[i];
+          return TransactionListItem(
+            transaction: tx,
+            onRequestDelete: (id) => _handleRequestDelete(id, tx.orgId),
+            onEdited: () {
+              // trigger rebuild to refresh balances immediately
+              setState(() {});
+            },
+          );
+        }
+        currentIndex++;
+      }
+    }
+    
+    // This should never happen, but return empty container as fallback
+    return const SizedBox.shrink();
+  }
+
   // Search filter logic removed
 }
 
@@ -373,6 +480,38 @@ class TransactionListItem extends StatelessWidget {
     this.onEdited,
   });
 
+  Future<IconData> _getCategoryIcon(BuildContext context) async {
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final orgId = auth.currentOrgId;
+      
+      if (orgId == null || orgId.isEmpty) {
+        return Icons.category;
+      }
+
+      // Try to get the category from the database
+      final categorySnap = await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(orgId)
+          .collection('categories')
+          .doc(transaction.categoryId)
+          .get();
+
+      if (categorySnap.exists) {
+        final categoryData = categorySnap.data();
+        if (categoryData != null && categoryData['icon'] != null) {
+          return CategoryIcons.getIcon(categoryData['icon']);
+        }
+      }
+
+      // Fallback to hardcoded icons for known categories
+      return getCategoryIcon(transaction.categoryId);
+    } catch (e) {
+      // Return default icon if there's any error
+      return Icons.category;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isExpense = transaction.type == 'expense';
@@ -382,7 +521,6 @@ class TransactionListItem extends StatelessWidget {
       fontSize: 18,
     );
     final amountStr = formatAmount(transaction.amount, isExpense);
-    final icon = getCategoryIcon(transaction.categoryId);
 
     // Determine collection by category id/name. Collections are stored with
     // categoryId 'collections' and usually have a categoryName containing 'collect'.
@@ -566,16 +704,22 @@ class TransactionListItem extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CircleAvatar(
-                          backgroundColor: Colors.grey[200],
-                          child: Icon(
-                            icon,
-                            color: transaction.type == 'expense'
-                                ? Colors.red
-                                : transaction.type == 'fund'
-                                ? Colors.green
-                                : Colors.teal,
-                          ),
+                        FutureBuilder<IconData>(
+                          future: _getCategoryIcon(context),
+                          builder: (context, snapshot) {
+                            final icon = snapshot.data ?? Icons.category;
+                            return CircleAvatar(
+                              backgroundColor: Colors.grey[200],
+                              child: Icon(
+                                icon,
+                                color: transaction.type == 'expense'
+                                    ? Colors.red
+                                    : transaction.type == 'fund'
+                                    ? Colors.green
+                                    : Colors.teal,
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -647,6 +791,14 @@ IconData getCategoryIcon(String? categoryId) {
       return Icons.school;
     case 'club_funds':
       return Icons.groups;
+    case 'emergency_fund':
+      return Icons.emergency;
+    case 'savings':
+      return Icons.savings;
+    case 'investment':
+      return Icons.trending_up;
+    case 'collections':
+      return Icons.collections;
     default:
       return Icons.category;
   }

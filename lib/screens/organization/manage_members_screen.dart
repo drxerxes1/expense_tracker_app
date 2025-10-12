@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/officer.dart';
+import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 
 class ManageMembersScreen extends StatefulWidget {
   const ManageMembersScreen({super.key});
@@ -77,7 +78,15 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     final orgId = auth.currentOrgId!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Members')),
+      appBar: AppBar(
+        title: const Text(
+          'Manage Members',
+          style: TextStyle(color: Colors.black),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black),
+        backgroundColor: TWColors.slate.shade200,
+        centerTitle: false,
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('officers')
