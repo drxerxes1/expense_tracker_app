@@ -354,7 +354,9 @@ class TransactionListItem extends StatelessWidget {
     );
     final amountStr = formatAmount(transaction.amount, isExpense);
     final icon = getCategoryIcon(transaction.categoryId);
-    return GestureDetector(
+  // Determine collection by category id/name. Collections are stored with
+  // categoryId 'collections' and usually have a categoryName containing 'collect'.
+  return GestureDetector(
       onTap: () async {
         final changed = await Navigator.of(context).push<bool?>(
           MaterialPageRoute(
@@ -388,46 +390,46 @@ class TransactionListItem extends StatelessWidget {
                       }
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.delete, color: Colors.red),
-                    title: const Text(
-                      'Delete',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                    onTap: () async {
-                      Navigator.of(ctx).pop();
-                      final ok = await showDialog<bool>(
-                        context: context,
-                        builder: (dctx) => AlertDialog(
-                          title: const Text('Delete transaction'),
-                          content: const Text(
-                            'Are you sure you want to delete this transaction?',
+                        ListTile(
+                          leading: const Icon(Icons.delete, color: Colors.red),
+                          title: const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
                           ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(dctx).pop(false),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () => Navigator.of(dctx).pop(true),
-                              child: const Text('Delete'),
-                            ),
-                          ],
+                          onTap: () async {
+                            Navigator.of(ctx).pop();
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (dctx) => AlertDialog(
+                                title: const Text('Delete transaction'),
+                                content: const Text(
+                                  'Are you sure you want to delete this transaction?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(dctx).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.of(dctx).pop(true),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (ok == true) {
+                              if (onRequestDelete != null) {
+                                await onRequestDelete!(transaction.id);
+                              }
+                            }
+                          },
                         ),
-                      );
-                      if (ok == true) {
-                        if (onRequestDelete != null) {
-                          await onRequestDelete!(transaction.id);
-                        }
-                      }
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         child: Padding(

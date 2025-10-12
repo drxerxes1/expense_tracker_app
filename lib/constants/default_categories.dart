@@ -8,10 +8,14 @@ List<CategoryModel> defaultExpenseCategories = [
   CategoryModel(id: 'miscellaneous', name: 'Miscellaneous', type: CategoryType.expense),
 ];
 
-List<CategoryModel> defaultFundCategories = [
+// Separate defaults: fund accounts (buckets) vs fund categories
+List<CategoryModel> defaultFundAccounts = [
   CategoryModel(id: 'school_funds', name: 'School Funds', type: CategoryType.fund),
   CategoryModel(id: 'club_funds', name: 'Club Funds', type: CategoryType.fund),
-  // Additional default fund categories for the Fund tab
+];
+
+// Default fund categories shown in the Fund tab's Category dropdown
+List<CategoryModel> defaultFundCategories = [
   CategoryModel(id: 'donation', name: 'Donation', type: CategoryType.fund),
   CategoryModel(id: 'event_income', name: 'Event Income', type: CategoryType.fund),
   CategoryModel(id: 'membership_fee', name: 'Membership Fee', type: CategoryType.fund),

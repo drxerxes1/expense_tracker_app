@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants/default_categories.dart';
 
 class AppTransaction {
   final String id;
@@ -43,23 +44,51 @@ class AppTransaction {
       }
     }
     if (categoryName.isEmpty) {
-      // fallback to default names
-      if (categoryId == 'food') {
-        categoryName = 'Food';
-      } else if (categoryId == 'transportation') {
-        categoryName = 'Transportation';
-      } else if (categoryId == 'supplies') {
-        categoryName = 'Supplies';
-      } else if (categoryId == 'utilities') {
-        categoryName = 'Utilities';
-      } else if (categoryId == 'miscellaneous') {
-        categoryName = 'Miscellaneous';
-      } else if (categoryId == 'school_funds') {
-        categoryName = 'School Funds';
-      } else if (categoryId == 'club_funds') {
-        categoryName = 'Club Funds';
-      } else {
-        categoryName = 'Unknown';
+      // Try default lists first (these are the built-in categories the app knows about)
+      // This ensures default fund categories like 'donation' display a friendly name
+      // even if the org hasn't created a matching category document.
+      for (final c in defaultExpenseCategories) {
+        if (c.id == categoryId) {
+          categoryName = c.name;
+          break;
+        }
+      }
+      if (categoryName.isEmpty) {
+        for (final c in defaultFundCategories) {
+          if (c.id == categoryId) {
+            categoryName = c.name;
+            break;
+          }
+        }
+      }
+      if (categoryName.isEmpty) {
+        for (final c in defaultFundAccounts) {
+          if (c.id == categoryId) {
+            categoryName = c.name;
+            break;
+          }
+        }
+      }
+
+      // Legacy/fallback mapping for a few common ids (kept for backward compatibility)
+      if (categoryName.isEmpty) {
+        if (categoryId == 'food') {
+          categoryName = 'Food';
+        } else if (categoryId == 'transportation') {
+          categoryName = 'Transportation';
+        } else if (categoryId == 'supplies') {
+          categoryName = 'Supplies';
+        } else if (categoryId == 'utilities') {
+          categoryName = 'Utilities';
+        } else if (categoryId == 'miscellaneous') {
+          categoryName = 'Miscellaneous';
+        } else if (categoryId == 'school_funds') {
+          categoryName = 'School Funds';
+        } else if (categoryId == 'club_funds') {
+          categoryName = 'Club Funds';
+        } else {
+          categoryName = 'Unknown';
+        }
       }
     }
     final fundId = (data['fundId'] ?? '').toString();

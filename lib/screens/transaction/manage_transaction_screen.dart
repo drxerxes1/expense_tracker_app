@@ -46,6 +46,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   // Collection-specific state
   Set<String> _collectionSelectedUserIds = {};
   String? _collectionSelectedDueId;
+  bool _isCollectionOnly = false;
 
   @override
   void initState() {
@@ -56,7 +57,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
       _amountController.text = tx.amount.toStringAsFixed(2);
       _noteController.text = tx.note;
       _selectedDate = tx.createdAt;
-      if (tx.type == 'collection') {
+      // If the transaction's category indicates it's a Collection, treat this
+      // screen as collection-only (hide Expense and Fund tabs).
+      final catId = tx.categoryId.toLowerCase();
+      final catName = tx.categoryName.toLowerCase();
+      if (catId == 'collections' || catName.contains('collect') || tx.type == 'collection') {
+        _isCollectionOnly = true;
         _tabIndex = 2;
       } else if (tx.type == 'fund') {
         _tabIndex = 1;
@@ -253,15 +259,28 @@ class _TransactionScreenState extends State<TransactionScreen> {
             children: [
               Builder(
                 builder: (context) {
-                  final txType = widget.transaction?.type;
+                  // Determine which tabs should be visible. Respect explicit
+                  // collection-only mode (_isCollectionOnly) as well as the
+                  // incoming transaction's type/category when editing.
+                  final tx = widget.transaction;
+                  final txType = tx?.type;
+                  final txCatId = (tx?.categoryId ?? '').toLowerCase();
+                  final txCatName = (tx?.categoryName ?? '').toLowerCase();
+
+                  final bool detectedCollection = _isCollectionOnly ||
+                      txType == 'collection' ||
+                      txCatId == 'collections' ||
+                      txCatName.contains('collect');
+
                   List<int> visibleIndices;
-                  if (txType == null) {
+                  if (tx == null) {
                     visibleIndices = [0, 1, 2];
-                  } else if (txType == 'collection') {
+                  } else if (detectedCollection) {
                     visibleIndices = [2];
                   } else {
                     visibleIndices = [0, 1];
                   }
+
                   if (!visibleIndices.contains(_tabIndex)) {
                     _tabIndex = visibleIndices.first;
                   }
@@ -389,6 +408,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                       ),
                                   ];
                                   for (final cm in orgFund.values) {
+                                    // Exclude fund account buckets from the Fund tab's category list
+                                    if (cm.id == 'school_funds' || cm.id == 'club_funds') continue;
                                     if (!finalList.any((c) => c.id == cm.id)) {
                                       finalList.add(cm);
                                     }
@@ -406,6 +427,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                     }
                                   }
                                   _categories = deduped;
+                                  // Ensure fund account buckets are never presented as Fund tab categories
+                                  _categories.removeWhere((c) => c.id == 'school_funds' || c.id == 'club_funds');
                                   if (_selectedCategoryId == null ||
                                       !_categories.any(
                                         (c) => c.id == _selectedCategoryId,
@@ -485,7 +508,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
                               }
                               _funds = fundMap.values.toList();
                               if (_funds.isEmpty) {
-                                _funds = defaultFundCategories
+                                // Fallback to the canonical fund accounts (buckets)
+                                _funds = defaultFundAccounts
                                     .map(
                                       (c) => CategoryModel(
                                         id: c.id,
