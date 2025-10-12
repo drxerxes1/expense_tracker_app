@@ -2,7 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:org_wallet/models/transaction.dart';
+import 'package:org_wallet/services/transaction_service.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:provider/provider.dart';
 // import 'package:org_wallet/models/expense.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -13,13 +17,70 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  String _selectedPeriod = 'This Month';
-  final List<AppTransaction> _transactions = [];
-  final bool _isLoading = true;
+  final String _selectedPeriod = 'This Month';
+  List<AppTransaction> _transactions = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final orgId = authService.currentOrgId;
+
+    if (orgId == null) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    try {
+      // Get date range based on selected period
+      DateTimeRange? dateRange = _getDateRangeForPeriod();
+
+      final transactions = await TransactionService().getAllTransactions(
+        orgId,
+        range: dateRange,
+      );
+      setState(() {
+        _transactions = transactions;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading transactions: $e')),
+        );
+      }
+    }
+  }
+
+  DateTimeRange? _getDateRangeForPeriod() {
+    final now = DateTime.now();
+    switch (_selectedPeriod) {
+      case 'This Month':
+        final start = DateTime(now.year, now.month, 1);
+        return DateTimeRange(start: start, end: now);
+      case 'Last Month':
+        final lastMonth = DateTime(now.year, now.month - 1);
+        final start = DateTime(lastMonth.year, lastMonth.month, 1);
+        final end = DateTime(lastMonth.year, lastMonth.month + 1, 0);
+        return DateTimeRange(start: start, end: end);
+      case 'This Year':
+        final start = DateTime(now.year, 1, 1);
+        return DateTimeRange(start: start, end: now);
+      case 'All Time':
+        return null; // No date range filter
+      default:
+        return null;
+    }
   }
 
   @override
@@ -32,156 +93,44 @@ class _ReportsScreenState extends State<ReportsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Period Selector
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.date_range),
-                          const SizedBox(width: 12),
-                          const Text('Period:'),
-                          const SizedBox(width: 12),
-                          DropdownButton<String>(
-                            value: _selectedPeriod,
-                            items:
-                                [
-                                      'This Month',
-                                      'Last Month',
-                                      'This Year',
-                                      'All Time',
-                                    ]
-                                    .map(
-                                      (period) => DropdownMenuItem(
-                                        value: period,
-                                        child: Text(period),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _selectedPeriod = value;
-                                });
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Summary Cards
-                  _buildSummaryCards(),
-                  const SizedBox(height: 20),
-
                   // Category Chart
                   _buildCategoryChart(),
                   const SizedBox(height: 20),
 
-                  // Monthly Trend Chart
-                  _buildMonthlyTrendChart(),
+                  // Expense Ranking
+                  _buildExpenseRanking(),
                   const SizedBox(height: 20),
 
-                  // Top Expenses
-                  _buildTopExpenses(),
+                  // Expense Forecast
+                  _buildExpenseForecast(),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildSummaryCards() {
-    final filteredTxs = _getFilteredTransactions();
-    final totalAmount = filteredTxs.fold<double>(
-      0,
-      (sum, tx) => sum + tx.amount,
-    );
-    final avgAmount = filteredTxs.isNotEmpty
-        ? totalAmount / filteredTxs.length
-        : 0.0;
-    final categoryCount = filteredTxs.map((e) => e.categoryId).toSet().length;
-
-    return Row(
-      children: [
-        Expanded(
-          child: _buildSummaryCard(
-            'Total Expenses',
-            '₱${totalAmount.toStringAsFixed(2)}',
-            Icons.attach_money,
-            Colors.blue,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildSummaryCard(
-            'Average',
-            '₱${avgAmount.toStringAsFixed(2)}',
-            Icons.analytics,
-            Colors.green,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildSummaryCard(
-            'Categories',
-            categoryCount.toString(),
-            Icons.category,
-            Colors.orange,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildCategoryChart() {
     final filteredTxs = _getFilteredTransactions();
+    // Filter to only include expense transactions, exclude fund transactions
+    final expenseTxs = filteredTxs.where((tx) => tx.type == 'expense').toList();
+    
     final categoryData = <String, double>{};
-    for (final tx in filteredTxs) {
-      categoryData[tx.categoryId] =
-          (categoryData[tx.categoryId] ?? 0) + tx.amount;
+    for (final tx in expenseTxs) {
+      // Use categoryName instead of categoryId for better display
+      final categoryName = tx.categoryName.isNotEmpty ? tx.categoryName : tx.categoryId;
+      categoryData[categoryName] =
+          (categoryData[categoryName] ?? 0) + tx.amount;
     }
 
+    // Calculate total for percentage calculation
+    final totalAmount = categoryData.values.fold<double>(0, (sum, amount) => sum + amount);
+    
     final pieChartData = categoryData.entries.map((entry) {
+      final percentage = totalAmount > 0 ? (entry.value / totalAmount * 100) : 0.0;
       return PieChartSectionData(
         value: entry.value,
-        title: '${entry.key}\n₱${entry.value.toStringAsFixed(0)}',
-        radius: 60,
+        title: '${percentage.toStringAsFixed(1)}%',
+        radius: 30,
         titleStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
@@ -206,12 +155,53 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(height: 16),
             SizedBox(
               height: 200,
-              child: PieChart(
-                PieChartData(
-                  sections: pieChartData,
-                  centerSpaceRadius: 40,
-                  sectionsSpace: 2,
-                ),
+              child: Stack(
+                children: [
+                  PieChart(
+                    PieChartData(
+                      sections: pieChartData,
+                      centerSpaceRadius: 60,
+                      sectionsSpace: 2,
+                    ),
+                  ),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Total',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SvgPicture.asset(
+                              'assets/svg/philippine-peso-icon.svg',
+                              width: 16,
+                              height: 16,
+                              colorFilter: ColorFilter.mode(
+                                Theme.of(context).colorScheme.primary,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              totalAmount.toStringAsFixed(2),
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -220,30 +210,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildMonthlyTrendChart() {
+  Widget _buildExpenseRanking() {
     final filteredTxs = _getFilteredTransactions();
-    final monthlyData = <String, double>{};
-    for (final tx in filteredTxs) {
-      final month = '${tx.createdAt.month}/${tx.createdAt.year}';
-      monthlyData[month] = (monthlyData[month] ?? 0) + tx.amount;
+    // Filter to only include expense transactions, exclude fund transactions
+    final expenseTxs = filteredTxs.where((tx) => tx.type == 'expense').toList();
+    
+    final categoryData = <String, double>{};
+    for (final tx in expenseTxs) {
+      // Use categoryName instead of categoryId for better display
+      final categoryName = tx.categoryName.isNotEmpty ? tx.categoryName : tx.categoryId;
+      categoryData[categoryName] =
+          (categoryData[categoryName] ?? 0) + tx.amount;
     }
 
-    final sortedMonths = monthlyData.keys.toList()
-      ..sort((a, b) {
-        final aParts = a.split('/');
-        final bParts = b.split('/');
-        final aMonth = int.parse(aParts[0]);
-        final aYear = int.parse(aParts[1]);
-        final bMonth = int.parse(bParts[0]);
-        final bYear = int.parse(bParts[1]);
-
-        if (aYear != bYear) return aYear.compareTo(bYear);
-        return aMonth.compareTo(bMonth);
-      });
-
-    final lineChartData = sortedMonths.asMap().entries.map((entry) {
-      return FlSpot(entry.key.toDouble(), monthlyData[entry.value]!);
-    }).toList();
+    // Calculate total for percentage calculation
+    final totalAmount = categoryData.values.fold<double>(0, (sum, amount) => sum + amount);
+    
+    // Sort categories by amount (highest to lowest)
+    final sortedCategories = categoryData.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return Card(
       child: Padding(
@@ -252,48 +237,414 @@ class _ReportsScreenState extends State<ReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Monthly Trend',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              'Expense Ranking',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(show: true),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 40,
+            if (sortedCategories.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text('No expense data available'),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: sortedCategories.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final entry = sortedCategories[index];
+                  final percentage = totalAmount > 0 ? (entry.value / totalAmount * 100) : 0.0;
+                  final color = _getCategoryColor(entry.key);
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        // Category icon and name
+                        Expanded(
+                          flex: 3,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  _getCategoryIcon(entry.key),
+                                  color: color,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      entry.key,
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    // Progress bar
+                                    Container(
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(2),
+                                        color: Colors.grey[200],
+                                      ),
+                                      child: FractionallySizedBox(
+                                        alignment: Alignment.centerLeft,
+                                        widthFactor: percentage / 100,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(2),
+                                            color: color,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Percentage and amount
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${percentage.toStringAsFixed(1)}%',
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SvgPicture.asset(
+                                    'assets/svg/philippine-peso-icon.svg',
+                                    width: 10,
+                                    height: 10,
+                                    colorFilter: ColorFilter.mode(
+                                      Colors.grey[600]!,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    entry.value.toStringAsFixed(2),
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpenseForecast() {
+    final filteredTxs = _getFilteredTransactions();
+    // Filter to only include expense transactions, exclude fund transactions
+    final expenseTxs = filteredTxs.where((tx) => tx.type == 'expense').toList();
+    
+    final now = DateTime.now();
+    final currentMonth = now.month;
+    final currentYear = now.year;
+    final currentDay = now.day;
+    
+    // Group expenses by day for the current month
+    final dailyData = <int, double>{};
+    for (final tx in expenseTxs) {
+      if (tx.createdAt.year == currentYear && tx.createdAt.month == currentMonth) {
+        final day = tx.createdAt.day;
+        dailyData[day] = (dailyData[day] ?? 0) + tx.amount;
+      }
+    }
+
+    // Get the number of days in the current month
+    final daysInMonth = DateTime(currentYear, currentMonth + 1, 0).day;
+    
+    if (dailyData.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Expense Forecast',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text('No expense data available for forecasting'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Generate forecast data for remaining days of the month
+    final forecastData = <int, double>{};
+    final actualData = <int, double>{};
+    
+    // Calculate average daily expense for forecasting
+    double totalActualAmount = 0;
+    int actualDaysCount = 0;
+    
+    for (int day = 1; day <= daysInMonth; day++) {
+      if (day <= currentDay) {
+        actualData[day] = dailyData[day] ?? 0;
+        totalActualAmount += actualData[day]!;
+        if (actualData[day]! > 0) actualDaysCount++;
+      } else {
+        // Forecast for future days
+        final avgDailyExpense = actualDaysCount > 0 ? totalActualAmount / actualDaysCount : 0.0;
+        forecastData[day] = avgDailyExpense;
+      }
+    }
+
+    // Create chart data with smoothing and zero-value handling
+    final actualSpots = <FlSpot>[];
+    final forecastSpots = <FlSpot>[];
+    
+    // Only add spots for days with actual data or meaningful forecast
+    for (int day = 1; day <= daysInMonth; day++) {
+      final actualAmount = actualData[day] ?? 0;
+      final forecastAmount = forecastData[day] ?? 0;
+      
+      if (actualData.containsKey(day)) {
+        // Only add actual spots for non-zero values or important days
+        if (actualAmount > 0 || day == currentDay || day % 5 == 0) {
+          actualSpots.add(FlSpot(day.toDouble(), actualAmount));
+        }
+      } else if (forecastAmount > 0) {
+        // Only add forecast spots for meaningful predictions
+        forecastSpots.add(FlSpot(day.toDouble(), forecastAmount));
+      }
+    }
+    
+    // Add connecting points for smoother lines
+    final smoothedActualSpots = <FlSpot>[];
+    final smoothedForecastSpots = <FlSpot>[];
+    
+    // Smooth actual data by adding intermediate points
+    for (int i = 0; i < actualSpots.length - 1; i++) {
+      smoothedActualSpots.add(actualSpots[i]);
+      final current = actualSpots[i];
+      final next = actualSpots[i + 1];
+      final midX = (current.x + next.x) / 2;
+      final midY = (current.y + next.y) / 2;
+      smoothedActualSpots.add(FlSpot(midX, midY));
+    }
+    if (actualSpots.isNotEmpty) {
+      smoothedActualSpots.add(actualSpots.last);
+    }
+    
+    // Smooth forecast data
+    for (int i = 0; i < forecastSpots.length - 1; i++) {
+      smoothedForecastSpots.add(forecastSpots[i]);
+      final current = forecastSpots[i];
+      final next = forecastSpots[i + 1];
+      final midX = (current.x + next.x) / 2;
+      final midY = (current.y + next.y) / 2;
+      smoothedForecastSpots.add(FlSpot(midX, midY));
+    }
+    if (forecastSpots.isNotEmpty) {
+      smoothedForecastSpots.add(forecastSpots.last);
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Expense Forecast',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Legend
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 2,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Actual',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 24),
+                Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        border: Border.all(color: Colors.grey[400]!, width: 1),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Forecast',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            SizedBox(
+              height: 280,
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: 1,
+                    verticalInterval: 1,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey[200]!,
+                        strokeWidth: 0.5,
+                      );
+                    },
+                  ),
+                  titlesData: FlTitlesData(
+                    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 30,
+                        interval: 5, // Show every 5th day
                         getTitlesWidget: (value, meta) {
-                          if (value.toInt() < sortedMonths.length) {
+                          final day = value.toInt();
+                          if (day >= 1 && day <= daysInMonth && day % 5 == 0) {
                             return Text(
-                              sortedMonths[value.toInt()],
+                              day.toString(),
                               style: const TextStyle(fontSize: 10),
                             );
                           }
-                          return const Text('');
+                          return const SizedBox.shrink();
                         },
                       ),
                     ),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   ),
-                  borderData: FlBorderData(show: true),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(color: Colors.grey[300]!, width: 0.5),
+                  ),
                   lineBarsData: [
+                    // Actual data line
                     LineChartBarData(
-                      spots: lineChartData,
+                      spots: smoothedActualSpots,
                       isCurved: true,
                       color: Theme.of(context).colorScheme.primary,
+                      barWidth: 4,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          // Only show dots for days with actual expense data
+                          final day = spot.x.toInt();
+                          final hasData = actualData.containsKey(day) && (actualData[day] ?? 0) > 0;
+                          
+                          if (!hasData) {
+                            return FlDotCirclePainter(
+                              radius: 0,
+                              color: Colors.transparent,
+                            );
+                          }
+                          return FlDotCirclePainter(
+                            radius: 3,
+                            color: Theme.of(context).colorScheme.primary,
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      ),
+                    ),
+                    // Forecast data line
+                    LineChartBarData(
+                      spots: smoothedForecastSpots,
+                      isCurved: true,
+                      color: Colors.grey[400]!.withOpacity(0.7),
                       barWidth: 3,
-                      dotData: FlDotData(show: true),
+                      dashArray: [8, 4],
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          // Only show dots for forecast days with meaningful predictions
+                          final day = spot.x.toInt();
+                          final forecastAmount = forecastData[day] ?? 0;
+                          
+                          if (forecastAmount <= 0) {
+                            return FlDotCirclePainter(
+                              radius: 0,
+                              color: Colors.transparent,
+                            );
+                          }
+                          return FlDotCirclePainter(
+                            radius: 2,
+                            color: Colors.grey[400]!.withOpacity(0.7),
+                            strokeWidth: 1,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(show: false),
                     ),
                   ],
                 ),
@@ -305,119 +656,78 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildTopExpenses() {
-    final filteredTxs = _getFilteredTransactions();
-    final sortedTxs = List<AppTransaction>.from(filteredTxs)
-      ..sort((a, b) => b.amount.compareTo(a.amount));
-    final topTxs = sortedTxs.take(5).toList();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Top 5 Transactions',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            if (topTxs.isEmpty)
-              const Center(child: Text('No transactions found'))
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: topTxs.length,
-                itemBuilder: (context, index) {
-                  final tx = topTxs[index];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.teal,
-                      child: Icon(
-                        Icons.category,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                    title: Text(
-                      tx.note.isNotEmpty ? tx.note : 'No description',
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Text(tx.categoryId),
-                    trailing: Text(
-                      '₱${tx.amount.toStringAsFixed(2)}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   List<AppTransaction> _getFilteredTransactions() {
-    final now = DateTime.now();
-    List<AppTransaction> filtered = [];
-    switch (_selectedPeriod) {
-      case 'This Month':
-        filtered = _transactions
-            .where(
-              (e) =>
-                  e.createdAt.month == now.month &&
-                  e.createdAt.year == now.year,
-            )
-            .toList();
-        break;
-      case 'Last Month':
-        final lastMonth = DateTime(now.year, now.month - 1);
-        filtered = _transactions
-            .where(
-              (e) =>
-                  e.createdAt.month == lastMonth.month &&
-                  e.createdAt.year == lastMonth.year,
-            )
-            .toList();
-        break;
-      case 'This Year':
-        filtered = _transactions
-            .where((e) => e.createdAt.year == now.year)
-            .toList();
-        break;
-      case 'All Time':
-        filtered = _transactions;
-        break;
-    }
-    return filtered;
+    // Since we're now filtering at the database level, just return all transactions
+    return _transactions;
   }
 
   Color _getCategoryColor(String categoryName) {
-    switch (categoryName) {
-      case 'Food':
-        return Colors.orange;
-      case 'Transportation':
-        return Colors.blue;
-      case 'Utilities':
-        return Colors.green;
-      case 'Entertainment':
-        return Colors.purple;
-      case 'Healthcare':
-        return Colors.red;
-      case 'Education':
-        return Colors.indigo;
-      case 'Shopping':
-        return Colors.pink;
-      case 'Other':
-        return Colors.grey;
+    // Try to get color from database categories first
+    // For now, use a fallback system until we can integrate with actual category data
+    switch (categoryName.toLowerCase()) {
+      case 'food':
+        return const Color(0xFFEF4444); // Red
+      case 'transportation':
+        return const Color(0xFF3B82F6); // Blue
+      case 'utilities':
+        return const Color(0xFFF97316); // Orange
+      case 'supplies':
+        return const Color(0xFF10B981); // Green
+      case 'miscellaneous':
+        return const Color(0xFF8B5CF6); // Purple
+      case 'donation':
+        return const Color(0xFFEC4899); // Pink
+      case 'event_income':
+        return const Color(0xFF22C55E); // Green
+      case 'membership_fee':
+        return const Color(0xFF06B6D4); // Cyan
+      case 'grant':
+        return const Color(0xFFEAB308); // Yellow
+      case 'misc_income':
+        return const Color(0xFF8B5CF6); // Purple
       default:
-        return Colors.grey;
+        // Generate a color based on the category name hash
+        final colors = [
+          const Color(0xFF6366F1), // Indigo
+          const Color(0xFF8B5CF6), // Violet
+          const Color(0xFFEC4899), // Pink
+          const Color(0xFFEF4444), // Red
+          const Color(0xFFF97316), // Orange
+          const Color(0xFFEAB308), // Yellow
+          const Color(0xFF22C55E), // Green
+          const Color(0xFF10B981), // Emerald
+          const Color(0xFF06B6D4), // Cyan
+          const Color(0xFF3B82F6), // Blue
+        ];
+        final hash = categoryName.hashCode;
+        return colors[hash.abs() % colors.length];
+    }
+  }
+
+  IconData _getCategoryIcon(String categoryName) {
+    switch (categoryName.toLowerCase()) {
+      case 'food':
+        return Icons.restaurant;
+      case 'transportation':
+        return Icons.directions_car;
+      case 'utilities':
+        return Icons.electrical_services;
+      case 'supplies':
+        return Icons.shopping_bag;
+      case 'miscellaneous':
+        return Icons.category;
+      case 'donation':
+        return Icons.favorite;
+      case 'event_income':
+        return Icons.movie;
+      case 'membership_fee':
+        return Icons.account_balance_wallet;
+      case 'grant':
+        return Icons.trending_up;
+      case 'misc_income':
+        return Icons.category;
+      default:
+        return Icons.category;
     }
   }
 }

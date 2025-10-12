@@ -24,7 +24,15 @@ class TransactionService {
     if (!catSnap.exists) {
       // Allow creating transactions for categories that exist only locally (defaults).
       // Fall back to the expectedType provided by the caller instead of failing.
-      category = CategoryModel(id: categoryId, name: categoryId, type: expectedType);
+      category = CategoryModel(
+        id: categoryId, 
+        name: categoryId, 
+        type: expectedType,
+        icon: 'category',
+        color: '#6366F1',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
     } else {
       category = CategoryModel.fromFirestore(catSnap);
       if (category.type != expectedType) {
