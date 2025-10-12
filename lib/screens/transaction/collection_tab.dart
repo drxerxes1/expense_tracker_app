@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/models/due_payment.dart';
@@ -15,6 +16,13 @@ class CollectionTab extends StatefulWidget {
   final ValueChanged<Set<String>>? onSelectionChanged;
   final ValueChanged<String?>? onSelectedDueChanged;
   final bool createPaymentsImmediately;
+  // Optional: when opening an existing collection transaction, pass the dueId
+  // that was used for that transaction so the tab can preselect it.
+  final String? initialDueId;
+  // Optional: current transaction id (for edit). Payments whose transactionId
+  // matches this id should be included even if their paidAt falls outside the
+  // current period.
+  final String? currentTransactionId;
   const CollectionTab({
     super.key,
     required this.orgId,
@@ -22,6 +30,8 @@ class CollectionTab extends StatefulWidget {
     this.onSelectionChanged,
     this.onSelectedDueChanged,
     this.createPaymentsImmediately = true,
+    this.initialDueId,
+    this.currentTransactionId,
   });
 
   @override
@@ -35,6 +45,8 @@ class _CollectionTabState extends State<CollectionTab> {
   double _totalCollected = 0.0;
   String? _selectedDueId;
   List<DueModel> _dues = [];
+  final Map<String, double> _memberAmounts = {}; // userId -> amount
+  StreamSubscription<QuerySnapshot>? _paymentsSub;
   // Track which userIds we created payments for during this session to avoid duplicates
   final Set<String> _sessionPaidUserIds = {};
   // Map userId -> created payment doc id (may be userId or auto-id) for undo
@@ -45,7 +57,15 @@ class _CollectionTabState extends State<CollectionTab> {
   @override
   void initState() {
     super.initState();
+    // prefer initialDueId if provided
+    if (widget.initialDueId != null) _selectedDueId = widget.initialDueId;
     _loadDues();
+  }
+
+  @override
+  void dispose() {
+    _paymentsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadDues() async {
@@ -62,9 +82,9 @@ class _CollectionTabState extends State<CollectionTab> {
         if (_dues.isNotEmpty && _selectedDueId == null) {
           _selectedDueId = _dues.first.id;
         }
-        // Load existing payments for the initially selected due
+        // Load existing payments for the initially selected due (subscribe)
         if (_selectedDueId != null) {
-          _loadPaidForDue(_selectedDueId!);
+          _subscribeToDuePayments(_selectedDueId!);
         }
         _recalculateTotalForSelectedMembers();
       });
@@ -216,6 +236,7 @@ class _CollectionTabState extends State<CollectionTab> {
   }
 
   Future<void> _loadPaidForDue(String dueId) async {
+    // Deprecated: replaced by realtime subscription. Keep for fallback if needed.
     try {
       final payments = await _duesService.listDuePayments(widget.orgId, dueId);
       if (!mounted) return;
@@ -224,12 +245,110 @@ class _CollectionTabState extends State<CollectionTab> {
         for (final p in payments) {
           _existingPaidUserIds.add(p.userId);
         }
-        // session-created payments remain in their set; UI will merge both when showing 'Paid'
       });
       _recalculateTotalForSelectedMembers();
+    } catch (_) {}
+  }
+
+  void _subscribeToDuePayments(String dueId) {
+    // cancel existing
+    _paymentsSub?.cancel();
+
+    // find due model if available
+    DueModel? due;
+    try {
+      due = _dues.firstWhere((d) => d.id == dueId);
     } catch (_) {
-      // ignore
+      due = null;
     }
+
+    final coll = FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(widget.orgId)
+        .collection('dues')
+        .doc(dueId)
+        .collection('due_payments');
+
+    _paymentsSub = coll.snapshots().listen((snap) {
+      // compute which userIds have a payment that falls within the current period
+      final Set<String> paidNow = {};
+      for (final doc in snap.docs) {
+        final p = DuePaymentModel.fromFirestore(doc);
+        final paidAt = p.paidAt ?? p.createdAt;
+        // include payments that are either in the current period OR attached to
+        // the current transaction id (so saved transactions display their payments)
+        final attachedToCurrentTx = widget.currentTransactionId != null && p.transactionId == widget.currentTransactionId;
+        if (paidAt == null && !attachedToCurrentTx) continue;
+        if (due == null) {
+          paidNow.add(p.userId);
+          _memberAmounts[p.userId] = p.amount;
+        } else {
+          if (_isPaymentInCurrentPeriod(paidAt!, due) || attachedToCurrentTx) {
+            paidNow.add(p.userId);
+            _memberAmounts[p.userId] = p.amount;
+          }
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _existingPaidUserIds
+          ..clear()
+          ..addAll(paidNow);
+      });
+      _recalculateTotalForSelectedMembers();
+      // Notify parent about which members are currently paid (merge session-created)
+      if (widget.onSelectionChanged != null) {
+        final Set<String> merged = {}..addAll(_existingPaidUserIds)..addAll(_sessionPaidUserIds);
+        widget.onSelectionChanged!(merged);
+      }
+      if (widget.onAmountChanged != null) {
+        widget.onAmountChanged!(_totalCollected);
+      }
+    }, onError: (_) {
+      // ignore subscription errors for now
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant CollectionTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the initially-requested due changed after mount, update selection
+    if (widget.initialDueId != oldWidget.initialDueId && widget.initialDueId != null) {
+      _selectedDueId = widget.initialDueId;
+      _subscribeToDuePayments(_selectedDueId!);
+    }
+    // If the currentTransactionId changed, resubscribe so attached payments are included
+    if (widget.currentTransactionId != oldWidget.currentTransactionId && _selectedDueId != null) {
+      _subscribeToDuePayments(_selectedDueId!);
+    }
+  }
+
+  bool _isPaymentInCurrentPeriod(DateTime paidAt, DueModel due) {
+  final freq = due.frequency.toLowerCase();
+    final now = DateTime.now();
+    if (freq == 'weekly') {
+      final start = _startOfWeek(now);
+      final end = start.add(const Duration(days: 7));
+      return !paidAt.isBefore(start) && paidAt.isBefore(end);
+    }
+    if (freq == 'monthly') {
+      return paidAt.year == now.year && paidAt.month == now.month;
+    }
+    // custom: treat payments as in-period if they occur on the same day-of-month as due.dueDate
+    // within the same month/year. This is an assumption; adjust logic if you track custom windows differently.
+    try {
+      final dd = due.dueDate;
+      return paidAt.year == now.year && paidAt.month == now.month && paidAt.day == dd.day;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  DateTime _startOfWeek(DateTime d) {
+    // ISO week start: Monday
+    final weekday = d.weekday; // Monday = 1
+    final start = DateTime(d.year, d.month, d.day).subtract(Duration(days: weekday - 1));
+    return DateTime(start.year, start.month, start.day);
   }
 
   // Expose selected user ids for parent when in delayed mode
@@ -275,9 +394,17 @@ class _CollectionTabState extends State<CollectionTab> {
     } catch (_) {
       dueAmount = 0.0;
     }
-    final selectedCount = _selected.values.where((v) => v).length;
+    double total = 0.0;
+    // count existing/session selected members and use per-member amounts when available
+    final Set<String> allSelected = {};
+    allSelected.addAll(_selected.keys.where((k) => _selected[k] == true));
+    allSelected.addAll(_existingPaidUserIds);
+    for (final userId in allSelected) {
+      final amt = _memberAmounts[userId] ?? dueAmount;
+      total += amt;
+    }
     setState(() {
-      _totalCollected = selectedCount * dueAmount;
+      _totalCollected = total;
     });
     if (widget.onAmountChanged != null) {
       widget.onAmountChanged!(_totalCollected);
@@ -413,13 +540,30 @@ class _CollectionTabState extends State<CollectionTab> {
                   final userId = (m['userId'] ?? '').toString();
                   final name = (m['name'] ?? m['email'] ?? userId).toString();
                   final processing = _processing[userId] == true;
-                  final isPaid =
-                      _existingPaidUserIds.contains(userId) ||
-                      _sessionPaidUserIds.contains(userId);
+                  final bool isExistingPaid = _existingPaidUserIds.contains(userId);
+                  final bool isSessionPaid = _sessionPaidUserIds.contains(userId);
+                  final bool isPaid = isExistingPaid || isSessionPaid;
+                  // Only allow interaction if the payment was created this session OR not already existing
+                  final bool canToggle = !isExistingPaid || isSessionPaid;
+
+                  // compute member amount to display
+                  double memberAmt = 0.0;
+                  if (_memberAmounts.containsKey(userId)) {
+                    memberAmt = _memberAmounts[userId]!;
+                  } else if (_selectedDueId != null) {
+                    try {
+                      final due = _dues.firstWhere((d) => d.id == _selectedDueId);
+                      memberAmt = due.amount;
+                    } catch (_) {
+                      memberAmt = 0.0;
+                    }
+                  }
+
                   return CheckboxListTile(
                     value: isPaid ? true : _selected[userId] == true,
-                    title: Text(name),
-                    subtitle: Text(m['role'] ?? ''),
+                    enabled: canToggle,
+                    title: Text(name, style: canToggle ? null : TextStyle(color: Colors.grey[600])),
+                    subtitle: Text('${m['role'] ?? ''}${memberAmt > 0 ? ' · ${memberAmt.toStringAsFixed(2)}' : ''}'),
                     secondary: processing
                         ? const SizedBox(
                             width: 24,
@@ -427,95 +571,62 @@ class _CollectionTabState extends State<CollectionTab> {
                             child: CircularProgressIndicator(),
                           )
                         : (isPaid
-                              ? Chip(
-                                  label: const Text('Paid'),
-                                  backgroundColor: Colors.greenAccent.shade100,
-                                )
-                              : null),
-                    onChanged: (v) async {
-                      // if already paid (existing) and not created this session,
-                      // attempt to allow uncheck only if we can delete the existing payment doc
-                      final createdDocId = _sessionCreatedDocIds[userId];
-                      if (isPaid) {
-                        if (createdDocId != null) {
-                          // We created this payment in this session: delete it to uncheck
-                          setState(() {
-                            _processing[userId] = true;
-                          });
-                          try {
-                            await FirebaseFirestore.instance
-                                .collection('organizations')
-                                .doc(widget.orgId)
-                                .collection('dues')
-                                .doc(_selectedDueId)
-                                .collection('due_payments')
-                                .doc(createdDocId)
-                                .delete();
-                            setState(() {
-                              _sessionCreatedDocIds.remove(userId);
-                              _sessionPaidUserIds.remove(userId);
-                              _selected.remove(userId);
-                              _recalculateTotalForSelectedMembers();
-                            });
-                            if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to remove payment: $e')));
-                          } finally {
-                            setState(() {
-                              _processing.remove(userId);
-                            });
-                          }
-                        } else {
-                          // Existing payment (from before this session). Try to find and delete it by id==userId first,
-                          // otherwise find any payment doc with userId field and delete it.
-                          bool deleted = false;
-                          try {
-                            final coll = FirebaseFirestore.instance
-                                .collection('organizations')
-                                .doc(widget.orgId)
-                                .collection('dues')
-                                .doc(_selectedDueId)
-                                .collection('due_payments');
-                            final docRef = coll.doc(userId);
-                            final doc = await docRef.get();
-                            if (doc.exists) {
-                              await docRef.delete();
-                              deleted = true;
-                            } else {
-                              // try searching by userId field
-                              final q = await coll.where('userId', isEqualTo: userId).limit(1).get();
-                              if (q.docs.isNotEmpty) {
-                                await q.docs.first.reference.delete();
-                                deleted = true;
+                            ? Chip(
+                                label: const Text('Paid'),
+                                backgroundColor: isExistingPaid ? Colors.grey.shade300 : Colors.greenAccent.shade100,
+                              )
+                            : null),
+                    onChanged: canToggle
+                        ? (v) async {
+                            // if already paid (existing) and created this session, allow undo by deleting the session-created doc
+                            final createdDocId = _sessionCreatedDocIds[userId];
+                            if (isPaid) {
+                              if (createdDocId != null) {
+                                // We created this payment in this session: delete it to uncheck
+                                setState(() {
+                                  _processing[userId] = true;
+                                });
+                                try {
+                                  await FirebaseFirestore.instance
+                                      .collection('organizations')
+                                      .doc(widget.orgId)
+                                      .collection('dues')
+                                      .doc(_selectedDueId)
+                                      .collection('due_payments')
+                                      .doc(createdDocId)
+                                      .delete();
+                                  setState(() {
+                                    _sessionCreatedDocIds.remove(userId);
+                                    _sessionPaidUserIds.remove(userId);
+                                    _selected.remove(userId);
+                                    _recalculateTotalForSelectedMembers();
+                                  });
+                                  if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to remove payment: $e')));
+                                } finally {
+                                  setState(() {
+                                    _processing.remove(userId);
+                                  });
+                                }
+                              } else {
+                                // shouldn't happen because canToggle prevents toggling existing payments
                               }
+                              return;
                             }
-                          } catch (_) {}
-                          if (deleted) {
-                            setState(() {
-                              _existingPaidUserIds.remove(userId);
-                              _selected.remove(userId);
-                              _recalculateTotalForSelectedMembers();
-                            });
-                            if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
-                          } else {
-                            // cannot delete existing payment - show notice
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot uncheck: existing payment cannot be removed here')));
-                          }
-                        }
-                        return;
-                      }
 
-                      // Not paid yet: toggle selection
-                      if (v == true) {
-                        _toggleMember(userId, name, true);
-                      } else {
-                        setState(() {
-                          _selected.remove(userId);
-                          _recalculateTotalForSelectedMembers();
-                        });
-                        if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
-                      }
-                    },
+                            // Not paid yet: toggle selection
+                            if (v == true) {
+                              _toggleMember(userId, name, true);
+                            } else {
+                              setState(() {
+                                _selected.remove(userId);
+                                _recalculateTotalForSelectedMembers();
+                              });
+                              if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+                            }
+                          }
+                        : null,
                   );
                 },
               );

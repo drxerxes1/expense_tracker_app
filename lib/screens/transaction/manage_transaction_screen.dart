@@ -17,7 +17,10 @@ import 'package:org_wallet/services/auth_service.dart';
 
 class TransactionScreen extends StatefulWidget {
   final AppTransaction? transaction;
-  const TransactionScreen({super.key, this.transaction});
+  // Optional: when opening an existing collection transaction we can pass the dueId
+  // that corresponds to the transaction so the CollectionTab can preselect it.
+  final String? initialCollectionDueId;
+  const TransactionScreen({super.key, this.transaction, this.initialCollectionDueId});
 
   @override
   State<TransactionScreen> createState() => _TransactionScreenState();
@@ -71,6 +74,38 @@ class _TransactionScreenState extends State<TransactionScreen> {
       }
       _selectedCategoryId = tx.categoryId;
       _selectedFundId = tx.fundId;
+      // If caller supplied an initialCollectionDueId, use it immediately so the
+      // CollectionTab can subscribe straight away.
+      if (widget.initialCollectionDueId != null) {
+        _collectionSelectedDueId = widget.initialCollectionDueId;
+      }
+      // If this is a collection transaction, try to locate the dueId that
+      // matches payments created for this transaction so the UI can preselect
+      // the correct due and show paid members.
+      if (_isCollectionOnly) {
+        // Fire off async lookup (don't await in initState)
+        _findDueForTransaction(tx.id, tx.orgId);
+      }
+    }
+  }
+
+  Future<void> _findDueForTransaction(String txId, String orgId) async {
+    try {
+      final duesSnap = await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(orgId)
+          .collection('dues')
+          .get();
+      for (final d in duesSnap.docs) {
+        final paymentsColl = d.reference.collection('due_payments');
+        final q = await paymentsColl.where('transactionId', isEqualTo: txId).limit(1).get();
+        if (q.docs.isNotEmpty) {
+          if (mounted) setState(() => _collectionSelectedDueId = d.id);
+          return;
+        }
+      }
+    } catch (_) {
+      // ignore lookup failures
     }
   }
 
@@ -324,6 +359,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
+                          enabled: _tabIndex != 2, // disable editing when on Collection tab
                           validator: (v) {
                             if (v == null || v.isEmpty) return 'Enter amount';
                             final parsed = double.tryParse(v);
@@ -338,6 +374,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
                           CollectionTab(
                             orgId: orgId ?? '',
                             createPaymentsImmediately: false,
+                            initialDueId: _collectionSelectedDueId,
+                            currentTransactionId: widget.transaction?.id,
                             onAmountChanged: (val) =>
                                 _amountController.text = val.toStringAsFixed(2),
                             onSelectionChanged: (set) =>

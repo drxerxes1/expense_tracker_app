@@ -6,6 +6,7 @@ import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/transaction.dart' as model;
 import 'package:org_wallet/services/transaction_service.dart';
 import 'package:org_wallet/screens/transaction/manage_transaction_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -146,98 +147,66 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // 🔹 School & Club Fund Cards
+                        // 🔹 School & Club Fund Cards (polished)
                         Row(
                           children: [
                             Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.all(12),
+                              child: Card(
                                 margin: const EdgeInsets.only(right: 8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'School Funds',
-                                      style: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 14,
-                                        color: TWColors.slate.shade900
-                                            .withOpacity(0.5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 2,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                                        child: Icon(Icons.school, color: Colors.blue.shade700, size: 18),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SvgPicture.asset(
-                                          'assets/svg/philippine-peso-icon.svg',
-                                          width: 14,
-                                          height: 14,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('School Funds', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+                                            const SizedBox(height: 4),
+                                            Text('${schoolFundsRemaining < 0 ? '-' : ''}${schoolFundsRemaining.abs().toStringAsFixed(2)}', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: schoolFundsRemaining < 0 ? Colors.red : TWColors.slate.shade900)),
+                                          ],
                                         ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          '${schoolFundsRemaining < 0 ? '-' : ''}${schoolFundsRemaining.abs().toStringAsFixed(2)}',
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.bold,
-                                            color: schoolFundsRemaining < 0
-                                                ? Colors.red
-                                                : TWColors.slate.shade900,
-                                            fontSize: 20,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                             Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.all(12),
+                              child: Card(
                                 margin: const EdgeInsets.only(left: 8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Club Funds',
-                                      style: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 14,
-                                        color: TWColors.slate.shade900
-                                            .withOpacity(0.5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 2,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                  child: Row(
+                                    children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(8)),
+                                                child: Icon(Icons.groups, color: Colors.purple.shade700, size: 18),
+                                              ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Club Funds', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+                                            const SizedBox(height: 4),
+                                            Text('${clubFundsRemaining < 0 ? '-' : ''}${clubFundsRemaining.abs().toStringAsFixed(2)}', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: clubFundsRemaining < 0 ? Colors.red : TWColors.slate.shade900)),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SvgPicture.asset(
-                                          'assets/svg/philippine-peso-icon.svg',
-                                          width: 14,
-                                          height: 14,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          '${clubFundsRemaining < 0 ? '-' : ''}${clubFundsRemaining.abs().toStringAsFixed(2)}',
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.bold,
-                                            color: clubFundsRemaining < 0
-                                                ? Colors.red
-                                                : TWColors.slate.shade900,
-                                            fontSize: 20,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -354,19 +323,59 @@ class TransactionListItem extends StatelessWidget {
     );
     final amountStr = formatAmount(transaction.amount, isExpense);
     final icon = getCategoryIcon(transaction.categoryId);
-  // Determine collection by category id/name. Collections are stored with
-  // categoryId 'collections' and usually have a categoryName containing 'collect'.
-  return GestureDetector(
-      onTap: () async {
-        final changed = await Navigator.of(context).push<bool?>(
-          MaterialPageRoute(
-            builder: (_) => TransactionScreen(transaction: transaction),
-          ),
-        );
-        if (changed == true) {
-          if (onEdited != null) onEdited!();
-        }
-      },
+
+    // Determine collection by category id/name. Collections are stored with
+    // categoryId 'collections' and usually have a categoryName containing 'collect'.
+    final isCollection = (transaction.categoryId == 'collections' ||
+        transaction.categoryName.toLowerCase().contains('collect'));
+
+    // If this is a collection, don't allow tapping or long-press actions for now.
+    // Render with slightly reduced opacity to indicate non-interactive state.
+    // Determine left indicator color for fund transactions (school vs club)
+    final targetId = transaction.fundId.isNotEmpty ? transaction.fundId : transaction.categoryId;
+    Color? leftBorderColor;
+    if (transaction.type == 'fund') {
+      if (targetId == 'school_funds') {
+        leftBorderColor = Colors.blue;
+      } else if (targetId == 'club_funds') {
+        leftBorderColor = Colors.purple;
+      } else {
+        leftBorderColor = Colors.green;
+      }
+    }
+    return GestureDetector(
+      onTap: isCollection
+          ? null
+          : () async {
+              String? dueIdForTx;
+              try {
+                final duesSnap = await FirebaseFirestore.instance
+                    .collection('organizations')
+                    .doc(transaction.orgId)
+                    .collection('dues')
+                    .get();
+                for (final d in duesSnap.docs) {
+                  final q = await d.reference
+                      .collection('due_payments')
+                      .where('transactionId', isEqualTo: transaction.id)
+                      .limit(1)
+                      .get();
+                  if (q.docs.isNotEmpty) {
+                    dueIdForTx = d.id;
+                    break;
+                  }
+                }
+              } catch (_) {}
+
+              final changed = await Navigator.of(context).push<bool?>(
+                MaterialPageRoute(
+                  builder: (_) => TransactionScreen(transaction: transaction, initialCollectionDueId: dueIdForTx),
+                ),
+              );
+              if (changed == true) {
+                if (onEdited != null) onEdited!();
+              }
+            },
       onLongPress: () async {
         showModalBottomSheet(
           context: context,
@@ -374,108 +383,162 @@ class TransactionListItem extends StatelessWidget {
             return SafeArea(
               child: Wrap(
                 children: [
+                  // Show Edit only for non-collection transactions
+                  if (!isCollection)
+                    ListTile(
+                      leading: const Icon(Icons.edit),
+                      title: const Text('Edit'),
+                      onTap: () async {
+                        Navigator.of(ctx).pop();
+                        String? dueIdForTx;
+                        try {
+                          final duesSnap = await FirebaseFirestore.instance
+                              .collection('organizations')
+                              .doc(transaction.orgId)
+                              .collection('dues')
+                              .get();
+                          for (final d in duesSnap.docs) {
+                            final q = await d.reference
+                                .collection('due_payments')
+                                .where('transactionId', isEqualTo: transaction.id)
+                                .limit(1)
+                                .get();
+                            if (q.docs.isNotEmpty) {
+                              dueIdForTx = d.id;
+                              break;
+                            }
+                          }
+                        } catch (_) {}
+
+                        final changed = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => TransactionScreen(transaction: transaction, initialCollectionDueId: dueIdForTx),
+                          ),
+                        );
+                        if (changed == true) {
+                          if (onEdited != null) onEdited!();
+                        }
+                      },
+                    ),
                   ListTile(
-                    leading: const Icon(Icons.edit),
-                    title: const Text('Edit'),
+                    leading: const Icon(Icons.delete, color: Colors.red),
+                    title: const Text(
+                      'Delete',
+                      style: TextStyle(color: Colors.red),
+                    ),
                     onTap: () async {
                       Navigator.of(ctx).pop();
-                      final changed = await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              TransactionScreen(transaction: transaction),
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (dctx) => AlertDialog(
+                          title: const Text('Delete transaction'),
+                          content: const Text(
+                            'Are you sure you want to delete this transaction?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(dctx).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(dctx).pop(true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
                         ),
                       );
-                      if (changed == true) {
-                        if (onEdited != null) onEdited!();
+                      if (ok == true) {
+                        if (onRequestDelete != null) {
+                          await onRequestDelete!(transaction.id);
+                        }
                       }
                     },
                   ),
-                        ListTile(
-                          leading: const Icon(Icons.delete, color: Colors.red),
-                          title: const Text(
-                            'Delete',
-                            style: TextStyle(color: Colors.red),
+                ],
+              ),
+            );
+          },
+        );
+      },
+      child: Opacity(
+        opacity: isCollection ? 0.6 : 1.0,
+        child: Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left indicator that fills the card height when present
+                if (leftBorderColor != null)
+                  Container(
+                    width: 6,
+                    decoration: BoxDecoration(
+                      color: leftBorderColor,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                      ),
+                    ),
+                  ),
+                // Content area
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Colors.grey[200],
+                          child: Icon(
+                            icon,
+                            color: transaction.type == 'expense'
+                                ? Colors.red
+                                : transaction.type == 'fund'
+                                    ? Colors.green
+                                    : Colors.teal,
                           ),
-                          onTap: () async {
-                            Navigator.of(ctx).pop();
-                            final ok = await showDialog<bool>(
-                              context: context,
-                              builder: (dctx) => AlertDialog(
-                                title: const Text('Delete transaction'),
-                                content: const Text(
-                                  'Are you sure you want to delete this transaction?',
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                transaction.categoryName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
                                 ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(dctx).pop(false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.of(dctx).pop(true),
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
                               ),
-                            );
-                            if (ok == true) {
-                              if (onRequestDelete != null) {
-                                await onRequestDelete!(transaction.id);
-                              }
-                            }
-                          },
+                              if (transaction.note.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Text(
+                                    transaction.note,
+                                    style: TextStyle(
+                                      color: Colors.grey[700],
+                                      fontSize: 14,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [Text(amountStr, style: amountStyle)],
                         ),
                       ],
                     ),
-                  );
-                },
-              );
-            },
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                backgroundColor: Colors.grey[200],
-                child: Icon(icon, color: Colors.teal),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      transaction.categoryName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                    if (transaction.note.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          transaction.note,
-                          style: TextStyle(
-                            color: Colors.grey[700],
-                            fontSize: 14,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [Text(amountStr, style: amountStyle)],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
