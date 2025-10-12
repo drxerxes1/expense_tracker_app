@@ -136,10 +136,14 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
                                 const SizedBox(height: 8),
                                 ElevatedButton.icon(
                                   onPressed: () async {
-                                    await Clipboard.setData(ClipboardData(text: _qrData ?? ''));
+                                    await Clipboard.setData(
+                                      ClipboardData(text: _qrData ?? ''),
+                                    );
                                     // ignore: use_build_context_synchronously
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Invite code copied')),
+                                      const SnackBar(
+                                        content: Text('Invite code copied'),
+                                      ),
                                     );
                                   },
                                   icon: const Icon(Icons.copy),
@@ -150,33 +154,6 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-
-                        // Organization Info
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Organization Details',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 12),
-                                _buildInfoRow('Name', widget.organization.name),
-                                _buildInfoRow(
-                                  'Description',
-                                  widget.organization.description,
-                                ),
-                                _buildInfoRow(
-                                  'Role',
-                                  _getRoleDisplayName(_selectedRole),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                       ],
                     ],
                   ),
@@ -203,25 +180,6 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ),
-          Expanded(child: Text(value)),
-        ],
       ),
     );
   }
