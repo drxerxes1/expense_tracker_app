@@ -2,7 +2,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
+import 'package:org_wallet/screens/transaction/collection_tab.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/models/transaction.dart';
@@ -10,7 +10,7 @@ import 'package:org_wallet/models/category.dart';
 import 'package:org_wallet/constants/default_categories.dart';
 import 'package:org_wallet/widgets/custom_text_field.dart';
 import 'package:org_wallet/services/transaction_service.dart';
-import 'package:org_wallet/screens/transaction/collection_tab.dart';
+import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/models/due_payment.dart';
 import 'package:org_wallet/services/auth_service.dart';
@@ -27,28 +27,44 @@ class _TransactionScreenState extends State<TransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
-  String? _selectedCategoryId;
-  CategoryModel? _selectedCategoryModel;
-  String? _selectedFundId;
-  List<CategoryModel> _categories = [];
-  List<CategoryModel> _funds = [];
-  int _tabIndex = 0; // 0 = Expense, 1 = Fund
+
+  // UI state
+  int _tabIndex = 0; // 0: expense, 1: fund, 2: collection
   bool _isLoading = false;
-  // track collection selections reported by CollectionTab
+
+  // Category/fund selections
+  List<CategoryModel> _categories = [];
+  CategoryModel? _selectedCategoryModel;
+  String? _selectedCategoryId;
+
+  List<CategoryModel> _funds = [];
+  String? _selectedFundId;
+
+  // Date
+  DateTime _selectedDate = DateTime.now();
+
+  // Collection-specific state
   Set<String> _collectionSelectedUserIds = {};
   String? _collectionSelectedDueId;
 
   @override
   void initState() {
     super.initState();
-    if (widget.transaction != null) {
-      _amountController.text = widget.transaction!.amount.toStringAsFixed(2);
-      _noteController.text = widget.transaction!.note;
-      _selectedCategoryId = widget.transaction!.categoryId;
-      _selectedDate = widget.transaction!.createdAt;
-      _tabIndex = widget.transaction!.type == 'fund' ? 1 : 0;
-      _selectedFundId = widget.transaction!.toMap()['fundId'] ?? '';
+    // If editing an existing transaction, initialize fields
+    final tx = widget.transaction;
+    if (tx != null) {
+      _amountController.text = tx.amount.toStringAsFixed(2);
+      _noteController.text = tx.note;
+      _selectedDate = tx.createdAt;
+      if (tx.type == 'collection') {
+        _tabIndex = 2;
+      } else if (tx.type == 'fund') {
+        _tabIndex = 1;
+      } else {
+        _tabIndex = 0;
+      }
+      _selectedCategoryId = tx.categoryId;
+      _selectedFundId = tx.fundId;
     }
   }
 
@@ -64,67 +80,51 @@ class _TransactionScreenState extends State<TransactionScreen> {
     setState(() => _isLoading = true);
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
-      final userId = auth.firebaseUser?.uid ?? '';
+      final userId = auth.firebaseUser?.uid;
       final orgId = widget.transaction?.orgId ?? auth.currentOrgId;
-      if (orgId == null) throw Exception('No organization selected');
-      final amount = double.parse(_amountController.text);
-      String type;
-      String? fundId;
-      String categoryIdToUse = _selectedCategoryId ?? '';
-    if (_tabIndex == 2) {
-      // Collection tab: treat as fund addition to club_funds and category 'collections'
-        type = 'fund';
-        fundId = 'club_funds';
+      if (orgId == null) throw 'No organization selected';
+
+      final amount = double.tryParse(_amountController.text) ?? 0.0;
+
+      // determine category/fund to use
+      String? categoryIdToUse = _selectedCategoryId;
+      String? fundId = _selectedFundId;
+
+      // For collection tab we don't show category/fund pickers in UI, but
+      // business rule: collections are stored as fund-type transactions
+      if (_tabIndex == 2) {
+        // Use a dedicated 'collections' category id if present in org, else fallback to default
         categoryIdToUse = 'collections';
-        // Ensure 'collections' category exists in org categories with type 'fund'
-        final catRef = FirebaseFirestore.instance
-            .collection('organizations')
-            .doc(orgId)
-            .collection('categories')
-            .doc(categoryIdToUse);
-        final catSnap = await catRef.get();
-        if (!catSnap.exists) {
-          await catRef.set({
-            'name': 'Collections',
-            'type': 'fund',
-          });
-        }
-      } else {
-        type = _tabIndex == 0 ? 'expense' : 'fund';
-        fundId = _selectedFundId;
+        fundId =
+            'club_funds'; // collections are added to club_funds per requirement
       }
+
+      final type = _tabIndex == 0 ? 'expense' : 'fund';
+
+      // selectedCategoryModel may be null; that's okay — TransactionService will validate expectedType
+      final expectedType = _tabIndex == 2
+          ? CategoryType.fund
+          : (_selectedCategoryModel?.type ?? CategoryType.fund);
+
       if (widget.transaction == null) {
-        // Add mode
-        if (_selectedCategoryModel == null) {
-          // try to fetch category model using the actual category id we're going to use
-          final catDoc = await FirebaseFirestore.instance
-              .collection('organizations')
-              .doc(orgId)
-              .collection('categories')
-              .doc(categoryIdToUse)
-              .get();
-          if (catDoc.exists) {
-            _selectedCategoryModel = CategoryModel.fromFirestore(catDoc);
-          } else {
-            // leave _selectedCategoryModel as null; TransactionService will handle missing category
-            _selectedCategoryModel = null;
-          }
-        }
         final txId = await TransactionService().createTransaction(
           orgId: orgId,
           amount: amount,
-          categoryId: categoryIdToUse,
+          categoryId: categoryIdToUse ?? '',
           note: _noteController.text.trim(),
-          addedBy: userId,
-          expectedType: _selectedCategoryModel?.type ?? CategoryType.fund,
+          addedBy: userId ?? '',
+          expectedType: expectedType,
           type: type,
           fundId: fundId,
           date: _selectedDate,
         );
 
-        // If this is a Collection (we used Collections category), create due_payments for selected members
-        if (_tabIndex == 2 && _collectionSelectedUserIds.isNotEmpty && _collectionSelectedDueId != null) {
+        // If Collection tab, create due_payments for selected members (post-transaction)
+        if (_tabIndex == 2 &&
+            _collectionSelectedUserIds.isNotEmpty &&
+            _collectionSelectedDueId != null) {
           final duesService = DuesService();
+          final now = DateTime.now();
           for (final memberId in _collectionSelectedUserIds) {
             try {
               final payment = DuePaymentModel(
@@ -132,15 +132,17 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 dueId: _collectionSelectedDueId!,
                 userId: memberId,
                 transactionId: txId,
-                amount: double.tryParse(_amountController.text) ?? 0.0,
-                paidAt: DateTime.now(),
-                createdAt: DateTime.now(),
-                updatedAt: DateTime.now(),
+                amount: amount,
+                paidAt: now,
+                createdAt: now,
+                updatedAt: now,
               );
-              await duesService.createDuePayment(orgId: orgId, payment: payment);
+              await duesService.createDuePayment(
+                orgId: orgId,
+                payment: payment,
+              );
             } catch (e) {
-              // Fallback: if writing with doc id == memberId is disallowed by rules,
-              // create an auto-id payment doc with the same fields (best-effort)
+              // If deterministic-id write disallowed by rules, fallback to auto-id add
               try {
                 final paymentsColl = FirebaseFirestore.instance
                     .collection('organizations')
@@ -148,26 +150,25 @@ class _TransactionScreenState extends State<TransactionScreen> {
                     .collection('dues')
                     .doc(_collectionSelectedDueId!)
                     .collection('due_payments');
-                final now = DateTime.now();
                 await paymentsColl.add({
                   'dueId': _collectionSelectedDueId!,
                   'userId': memberId,
                   'transactionId': txId,
-                  'amount': double.tryParse(_amountController.text) ?? 0.0,
+                  'amount': amount,
                   'paidAt': Timestamp.fromDate(now),
                   'createdAt': Timestamp.fromDate(now),
                   'updatedAt': Timestamp.fromDate(now),
                 });
               } catch (_) {
-                // ignore fallback failure too
+                // ignore fallback failure
               }
             }
           }
         }
 
-        Navigator.of(context).pop(true);
+        if (mounted) Navigator.of(context).pop(true);
       } else {
-        // Edit mode
+        // Edit existing transaction
         final txId = widget.transaction!.id;
         await TransactionService().updateTransaction(orgId, txId, {
           'amount': amount,
@@ -178,7 +179,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
           'fundId': fundId ?? '',
           'createdAt': Timestamp.fromDate(_selectedDate),
         });
-        Navigator.of(context).pop(true);
+        if (mounted) Navigator.of(context).pop(true);
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -219,7 +220,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
         widget.transaction!.id,
         by: auth.firebaseUser?.uid,
       );
-      Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -234,7 +235,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     final auth = Provider.of<AuthService>(context);
     final orgId = widget.transaction?.orgId ?? auth.currentOrgId;
     final isEdit = widget.transaction != null;
-    // Build a scrollable, tabbed form
+
     return Scaffold(
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.black),
@@ -250,48 +251,46 @@ class _TransactionScreenState extends State<TransactionScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Show/hide tabs based on the tapped transaction type (if present).
-              // Rules:
-              // - If transaction.type == 'collection' => only show Collection tab
-              // - If transaction.type == 'fund' or 'expense' => hide Collection tab (show Expense+Fund)
-              // - If no transaction (creating new) => show all tabs
-              Builder(builder: (context) {
-                final txType = widget.transaction?.type;
-                List<int> visibleIndices;
-                if (txType == null) {
-                  visibleIndices = [0, 1, 2];
-                } else if (txType == 'collection') {
-                  visibleIndices = [2];
-                } else {
-                  // 'fund' or 'expense' or unknown -> show expense and fund
-                  visibleIndices = [0, 1];
-                }
-                // Ensure current tab index is valid
-                if (!visibleIndices.contains(_tabIndex)) {
-                  _tabIndex = visibleIndices.first;
-                }
+              Builder(
+                builder: (context) {
+                  final txType = widget.transaction?.type;
+                  List<int> visibleIndices;
+                  if (txType == null) {
+                    visibleIndices = [0, 1, 2];
+                  } else if (txType == 'collection') {
+                    visibleIndices = [2];
+                  } else {
+                    visibleIndices = [0, 1];
+                  }
+                  if (!visibleIndices.contains(_tabIndex)) {
+                    _tabIndex = visibleIndices.first;
+                  }
 
-                final labels = <int, Widget>{
-                  0: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('Expense'),
-                  ),
-                  1: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('Fund'),
-                  ),
-                  2: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('Collection'),
-                  ),
-                };
+                  final labels = <int, Widget>{
+                    0: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('Expense'),
+                    ),
+                    1: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('Fund'),
+                    ),
+                    2: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('Collection'),
+                    ),
+                  };
 
-                return ToggleButtons(
-                  isSelected: visibleIndices.map((i) => _tabIndex == i).toList(),
-                  onPressed: (i) => setState(() => _tabIndex = visibleIndices[i]),
-                  children: visibleIndices.map((i) => labels[i]!).toList(),
-                );
-              }),
+                  return ToggleButtons(
+                    isSelected: visibleIndices
+                        .map((i) => _tabIndex == i)
+                        .toList(),
+                    onPressed: (i) =>
+                        setState(() => _tabIndex = visibleIndices[i]),
+                    children: visibleIndices.map((i) => labels[i]!).toList(),
+                  );
+                },
+              ),
               const SizedBox(height: 12),
               Expanded(
                 child: SingleChildScrollView(
@@ -320,23 +319,149 @@ class _TransactionScreenState extends State<TransactionScreen> {
                           CollectionTab(
                             orgId: orgId ?? '',
                             createPaymentsImmediately: false,
-                            onAmountChanged: (val) {
-                              _amountController.text = val.toStringAsFixed(2);
-                            },
-                            onSelectionChanged: (set) => _collectionSelectedUserIds = set,
-                            onSelectedDueChanged: (dueId) => _collectionSelectedDueId = dueId,
+                            onAmountChanged: (val) =>
+                                _amountController.text = val.toStringAsFixed(2),
+                            onSelectionChanged: (set) =>
+                                _collectionSelectedUserIds = set,
+                            onSelectedDueChanged: (dueId) =>
+                                _collectionSelectedDueId = dueId,
                           ),
                         if (_tabIndex != 2) ...[
-                        // Category dropdown
-                        if (orgId == null)
-                          const Text('No organization selected')
-                        else
-                          FutureBuilder<QuerySnapshot>(
-                            future: FirebaseFirestore.instance
-                                .collection('organizations')
-                                .doc(orgId)
-                                .collection('categories')
-                                .get(),
+                          if (orgId == null)
+                            const Text('No organization selected')
+                          else
+                            FutureBuilder<QuerySnapshot>(
+                              future: FirebaseFirestore.instance
+                                  .collection('organizations')
+                                  .doc(orgId)
+                                  .collection('categories')
+                                  .get(),
+                              builder: (context, snap) {
+                                if (snap.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                final docs = snap.data?.docs ?? [];
+                                final Map<String, CategoryModel> orgExpense =
+                                    {};
+                                final Map<String, CategoryModel> orgFund = {};
+                                for (final d in docs) {
+                                  final cm = CategoryModel.fromFirestore(d);
+                                  if (cm.type == CategoryType.expense) {
+                                    orgExpense[cm.id] = cm;
+                                  }
+                                  if (cm.type == CategoryType.fund) {
+                                    orgFund[cm.id] = cm;
+                                  }
+                                }
+
+                                if (_tabIndex == 0) {
+                                  final List<CategoryModel> finalList = [
+                                    for (final d in defaultExpenseCategories)
+                                      CategoryModel(
+                                        id: d.id,
+                                        name: d.name,
+                                        type: d.type,
+                                      ),
+                                  ];
+                                  for (final cm in orgExpense.values) {
+                                    if (!finalList.any((c) => c.id == cm.id)) {
+                                      finalList.add(cm);
+                                    }
+                                  }
+                                  _categories = finalList;
+                                }
+                                if (_tabIndex == 1) {
+                                  final List<CategoryModel> finalList = [
+                                    for (final d in defaultFundCategories)
+                                      CategoryModel(
+                                        id: d.id,
+                                        name: d.name,
+                                        type: d.type,
+                                      ),
+                                  ];
+                                  for (final cm in orgFund.values) {
+                                    if (!finalList.any((c) => c.id == cm.id)) {
+                                      finalList.add(cm);
+                                    }
+                                  }
+                                  _categories = finalList;
+                                }
+
+                                if (_categories.isNotEmpty) {
+                                  final Map<String, CategoryModel> seen = {};
+                                  final List<CategoryModel> deduped = [];
+                                  for (final c in _categories) {
+                                    if (!seen.containsKey(c.id)) {
+                                      seen[c.id] = c;
+                                      deduped.add(c);
+                                    }
+                                  }
+                                  _categories = deduped;
+                                  if (_selectedCategoryId == null ||
+                                      !_categories.any(
+                                        (c) => c.id == _selectedCategoryId,
+                                      )) {
+                                    _selectedCategoryId = _categories.first.id;
+                                  }
+                                }
+                                _selectedCategoryModel = _categories.isNotEmpty
+                                    ? _categories.firstWhere(
+                                        (c) => c.id == _selectedCategoryId,
+                                        orElse: () => _categories.first,
+                                      )
+                                    : null;
+
+                                return DropdownButtonFormField<String>(
+                                  value: _selectedCategoryId,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Category',
+                                  ),
+                                  items: _categories
+                                      .map(
+                                        (c) => DropdownMenuItem(
+                                          value: c.id,
+                                          child: Text(c.name),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (v) => setState(() {
+                                    _selectedCategoryId = v;
+                                    _selectedCategoryModel = _categories
+                                        .firstWhere(
+                                          (c) => c.id == v,
+                                          orElse: () =>
+                                              _selectedCategoryModel ??
+                                              _categories.first,
+                                        );
+                                  }),
+                                );
+                              },
+                            ),
+                          const SizedBox(height: 12),
+                          FutureBuilder<List<DocumentSnapshot>>(
+                            future: Future.wait([
+                              FirebaseFirestore.instance
+                                  .collection('organizations')
+                                  .doc(orgId)
+                                  .collection('categories')
+                                  .doc('school_funds')
+                                  .get(),
+                              FirebaseFirestore.instance
+                                  .collection('organizations')
+                                  .doc(orgId)
+                                  .collection('categories')
+                                  .doc('club_funds')
+                                  .get(),
+                            ]),
                             builder: (context, snap) {
                               if (snap.connectionState ==
                                   ConnectionState.waiting) {
@@ -350,194 +475,57 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                   ),
                                 );
                               }
-                              final docs = snap.data?.docs ?? [];
-                              // Build a map keyed by id to deduplicate any duplicate category ids
-                              final Map<String, CategoryModel> catsMap = {};
+                              final docs = snap.data ?? [];
+                              final Map<String, CategoryModel> fundMap = {};
                               for (final d in docs) {
-                                final cm = CategoryModel.fromFirestore(d);
-                                // For expense tab, only include expense categories
-                                if (_tabIndex == 0) {
-                                  if (cm.type == CategoryType.expense) {
-                                    catsMap[cm.id] = cm;
-                                  }
-                                } else {
-                                  // For fund tab include all org categories (we'll merge defaults too)
-                                  catsMap[cm.id] = cm;
+                                if (d.exists) {
+                                  final fm = CategoryModel.fromFirestore(d);
+                                  fundMap[fm.id] = fm;
                                 }
                               }
-                              // If Fund tab: ensure all default categories (expense + fund) are present
-                              if (_tabIndex == 1) {
-                                for (final c in [
-                                  ...defaultExpenseCategories,
-                                  ...defaultFundCategories,
-                                ]) {
-                                  catsMap.putIfAbsent(
-                                    c.id,
-                                    () => CategoryModel(
-                                      id: c.id,
-                                      name: c.name,
-                                      type: c.type,
-                                    ),
-                                  );
-                                }
-                                // Remove explicit School Fund and Club Fund entries from the selectable category list
-                                // These are special fund buckets; users should select specific fund categories instead
-                                catsMap.removeWhere(
-                                  (key, value) =>
-                                      key == 'school_funds' ||
-                                      key == 'club_funds',
-                                );
-                              }
-                              _categories = catsMap.values.toList();
-                              if (_categories.isEmpty) {
-                                // fallback - expense tab uses expense defaults, fund tab uses both
-                                _categories =
-                                    (_tabIndex == 0
-                                            ? defaultExpenseCategories
-                                            : [
-                                                ...defaultExpenseCategories,
-                                                ...defaultFundCategories,
-                                              ])
-                                        .map(
-                                          (c) => CategoryModel(
-                                            id: c.id,
-                                            name: c.name,
-                                            type: c.type,
-                                          ),
-                                        )
-                                        .toList();
-                              }
-                              // If a selected id exists but isn't in the current list, schedule a background fetch
-                              if (_selectedCategoryId != null &&
-                                  _categories
-                                      .where((c) => c.id == _selectedCategoryId)
-                                      .isEmpty) {
-                                // insert a temporary placeholder so Dropdown has a matching value immediately
-                                _categories.insert(
-                                  0,
-                                  CategoryModel(
-                                    id: _selectedCategoryId!,
-                                    name: 'Selected',
-                                    type: _tabIndex == 0
-                                        ? CategoryType.expense
-                                        : CategoryType.fund,
-                                  ),
-                                );
-                                // try to fetch a full category doc in the background and replace placeholder
-                                _ensureSelectedCategoryPresent(
-                                  orgId,
-                                  _selectedCategoryId!,
-                                );
-                              }
-                              // Ensure selected id refers to exactly one item; default only if null
-                              if (_selectedCategoryId == null &&
-                                  _categories.isNotEmpty) {
-                                _selectedCategoryId = _categories.first.id;
-                              }
-                              _selectedCategoryModel = _categories.isNotEmpty
-                                  ? _categories.firstWhere(
-                                      (c) => c.id == _selectedCategoryId,
-                                      orElse: () => _categories.first,
-                                    )
-                                  : null;
-                              return DropdownButtonFormField<String>(
-                                value: _selectedCategoryId,
-                                decoration: const InputDecoration(
-                                  labelText: 'Category',
-                                ),
-                                items: _categories
+                              _funds = fundMap.values.toList();
+                              if (_funds.isEmpty) {
+                                _funds = defaultFundCategories
                                     .map(
-                                      (c) => DropdownMenuItem(
-                                        value: c.id,
-                                        child: Text(c.name),
+                                      (c) => CategoryModel(
+                                        id: c.id,
+                                        name: c.name,
+                                        type: c.type,
+                                      ),
+                                    )
+                                    .toList();
+                              }
+                              if (_selectedFundId == null ||
+                                  _funds
+                                          .where((f) => f.id == _selectedFundId)
+                                          .length !=
+                                      1) {
+                                _selectedFundId = _funds.isNotEmpty
+                                    ? _funds.first.id
+                                    : null;
+                              }
+                              return DropdownButtonFormField<String>(
+                                value: _selectedFundId,
+                                decoration: InputDecoration(
+                                  labelText: _tabIndex == 0
+                                      ? 'Deduct from fund'
+                                      : 'Add to fund',
+                                ),
+                                items: _funds
+                                    .map(
+                                      (f) => DropdownMenuItem(
+                                        value: f.id,
+                                        child: Text(f.name),
                                       ),
                                     )
                                     .toList(),
-                                onChanged: (v) {
-                                  setState(() {
-                                    _selectedCategoryId = v;
-                                    _selectedCategoryModel = _categories
-                                        .firstWhere(
-                                          (c) => c.id == v,
-                                          orElse: () =>
-                                              _selectedCategoryModel ??
-                                              _categories.first,
-                                        );
-                                  });
-                                },
+                                onChanged: (v) =>
+                                    setState(() => _selectedFundId = v),
                               );
                             },
                           ),
-                        const SizedBox(height: 12),
-                        // Fund selector (choose which fund to add to or deduct from)
-                        FutureBuilder<QuerySnapshot>(
-                          future: FirebaseFirestore.instance
-                              .collection('organizations')
-                              .doc(orgId)
-                              .collection('categories')
-                              .where('type', isEqualTo: 'fund')
-                              .get(),
-                          builder: (context, snap) {
-                            if (snap.connectionState ==
-                                ConnectionState.waiting) {
-                              return const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              );
-                            }
-                            final docs = snap.data?.docs ?? [];
-                            final Map<String, CategoryModel> fundMap = {};
-                            for (final d in docs) {
-                              final fm = CategoryModel.fromFirestore(d);
-                              fundMap[fm.id] = fm;
-                            }
-                            _funds = fundMap.values.toList();
-                            if (_funds.isEmpty) {
-                              _funds = defaultFundCategories
-                                  .map(
-                                    (c) => CategoryModel(
-                                      id: c.id,
-                                      name: c.name,
-                                      type: c.type,
-                                    ),
-                                  )
-                                  .toList();
-                            }
-                            if (_selectedFundId == null ||
-                                _funds
-                                        .where((f) => f.id == _selectedFundId)
-                                        .length !=
-                                    1) {
-                              _selectedFundId = _funds.isNotEmpty
-                                  ? _funds.first.id
-                                  : null;
-                            }
-                            return DropdownButtonFormField<String>(
-                              value: _selectedFundId,
-                              decoration: InputDecoration(
-                                labelText: _tabIndex == 0
-                                    ? 'Deduct from fund'
-                                    : 'Add to fund',
-                              ),
-                              items: _funds
-                                  .map(
-                                    (f) => DropdownMenuItem(
-                                      value: f.id,
-                                      child: Text(f.name),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) =>
-                                  setState(() => _selectedFundId = v),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
+                          const SizedBox(height: 12),
+                        ],
                         // Date picker
                         Row(
                           children: [
@@ -570,8 +558,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                             labelText: 'Note (optional)',
                           ),
                         ),
-                          const SizedBox(height: 20),
-                        ],
+                        const SizedBox(height: 20),
                         if (!isEdit)
                           FilledButton(
                             onPressed: _isLoading ? null : _save,
@@ -639,33 +626,5 @@ class _TransactionScreenState extends State<TransactionScreen> {
         ),
       ),
     );
-  }
-
-  // Try to fetch the full category doc for a selected id and replace the placeholder
-  Future<void> _ensureSelectedCategoryPresent(
-    String? orgId,
-    String selectedId,
-  ) async {
-    if (orgId == null) return;
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('organizations')
-          .doc(orgId)
-          .collection('categories')
-          .doc(selectedId)
-          .get();
-      if (!mounted) return;
-      if (doc.exists) {
-        final fetched = CategoryModel.fromFirestore(doc);
-        setState(() {
-          // remove any placeholder(s) with same id and insert fetched at front
-          _categories.removeWhere((c) => c.id == selectedId);
-          _categories.insert(0, fetched);
-          _selectedCategoryModel = fetched;
-        });
-      }
-    } catch (_) {
-      // ignore silently; placeholder remains
-    }
   }
 }

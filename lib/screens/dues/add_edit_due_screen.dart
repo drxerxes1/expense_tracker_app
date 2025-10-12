@@ -42,13 +42,27 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
     // initialize text controllers with existing values when editing
     _nameCtrl = TextEditingController(text: widget.existing?.name ?? '');
     _amountCtrl = TextEditingController(
-        text: widget.existing != null ? widget.existing!.amount.toString() : '');
+      text: widget.existing != null ? widget.existing!.amount.toString() : '',
+    );
     if (widget.existing != null) {
       _dueDate = widget.existing!.dueDate;
       _frequency = widget.existing!.frequency;
+      // Load paid status for all members for this due
+      _loadPaidMembers();
     }
   }
-  
+
+  Future<void> _loadPaidMembers() async {
+    final dueId = widget.existing?.id;
+    if (dueId == null) return;
+    final payments = await _duesService.listDuePayments(widget.orgId, dueId);
+    setState(() {
+      for (final p in payments) {
+        _paid[p.userId] = true;
+      }
+    });
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -237,11 +251,14 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                             final paid = _paid[userId] == true;
                             return ListTile(
                               title: Text(name),
-                              trailing: paid ? const Chip(label: Text('Paid')) : const Text('Unpaid'),
+                              trailing: paid
+                                  ? const Chip(label: Text('Paid'))
+                                  : const Text('Unpaid'),
                               onTap: () async {
                                 if (widget.existing == null) return;
                                 final dueId = widget.existing!.id;
-                                final createdDocId = _sessionCreatedDocIds[userId];
+                                final createdDocId =
+                                    _sessionCreatedDocIds[userId];
                                 if (paid) {
                                   // Attempt to delete session-created or existing payment
                                   try {
@@ -268,7 +285,8 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                       if (doc.exists) {
                                         await docRef.delete();
                                       } else {
-                                        final q = await FirebaseFirestore.instance
+                                        final q = await FirebaseFirestore
+                                            .instance
                                             .collection('organizations')
                                             .doc(widget.orgId)
                                             .collection('dues')
@@ -277,14 +295,29 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                             .where('userId', isEqualTo: userId)
                                             .limit(1)
                                             .get();
-                                        if (q.docs.isNotEmpty) await q.docs.first.reference.delete();
-                                        else throw Exception('Payment doc not found');
+                                        if (q.docs.isNotEmpty) {
+                                          await q.docs.first.reference.delete();
+                                        } else {
+                                          throw Exception(
+                                            'Payment doc not found',
+                                          );
+                                        }
                                       }
                                     }
                                     setState(() => _paid.remove(userId));
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment removed')));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Payment removed'),
+                                      ),
+                                    );
                                   } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to remove payment: $e')));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Failed to remove payment: $e',
+                                        ),
+                                      ),
+                                    );
                                   }
                                 } else {
                                   // create payment with fallback
@@ -294,20 +327,33 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                       dueId: dueId,
                                       userId: userId,
                                       transactionId: '',
-                                      amount: double.tryParse(_amountCtrl.text) ?? widget.existing?.amount ?? 0.0,
+                                      amount:
+                                          double.tryParse(_amountCtrl.text) ??
+                                          widget.existing?.amount ??
+                                          0.0,
                                       paidAt: DateTime.now(),
                                       createdAt: DateTime.now(),
                                       updatedAt: DateTime.now(),
                                     );
-                                    final created = await _duesService.createDuePayment(orgId: widget.orgId, payment: payment);
+                                    final created = await _duesService
+                                        .createDuePayment(
+                                          orgId: widget.orgId,
+                                          payment: payment,
+                                        );
                                     setState(() {
                                       _paid[userId] = true;
-                                      _sessionCreatedDocIds[userId] = created.id;
+                                      _sessionCreatedDocIds[userId] =
+                                          created.id;
                                     });
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded')));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Payment recorded'),
+                                      ),
+                                    );
                                   } catch (e) {
                                     try {
-                                      final paymentsColl = FirebaseFirestore.instance
+                                      final paymentsColl = FirebaseFirestore
+                                          .instance
                                           .collection('organizations')
                                           .doc(widget.orgId)
                                           .collection('dues')
@@ -318,7 +364,10 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                         'dueId': dueId,
                                         'userId': userId,
                                         'transactionId': '',
-                                        'amount': double.tryParse(_amountCtrl.text) ?? widget.existing?.amount ?? 0.0,
+                                        'amount':
+                                            double.tryParse(_amountCtrl.text) ??
+                                            widget.existing?.amount ??
+                                            0.0,
                                         'paidAt': Timestamp.fromDate(now),
                                         'createdAt': Timestamp.fromDate(now),
                                         'updatedAt': Timestamp.fromDate(now),
@@ -327,9 +376,23 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                         _paid[userId] = true;
                                         _sessionCreatedDocIds[userId] = ref.id;
                                       });
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded')));
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Payment recorded'),
+                                        ),
+                                      );
                                     } catch (e2) {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to record payment: $e')));
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Failed to record payment: $e',
+                                          ),
+                                        ),
+                                      );
                                     }
                                   }
                                 }
