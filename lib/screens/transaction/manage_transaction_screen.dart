@@ -20,13 +20,18 @@ class TransactionScreen extends StatefulWidget {
   // Optional: when opening an existing collection transaction we can pass the dueId
   // that corresponds to the transaction so the CollectionTab can preselect it.
   final String? initialCollectionDueId;
-  const TransactionScreen({super.key, this.transaction, this.initialCollectionDueId});
+  const TransactionScreen({
+    super.key,
+    this.transaction,
+    this.initialCollectionDueId,
+  });
 
   @override
   State<TransactionScreen> createState() => _TransactionScreenState();
 }
 
-class _TransactionScreenState extends State<TransactionScreen> {
+class _TransactionScreenState extends State<TransactionScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
@@ -34,6 +39,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   // UI state
   int _tabIndex = 0; // 0: expense, 1: fund, 2: collection
   bool _isLoading = false;
+  late TabController _tabController;
 
   // Category/fund selections
   List<CategoryModel> _categories = [];
@@ -64,7 +70,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
       // screen as collection-only (hide Expense and Fund tabs).
       final catId = tx.categoryId.toLowerCase();
       final catName = tx.categoryName.toLowerCase();
-      if (catId == 'collections' || catName.contains('collect') || tx.type == 'collection') {
+      if (catId == 'collections' ||
+          catName.contains('collect') ||
+          tx.type == 'collection') {
         _isCollectionOnly = true;
         _tabIndex = 2;
       } else if (tx.type == 'fund') {
@@ -87,6 +95,18 @@ class _TransactionScreenState extends State<TransactionScreen> {
         _findDueForTransaction(tx.id, tx.orgId);
       }
     }
+    // initialize TabController for three possible tabs
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: _tabIndex,
+    );
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) return; // ignore while animating
+      if (_tabIndex != _tabController.index) {
+        setState(() => _tabIndex = _tabController.index);
+      }
+    });
   }
 
   Future<void> _findDueForTransaction(String txId, String orgId) async {
@@ -98,7 +118,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
           .get();
       for (final d in duesSnap.docs) {
         final paymentsColl = d.reference.collection('due_payments');
-        final q = await paymentsColl.where('transactionId', isEqualTo: txId).limit(1).get();
+        final q = await paymentsColl
+            .where('transactionId', isEqualTo: txId)
+            .limit(1)
+            .get();
         if (q.docs.isNotEmpty) {
           if (mounted) setState(() => _collectionSelectedDueId = d.id);
           return;
@@ -113,6 +136,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -288,68 +312,75 @@ class _TransactionScreenState extends State<TransactionScreen> {
         backgroundColor: TWColors.slate.shade200,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Builder(
-                builder: (context) {
-                  // Determine which tabs should be visible. Respect explicit
-                  // collection-only mode (_isCollectionOnly) as well as the
-                  // incoming transaction's type/category when editing.
-                  final tx = widget.transaction;
-                  final txType = tx?.type;
-                  final txCatId = (tx?.categoryId ?? '').toLowerCase();
-                  final txCatName = (tx?.categoryName ?? '').toLowerCase();
+        child: Column(
+          children: [
+            Builder(
+              builder: (context) {
+                final tx = widget.transaction;
+                final txType = tx?.type;
+                final txCatId = (tx?.categoryId ?? '').toLowerCase();
+                final txCatName = (tx?.categoryName ?? '').toLowerCase();
 
-                  final bool detectedCollection = _isCollectionOnly ||
-                      txType == 'collection' ||
-                      txCatId == 'collections' ||
-                      txCatName.contains('collect');
+                final bool detectedCollection =
+                    _isCollectionOnly ||
+                    txType == 'collection' ||
+                    txCatId == 'collections' ||
+                    txCatName.contains('collect');
 
-                  List<int> visibleIndices;
-                  if (tx == null) {
-                    visibleIndices = [0, 1, 2];
-                  } else if (detectedCollection) {
-                    visibleIndices = [2];
-                  } else {
-                    visibleIndices = [0, 1];
-                  }
+                List<int> visibleIndices;
+                if (tx == null) {
+                  visibleIndices = [0, 1, 2];
+                } else if (detectedCollection) {
+                  visibleIndices = [2];
+                } else {
+                  visibleIndices = [0, 1];
+                }
 
-                  if (!visibleIndices.contains(_tabIndex)) {
-                    _tabIndex = visibleIndices.first;
-                  }
+                // Ensure controller index is valid
+                if (!visibleIndices.contains(_tabController.index)) {
+                  // jump to first allowed
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _tabController.index = visibleIndices.first;
+                  });
+                }
 
-                  final labels = <int, Widget>{
-                    0: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Expense'),
-                    ),
-                    1: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Fund'),
-                    ),
-                    2: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Collection'),
-                    ),
-                  };
-
-                  return ToggleButtons(
-                    isSelected: visibleIndices
-                        .map((i) => _tabIndex == i)
-                        .toList(),
-                    onPressed: (i) =>
-                        setState(() => _tabIndex = visibleIndices[i]),
-                    children: visibleIndices.map((i) => labels[i]!).toList(),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: _formKey,
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: TWColors.slate.shade200,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    onTap: (index) {
+                      // Only allow switching to a visible tab
+                      if (!visibleIndices.contains(index)) return;
+                      setState(() => _tabIndex = index);
+                    },
+                    tabs: const [
+                      Tab(text: 'Expense'),
+                      Tab(text: 'Fund'),
+                      Tab(text: 'Collection'),
+                    ],
+                    // remove internal padding so the text isn't wrapped by extra spacing
+                    labelPadding: EdgeInsets.zero,
+                    labelColor: Colors.black,
+                    indicatorColor: Colors.black,
+                    unselectedLabelColor: Colors.grey[700],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -359,7 +390,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
-                          enabled: _tabIndex != 2, // disable editing when on Collection tab
+                          enabled:
+                              _tabIndex !=
+                              2, // disable editing when on Collection tab
                           validator: (v) {
                             if (v == null || v.isEmpty) return 'Enter amount';
                             final parsed = double.tryParse(v);
@@ -447,7 +480,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                   ];
                                   for (final cm in orgFund.values) {
                                     // Exclude fund account buckets from the Fund tab's category list
-                                    if (cm.id == 'school_funds' || cm.id == 'club_funds') continue;
+                                    if (cm.id == 'school_funds' ||
+                                        cm.id == 'club_funds') {
+                                      continue;
+                                    }
                                     if (!finalList.any((c) => c.id == cm.id)) {
                                       finalList.add(cm);
                                     }
@@ -466,7 +502,11 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                   }
                                   _categories = deduped;
                                   // Ensure fund account buckets are never presented as Fund tab categories
-                                  _categories.removeWhere((c) => c.id == 'school_funds' || c.id == 'club_funds');
+                                  _categories.removeWhere(
+                                    (c) =>
+                                        c.id == 'school_funds' ||
+                                        c.id == 'club_funds',
+                                  );
                                   if (_selectedCategoryId == null ||
                                       !_categories.any(
                                         (c) => c.id == _selectedCategoryId,
@@ -683,8 +723,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

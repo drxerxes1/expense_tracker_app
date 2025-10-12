@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +15,8 @@ class ManageCategoriesScreen extends StatefulWidget {
   State<ManageCategoriesScreen> createState() => _ManageCategoriesScreenState();
 }
 
-class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with SingleTickerProviderStateMixin {
+class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -32,7 +35,11 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
   CollectionReference _categoriesRef(String orgId) =>
       _db.collection('organizations').doc(orgId).collection('categories');
 
-  Future<void> _showEditDialog(BuildContext context, String orgId, {CategoryModel? category}) async {
+  Future<void> _showEditDialog(
+    BuildContext context,
+    String orgId, {
+    CategoryModel? category,
+  }) async {
     final nameCtrl = TextEditingController(text: category?.name ?? '');
     CategoryType selectedType = category?.type ?? CategoryType.expense;
 
@@ -50,13 +57,19 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
               TextFormField(
                 controller: nameCtrl,
                 decoration: const InputDecoration(labelText: 'Name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter a name' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Enter a name' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<CategoryType>(
                 value: selectedType,
                 items: CategoryType.values
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.toShortString().capitalize())))
+                    .map(
+                      (t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(t.toShortString().capitalize()),
+                      ),
+                    )
                     .toList(),
                 onChanged: (v) {
                   if (v != null) selectedType = v;
@@ -67,7 +80,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (formKey.currentState?.validate() != true) return;
@@ -75,14 +91,23 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
               try {
                 if (category == null) {
                   final doc = _categoriesRef(orgId).doc();
-                  await doc.set({'name': name, 'type': selectedType.toShortString(), 'createdAt': Timestamp.fromDate(DateTime.now())});
+                  await doc.set({
+                    'name': name,
+                    'type': selectedType.toShortString(),
+                    'createdAt': Timestamp.fromDate(DateTime.now()),
+                  });
                 } else {
-                  await _categoriesRef(orgId).doc(category.id).update({'name': name, 'type': selectedType.toShortString()});
+                  await _categoriesRef(orgId).doc(category.id).update({
+                    'name': name,
+                    'type': selectedType.toShortString(),
+                  });
                 }
                 Navigator.of(ctx).pop(true);
               } catch (e) {
                 // use the dialog-local context to show snack bars while dialog is open
-                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+                ScaffoldMessenger.of(
+                  ctx,
+                ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
               }
             },
             child: const Text('Save'),
@@ -96,15 +121,27 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
     if (res == true) setState(() {});
   }
 
-  Future<void> _confirmDelete(BuildContext context, String orgId, CategoryModel category) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    String orgId,
+    CategoryModel category,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete category'),
-        content: Text('Are you sure you want to delete "${category.name}"? This cannot be undone.'),
+        content: Text(
+          'Are you sure you want to delete "${category.name}"? This cannot be undone.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -112,10 +149,14 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
       try {
         await _categoriesRef(orgId).doc(category.id).delete();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Category deleted')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Category deleted')));
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
       }
     }
   }
@@ -127,12 +168,19 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Categories'),
+        centerTitle: false,
+        title: const Text(
+          'Manage Categories',
+          style: TextStyle(color: Colors.black),
+        ),
         backgroundColor: TWColors.slate.shade200,
         iconTheme: const IconThemeData(color: Colors.black),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'Expense'), Tab(text: 'Fund')],
+          tabs: const [
+            Tab(text: 'Expense'),
+            Tab(text: 'Fund'),
+          ],
           labelColor: Colors.black,
         ),
       ),
@@ -158,13 +206,22 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
     return StreamBuilder<QuerySnapshot>(
       stream: _categoriesRef(orgId).orderBy('name').snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
         final docs = snapshot.data?.docs ?? [];
-        final cats = docs.map((d) => CategoryModel.fromFirestore(d)).where((c) => c.type == type).toList();
+        final cats = docs
+            .map((d) => CategoryModel.fromFirestore(d))
+            .where((c) => c.type == type)
+            .toList();
 
-        if (cats.isEmpty) return Center(child: Text('No ${type.toShortString()} categories'));
+        if (cats.isEmpty) {
+          return Center(child: Text('No ${type.toShortString()} categories'));
+        }
 
         return ListView.separated(
           padding: const EdgeInsets.all(12),
@@ -174,12 +231,25 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
             final c = cats[index];
             return Card(
               child: ListTile(
-                title: Text(c.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                title: Text(
+                  c.name,
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
                 subtitle: Text(c.type.toShortString()),
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(icon: const Icon(Icons.edit), onPressed: () => _showEditDialog(context, orgId, category: c)),
-                  IconButton(icon: const Icon(Icons.delete), onPressed: () => _confirmDelete(context, orgId, c)),
-                ]),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () =>
+                          _showEditDialog(context, orgId, category: c),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => _confirmDelete(context, orgId, c),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -190,5 +260,6 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> with Si
 }
 
 extension _StringCap on String {
-  String capitalize() => isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
+  String capitalize() =>
+      isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
 }

@@ -153,25 +153,55 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             Expanded(
                               child: Card(
                                 margin: const EdgeInsets.only(right: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 elevation: 2,
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 12,
+                                  ),
                                   child: Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-                                        child: Icon(Icons.school, color: Colors.blue.shade700, size: 18),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.school,
+                                          color: Colors.blue.shade700,
+                                          size: 18,
+                                        ),
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            Text('School Funds', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+                                            Text(
+                                              'School Funds',
+                                              style: GoogleFonts.poppins(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                              ),
+                                            ),
                                             const SizedBox(height: 4),
-                                            Text('${schoolFundsRemaining < 0 ? '-' : ''}${schoolFundsRemaining.abs().toStringAsFixed(2)}', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: schoolFundsRemaining < 0 ? Colors.red : TWColors.slate.shade900)),
+                                            Text(
+                                              '${schoolFundsRemaining < 0 ? '-' : ''}${schoolFundsRemaining.abs().toStringAsFixed(2)}',
+                                              style: GoogleFonts.poppins(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 18,
+                                                color: schoolFundsRemaining < 0
+                                                    ? Colors.red
+                                                    : TWColors.slate.shade900,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -183,25 +213,55 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             Expanded(
                               child: Card(
                                 margin: const EdgeInsets.only(left: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 elevation: 2,
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 12,
+                                  ),
                                   child: Row(
                                     children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(8),
-                                                decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(8)),
-                                                child: Icon(Icons.groups, color: Colors.purple.shade700, size: 18),
-                                              ),
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple.shade50,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.groups,
+                                          color: Colors.purple.shade700,
+                                          size: 18,
+                                        ),
+                                      ),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            Text('Club Funds', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+                                            Text(
+                                              'Club Funds',
+                                              style: GoogleFonts.poppins(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                              ),
+                                            ),
                                             const SizedBox(height: 4),
-                                            Text('${clubFundsRemaining < 0 ? '-' : ''}${clubFundsRemaining.abs().toStringAsFixed(2)}', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18, color: clubFundsRemaining < 0 ? Colors.red : TWColors.slate.shade900)),
+                                            Text(
+                                              '${clubFundsRemaining < 0 ? '-' : ''}${clubFundsRemaining.abs().toStringAsFixed(2)}',
+                                              style: GoogleFonts.poppins(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 18,
+                                                color: clubFundsRemaining < 0
+                                                    ? Colors.red
+                                                    : TWColors.slate.shade900,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -326,15 +386,19 @@ class TransactionListItem extends StatelessWidget {
 
     // Determine collection by category id/name. Collections are stored with
     // categoryId 'collections' and usually have a categoryName containing 'collect'.
-    final isCollection = (transaction.categoryId == 'collections' ||
+    final isCollection =
+        (transaction.categoryId == 'collections' ||
         transaction.categoryName.toLowerCase().contains('collect'));
 
     // If this is a collection, don't allow tapping or long-press actions for now.
     // Render with slightly reduced opacity to indicate non-interactive state.
-    // Determine left indicator color for fund transactions (school vs club)
-    final targetId = transaction.fundId.isNotEmpty ? transaction.fundId : transaction.categoryId;
+    // Determine left indicator color: show for both expense and fund
+    final targetId = transaction.fundId.isNotEmpty
+        ? transaction.fundId
+        : transaction.categoryId;
     Color? leftBorderColor;
-    if (transaction.type == 'fund') {
+    if (transaction.type == 'fund' || transaction.type == 'expense') {
+      // Fund transactions: color depends on which fund (school vs club)
       if (targetId == 'school_funds') {
         leftBorderColor = Colors.blue;
       } else if (targetId == 'club_funds') {
@@ -369,7 +433,10 @@ class TransactionListItem extends StatelessWidget {
 
               final changed = await Navigator.of(context).push<bool?>(
                 MaterialPageRoute(
-                  builder: (_) => TransactionScreen(transaction: transaction, initialCollectionDueId: dueIdForTx),
+                  builder: (_) => TransactionScreen(
+                    transaction: transaction,
+                    initialCollectionDueId: dueIdForTx,
+                  ),
                 ),
               );
               if (changed == true) {
@@ -400,7 +467,10 @@ class TransactionListItem extends StatelessWidget {
                           for (final d in duesSnap.docs) {
                             final q = await d.reference
                                 .collection('due_payments')
-                                .where('transactionId', isEqualTo: transaction.id)
+                                .where(
+                                  'transactionId',
+                                  isEqualTo: transaction.id,
+                                )
                                 .limit(1)
                                 .get();
                             if (q.docs.isNotEmpty) {
@@ -412,7 +482,10 @@ class TransactionListItem extends StatelessWidget {
 
                         final changed = await Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => TransactionScreen(transaction: transaction, initialCollectionDueId: dueIdForTx),
+                            builder: (_) => TransactionScreen(
+                              transaction: transaction,
+                              initialCollectionDueId: dueIdForTx,
+                            ),
                           ),
                         );
                         if (changed == true) {
@@ -464,7 +537,9 @@ class TransactionListItem extends StatelessWidget {
         opacity: isCollection ? 0.6 : 1.0,
         child: Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -484,7 +559,10 @@ class TransactionListItem extends StatelessWidget {
                 // Content area
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 12,
+                    ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -495,8 +573,8 @@ class TransactionListItem extends StatelessWidget {
                             color: transaction.type == 'expense'
                                 ? Colors.red
                                 : transaction.type == 'fund'
-                                    ? Colors.green
-                                    : Colors.teal,
+                                ? Colors.green
+                                : Colors.teal,
                           ),
                         ),
                         const SizedBox(width: 12),
