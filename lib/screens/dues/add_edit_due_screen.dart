@@ -255,6 +255,8 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                   ? const Chip(label: Text('Paid'))
                                   : const Text('Unpaid'),
                               onTap: () async {
+                                // Capture controller text early to avoid using it after dispose
+                                final amountText = _amountCtrl.text;
                                 if (widget.existing == null) return;
                                 final dueId = widget.existing!.id;
                                 final createdDocId =
@@ -327,10 +329,7 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                       dueId: dueId,
                                       userId: userId,
                                       transactionId: '',
-                                      amount:
-                                          double.tryParse(_amountCtrl.text) ??
-                                          widget.existing?.amount ??
-                                          0.0,
+                                      amount: double.tryParse(amountText) ?? widget.existing?.amount ?? 0.0,
                                       paidAt: DateTime.now(),
                                       createdAt: DateTime.now(),
                                       updatedAt: DateTime.now(),
@@ -364,10 +363,7 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                         'dueId': dueId,
                                         'userId': userId,
                                         'transactionId': '',
-                                        'amount':
-                                            double.tryParse(_amountCtrl.text) ??
-                                            widget.existing?.amount ??
-                                            0.0,
+                                        'amount': double.tryParse(amountText) ?? widget.existing?.amount ?? 0.0,
                                         'paidAt': Timestamp.fromDate(now),
                                         'createdAt': Timestamp.fromDate(now),
                                         'updatedAt': Timestamp.fromDate(now),

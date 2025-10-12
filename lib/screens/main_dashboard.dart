@@ -12,6 +12,7 @@ import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
 import 'package:org_wallet/screens/organization/scan_qr_screen.dart';
 import 'package:org_wallet/screens/dues/manage_dues_screen.dart';
 import 'package:org_wallet/screens/organization/manage_members_screen.dart';
+import 'package:org_wallet/screens/dashboard/manage_categories_screen.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -181,6 +182,17 @@ class _MainDashboardState extends State<MainDashboard> {
                                 _handleMenuSelection('manage_members', context),
                           ),
                           ListTile(
+                            leading: const Icon(Icons.category),
+                            title: const Text('Manage Categories'),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ManageCategoriesScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          ListTile(
                             leading: const Icon(Icons.qr_code),
                             title: const Text('Invite QR'),
                             onTap: () {
@@ -245,7 +257,7 @@ class _MainDashboardState extends State<MainDashboard> {
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
+        selectedItemColor: TWColors.slate.shade900,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
