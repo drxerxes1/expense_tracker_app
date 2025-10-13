@@ -17,9 +17,9 @@ class _LogsScreenState extends State<LogsScreen> {
   List<AuditTrail> _auditLogs = [];
   bool _isLoading = true;
   String _selectedAction = 'All';
-  Map<String, String> _userNames = {}; // Cache for user ID to name mapping
-  Map<String, String> _userRoles = {}; // Cache for user ID to role mapping
-  Map<String, String> _transactionTypes = {}; // Cache for transaction ID to type mapping
+  final Map<String, String> _userNames = {}; // Cache for user ID to name mapping
+  final Map<String, String> _userRoles = {}; // Cache for user ID to role mapping
+  final Map<String, String> _transactionTypes = {}; // Cache for transaction ID to type mapping
 
   @override
   void initState() {
@@ -417,6 +417,8 @@ class _LogsScreenState extends State<LogsScreen> {
         return Icons.check_circle;
       case AuditAction.denied:
         return Icons.cancel;
+      case AuditAction.roleChanged:
+        return Icons.admin_panel_settings;
     }
   }
 
@@ -432,6 +434,8 @@ class _LogsScreenState extends State<LogsScreen> {
         return Colors.green;
       case AuditAction.denied:
         return Colors.red;
+      case AuditAction.roleChanged:
+        return Colors.purple;
     }
   }
 }

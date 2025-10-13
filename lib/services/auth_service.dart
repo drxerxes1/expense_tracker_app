@@ -75,7 +75,25 @@ class AuthService extends ChangeNotifier {
       if (userDoc.exists) {
         _user = app_user.User.fromMap({'id': userDoc.id, ...userDoc.data()!});
 
-        // Load current officer data if user has organizations
+        // Try to load saved organization from Hive first
+        try {
+          final metaBox = await Hive.openBox('userMeta');
+          final savedMeta = metaBox.get(_firebaseUser!.uid);
+          if (savedMeta != null && savedMeta['orgId'] != null) {
+            final savedOrgId = savedMeta['orgId'] as String;
+            // Verify the saved org is still in user's organizations
+            if (_user!.organizations.contains(savedOrgId)) {
+              _currentOrgId = savedOrgId;
+              await _loadCurrentOfficerData();
+              await _loadOrganization();
+              return;
+            }
+          }
+        } catch (e) {
+          debugPrint('Error loading saved organization from Hive: $e');
+        }
+
+        // Fallback to first organization if no saved org or saved org is invalid
         if (_user!.organizations.isNotEmpty) {
           _currentOrgId = _user!.organizations.first;
           await _loadCurrentOfficerData();
@@ -263,7 +281,19 @@ class AuthService extends ChangeNotifier {
   Future<void> switchOrganization(String orgId) async {
     _currentOrgId = orgId;
     await _loadCurrentOfficerData();
-  await _loadOrganization();
+    await _loadOrganization();
+    
+    // Save to Hive for persistence
+    try {
+      final metaBox = await Hive.openBox('userMeta');
+      await metaBox.put(_firebaseUser!.uid, {
+        'orgId': orgId,
+        'role': _currentOfficer?.role.toString().split('.').last ?? 'member',
+      });
+    } catch (e) {
+      debugPrint('Error saving organization switch to Hive: $e');
+    }
+    
     notifyListeners();
   }
 
@@ -284,6 +314,14 @@ class AuthService extends ChangeNotifier {
   }
 
   bool canEditExpenses() {
+    return _currentOfficer?.status == OfficerStatus.approved;
+  }
+
+  bool isPendingMembership() {
+    return _currentOfficer?.status == OfficerStatus.pending;
+  }
+
+  bool isApprovedMember() {
     return _currentOfficer?.status == OfficerStatus.approved;
   }
 }

@@ -5,7 +5,8 @@ enum AuditAction {
   edited, 
   deleted, 
   approved, 
-  denied;
+  denied,
+  roleChanged;
 
   String get actionDisplayName {
     switch (this) {
@@ -19,6 +20,8 @@ enum AuditAction {
         return 'Approved';
       case AuditAction.denied:
         return 'Denied';
+      case AuditAction.roleChanged:
+        return 'Role Changed';
     }
   }
 }

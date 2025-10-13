@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/screens/main_dashboard.dart';
+import 'package:org_wallet/screens/auth/pending_membership_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -42,19 +43,32 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkAuthAndNavigate() async {
     await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final loginBox = Hive.box<UserLogin>('userLogin');
-      final savedLogin = loginBox.get('current');
-      if (authService.isLoggedIn || savedLogin != null) {
+    if (!mounted) return;
+    
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final loginBox = Hive.box<UserLogin>('userLogin');
+    final savedLogin = loginBox.get('current');
+    
+    if (authService.isLoggedIn || savedLogin != null) {
+      // Wait for auth service to load user data and check membership status
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (!mounted) return;
+      
+      if (authService.isPendingMembership()) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainDashboard()),
+          MaterialPageRoute(builder: (_) => const PendingMembershipScreen()),
         );
       } else {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          MaterialPageRoute(builder: (_) => const MainDashboard()),
         );
       }
+    } else {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     }
   }
 

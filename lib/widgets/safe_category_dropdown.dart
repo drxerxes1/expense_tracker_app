@@ -11,13 +11,13 @@ class SafeCategoryDropdown extends StatefulWidget {
   final bool showIcons;
 
   const SafeCategoryDropdown({
-    Key? key,
+    super.key,
     required this.categories,
     required this.selectedCategoryId,
     required this.onChanged,
     required this.labelText,
     this.showIcons = true,
-  }) : super(key: key);
+  });
 
   @override
   State<SafeCategoryDropdown> createState() => _SafeCategoryDropdownState();
@@ -44,7 +44,7 @@ class _SafeCategoryDropdownState extends State<SafeCategoryDropdown> {
           ),
         ),
         const SizedBox(height: 8),
-        
+
         // Dropdown Button
         InkWell(
           onTap: () {
@@ -77,14 +77,16 @@ class _SafeCategoryDropdownState extends State<SafeCategoryDropdown> {
                 ),
                 // Dropdown arrow
                 Icon(
-                  _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  _isExpanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
                   color: Colors.grey.shade600,
                 ),
               ],
             ),
           ),
         ),
-        
+
         // Dropdown list
         if (_isExpanded) ...[
           const SizedBox(height: 4),
@@ -112,7 +114,10 @@ class _SafeCategoryDropdownState extends State<SafeCategoryDropdown> {
                   },
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: category.id == widget.selectedCategoryId
                           ? Colors.blue.shade50
@@ -159,7 +164,7 @@ class _SafeCategoryDropdownState extends State<SafeCategoryDropdown> {
           ),
         ),
         const SizedBox(width: 12),
-        
+
         // Category name and type
         Expanded(
           child: Column(
@@ -177,10 +182,7 @@ class _SafeCategoryDropdownState extends State<SafeCategoryDropdown> {
               ),
               Text(
                 category.type.toShortString().capitalize(),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
