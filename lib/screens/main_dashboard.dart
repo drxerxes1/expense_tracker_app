@@ -14,6 +14,7 @@ import 'package:org_wallet/screens/dues/manage_dues_screen.dart';
 import 'package:org_wallet/screens/organization/manage_members_screen.dart';
 import 'package:org_wallet/screens/organization/edit_organization_screen.dart';
 import 'package:org_wallet/screens/dashboard/manage_categories_screen.dart';
+import 'package:org_wallet/screens/profile/profile_screen.dart';
 import 'package:org_wallet/widgets/organization_switcher_modal.dart';
 import 'package:org_wallet/screens/auth/pending_membership_screen.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
@@ -354,7 +355,11 @@ class _MainDashboardState extends State<MainDashboard> {
         // Navigate to export reports screen
         break;
       case 'profile':
-        // Navigate to profile screen
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const ProfileScreen(),
+          ),
+        );
         break;
       case 'logout':
         _showLogoutDialog(context);
