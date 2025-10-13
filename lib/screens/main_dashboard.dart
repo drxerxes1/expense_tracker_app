@@ -12,6 +12,7 @@ import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
 import 'package:org_wallet/screens/organization/scan_qr_screen.dart';
 import 'package:org_wallet/screens/dues/manage_dues_screen.dart';
 import 'package:org_wallet/screens/organization/manage_members_screen.dart';
+import 'package:org_wallet/screens/organization/edit_organization_screen.dart';
 import 'package:org_wallet/screens/dashboard/manage_categories_screen.dart';
 import 'package:org_wallet/widgets/organization_switcher_modal.dart';
 import 'package:org_wallet/screens/auth/pending_membership_screen.dart';
@@ -338,7 +339,11 @@ class _MainDashboardState extends State<MainDashboard> {
   void _handleMenuSelection(String value, BuildContext context) {
     switch (value) {
       case 'edit_org':
-        // Navigate to edit organization screen
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const EditOrganizationScreen(),
+          ),
+        );
         break;
       case 'manage_members':
         Navigator.of(

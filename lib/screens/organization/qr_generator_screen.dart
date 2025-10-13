@@ -144,11 +144,13 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
                                     await Clipboard.setData(
                                       ClipboardData(text: _qrData ?? ''),
                                     );
-                                    // ignore: use_build_context_synchronously
-                                    SnackBarHelper.showSuccess(
-                                      context,
-                                      message: 'Invite code copied',
-                                    );
+                                    if (mounted) {
+                                      SnackBarHelper.showSuccess(
+                                        // ignore: use_build_context_synchronously
+                                        context,
+                                        message: 'Invite code copied',
+                                      );
+                                    }
                                   },
                                   icon: const Icon(Icons.copy),
                                   label: const Text('Copy code'),

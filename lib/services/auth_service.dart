@@ -369,4 +369,9 @@ class AuthService extends ChangeNotifier {
   Future<void> reloadUserData() async {
     await _loadUserData();
   }
+
+  /// Public method to reload organization data
+  Future<void> reloadOrganizationData() async {
+    await _loadOrganization();
+  }
 }

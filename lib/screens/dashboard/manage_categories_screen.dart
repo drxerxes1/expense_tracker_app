@@ -68,12 +68,14 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
         builder: (context, setState) => AlertDialog(
           title: Text(category == null ? 'Add Category' : 'Edit Category'),
           content: SizedBox(
-            width: 400,
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: MediaQuery.of(context).size.height * 0.7,
             child: Form(
               key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   TextFormField(
                     controller: nameCtrl,
                     decoration: const InputDecoration(
@@ -166,12 +168,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                           border: Border.all(color: Colors.grey.shade300),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: GridView.builder(
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.all(8),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 10,
-                            childAspectRatio: 1,
-                          ),
                           itemCount: CategoryColors.colors.length,
                           itemBuilder: (context, index) {
                             final color = CategoryColors.colors[index];
@@ -184,7 +183,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                                 });
                               },
                               child: Container(
-                                margin: const EdgeInsets.all(2),
+                                width: 44,
+                                height: 44,
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
                                 decoration: BoxDecoration(
                                   color: color,
                                   borderRadius: BorderRadius.circular(4),
@@ -201,6 +202,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                     ],
                   ),
                 ],
+                ),
               ),
             ),
           ),
@@ -455,14 +457,17 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                   heroTag: "restore_defaults",
                   mini: true,
                   onPressed: () => _restoreDefaultCategories(context, orgId),
-                  backgroundColor: TWColors.blue.shade500,
+                  backgroundColor: TWColors.slate.shade900,
+                  shape: const CircleBorder(),
                   child: const Icon(Icons.restore, color: Colors.white),
                 ),
                 const SizedBox(height: 8),
                 FloatingActionButton(
                   heroTag: "add_category",
                   onPressed: () => _showEditDialog(context, orgId),
-                  child: const Icon(Icons.add),
+                  backgroundColor: TWColors.slate.shade900,
+                  shape: const CircleBorder(),
+                  child: const Icon(Icons.add, color: Colors.white),
                 ),
               ],
             ),
