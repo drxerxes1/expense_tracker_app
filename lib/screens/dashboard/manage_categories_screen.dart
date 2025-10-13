@@ -442,7 +442,7 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                 _buildCategoryList(orgId, CategoryType.fund),
               ],
             ),
-      floatingActionButton: orgId == null
+      floatingActionButton: orgId == null || !Provider.of<AuthService>(context, listen: false).canPerformAction('manage_categories')
           ? null
           : Column(
               mainAxisSize: MainAxisSize.min,
@@ -601,20 +601,22 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.edit_outlined,
-                        color: TWColors.indigo.shade600,
+                    if (Provider.of<AuthService>(context, listen: false).canPerformAction('manage_categories')) ...[
+                      IconButton(
+                        icon: Icon(
+                          Icons.edit_outlined,
+                          color: TWColors.indigo.shade600,
+                        ),
+                        onPressed: () => _showEditDialog(context, orgId, category: category),
                       ),
-                      onPressed: () => _showEditDialog(context, orgId, category: category),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.delete_outline,
-                        color: Colors.red.shade600,
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_outline,
+                          color: Colors.red.shade600,
+                        ),
+                        onPressed: () => _confirmDelete(context, orgId, category),
                       ),
-                      onPressed: () => _confirmDelete(context, orgId, category),
-                    ),
+                    ],
                   ],
                 ),
               ),

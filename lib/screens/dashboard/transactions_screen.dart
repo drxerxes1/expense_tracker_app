@@ -455,6 +455,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               // trigger rebuild to refresh balances immediately
               setState(() {});
             },
+            authService: Provider.of<AuthService>(context, listen: false),
           );
         }
         currentIndex++;
@@ -473,11 +474,14 @@ class TransactionListItem extends StatelessWidget {
   final model.AppTransaction transaction;
   final Future<void> Function(String id)? onRequestDelete;
   final VoidCallback? onEdited;
+  final AuthService authService;
+  
   const TransactionListItem({
     super.key,
     required this.transaction,
     this.onRequestDelete,
     this.onEdited,
+    required this.authService,
   });
 
   Future<IconData> _getCategoryIcon(BuildContext context) async {
@@ -588,8 +592,8 @@ class TransactionListItem extends StatelessWidget {
             return SafeArea(
               child: Wrap(
                 children: [
-                  // Show Edit only for non-collection transactions
-                  if (!isCollection)
+                  // Show Edit only for non-collection transactions and if user has permission
+                  if (!isCollection && authService.canPerformAction('edit_transaction'))
                     ListTile(
                       leading: const Icon(Icons.edit),
                       title: const Text('Edit'),
@@ -631,40 +635,42 @@ class TransactionListItem extends StatelessWidget {
                         }
                       },
                     ),
-                  ListTile(
-                    leading: const Icon(Icons.delete, color: Colors.red),
-                    title: const Text(
-                      'Delete',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                    onTap: () async {
-                      Navigator.of(ctx).pop();
-                      final ok = await showDialog<bool>(
-                        context: context,
-                        builder: (dctx) => AlertDialog(
-                          title: const Text('Delete transaction'),
-                          content: const Text(
-                            'Are you sure you want to delete this transaction?',
+                  // Show Delete only if user has permission
+                  if (authService.canPerformAction('delete_transaction'))
+                    ListTile(
+                      leading: const Icon(Icons.delete, color: Colors.red),
+                      title: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      onTap: () async {
+                        Navigator.of(ctx).pop();
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (dctx) => AlertDialog(
+                            title: const Text('Delete transaction'),
+                            content: const Text(
+                              'Are you sure you want to delete this transaction?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(dctx).pop(false),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => Navigator.of(dctx).pop(true),
+                                child: const Text('Delete'),
+                              ),
+                            ],
                           ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(dctx).pop(false),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () => Navigator.of(dctx).pop(true),
-                              child: const Text('Delete'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (ok == true) {
-                        if (onRequestDelete != null) {
-                          await onRequestDelete!(transaction.id);
+                        );
+                        if (ok == true) {
+                          if (onRequestDelete != null) {
+                            await onRequestDelete!(transaction.id);
+                          }
                         }
-                      }
-                    },
-                  ),
+                      },
+                    ),
                 ],
               ),
             );

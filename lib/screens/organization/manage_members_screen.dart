@@ -27,7 +27,20 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     super.dispose();
   }
 
-  Future<void> _updateStatus(String docId, String status) async {
+  Future<void> _updateStatus(String docId, String status, String memberUserId) async {
+    // Security check: Only presidents can update status, and they cannot update their own status
+    if (!_canModifyMember(memberUserId)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('You cannot modify your own status'),
+            backgroundColor: TWColors.red.shade500,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
     await _firestore.collection('officers').doc(docId).update({
@@ -58,6 +71,19 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
   }
 
   Future<void> _removeMember(String docId, String userId, String orgId) async {
+    // Security check: Only presidents can remove members, and they cannot remove themselves
+    if (!_canModifyMember(userId)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('You cannot remove yourself'),
+            backgroundColor: TWColors.red.shade500,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
     await _firestore.collection('officers').doc(docId).delete();
@@ -67,7 +93,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
       });
     } catch (_) {
       // ignore if user doc missing
-      }
+    }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -91,7 +117,20 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     }
   }
 
-  Future<void> _changeMemberRole(String docId, String newRole, String memberName, String orgId) async {
+  Future<void> _changeMemberRole(String docId, String newRole, String memberName, String orgId, String memberUserId) async {
+    // Security check: Only presidents can change roles, and they cannot change their own role
+    if (!_canModifyMember(memberUserId)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('You cannot modify your own role'),
+            backgroundColor: TWColors.red.shade500,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
@@ -161,7 +200,18 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     }
   }
 
-  void _showRoleChangeDialog(String docId, String currentRole, String memberName, String orgId) {
+  void _showRoleChangeDialog(String docId, String currentRole, String memberName, String orgId, String memberUserId) {
+    // Security check: Only presidents can change roles, and they cannot change their own role
+    if (!_canModifyMember(memberUserId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('You cannot modify your own role'),
+          backgroundColor: TWColors.red.shade500,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -210,7 +260,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                   onChanged: isCurrentRole ? null : (value) {
                     Navigator.of(context).pop();
                     if (value != null) {
-                      _changeMemberRole(docId, value, memberName, orgId);
+                      _changeMemberRole(docId, value, memberName, orgId, memberUserId);
                     }
                   },
                 ),
@@ -246,6 +296,17 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
       default:
         return 'Organization member';
     }
+  }
+
+  bool _isCurrentUser(String memberUserId) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    return authService.firebaseUser?.uid == memberUserId;
+  }
+
+  bool _canModifyMember(String memberUserId) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    // Only presidents and moderators can modify members, and they cannot modify themselves
+    return authService.hasFullPrivileges() && !_isCurrentUser(memberUserId);
   }
 
   void _showMemberDetails(Map<String, dynamic> data) {
@@ -589,6 +650,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                     final name = data['name'] ?? data['email'] ?? '';
                     final email = data['email'] ?? '';
                     final userId = (data['userId'] ?? '').toString();
+                    final isCurrentUser = _isCurrentUser(userId);
                     
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -609,10 +671,11 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                           ),
                         ),
                         title: Text(
-                          name,
+                          isCurrentUser ? '$name (You)' : name,
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
+                            color: isCurrentUser ? TWColors.slate.shade700 : Colors.black,
                           ),
                         ),
                         subtitle: Column(
@@ -633,9 +696,9 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                                 const SizedBox(width: 8),
                                 _buildRoleChip(role),
                               ],
-                            ),
-                          ],
-                        ),
+                              ),
+                            ],
+                          ),
                         trailing: PopupMenuButton<String>(
                           onSelected: (value) async {
                             switch (value) {
@@ -643,16 +706,16 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                                 _showMemberDetails(data);
                                 break;
                               case 'change_role':
-                                _showRoleChangeDialog(doc.id, data['role'] ?? 'member', name, orgId);
+                                _showRoleChangeDialog(doc.id, data['role'] ?? 'member', name, orgId, userId);
                                 break;
                               case 'approve':
                                 if (status.toLowerCase() != 'approved') {
-                                  await _updateStatus(doc.id, 'approved');
+                                  await _updateStatus(doc.id, 'approved', userId);
                                 }
                                 break;
                               case 'deny':
                                 if (status.toLowerCase() != 'denied') {
-                                  await _updateStatus(doc.id, 'denied');
+                                  await _updateStatus(doc.id, 'denied', userId);
                                 }
                                 break;
                               case 'remove':
@@ -663,60 +726,103 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                                 break;
                             }
                           },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'view',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.visibility),
-                                  SizedBox(width: 8),
-                                  Text('View Details'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'change_role',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.admin_panel_settings, color: Colors.blue),
-                                  SizedBox(width: 8),
-                                  Text('Change Role'),
-                                ],
-                              ),
-                            ),
-                            if (status.toLowerCase() != 'approved')
+                          itemBuilder: (context) {
+                            final isCurrentUser = _isCurrentUser(userId);
+                            final canModify = _canModifyMember(userId);
+                            
+                            return [
                               const PopupMenuItem(
-                                value: 'approve',
+                                value: 'view',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.check, color: Colors.green),
+                                    Icon(Icons.visibility),
                                     SizedBox(width: 8),
-                                    Text('Approve'),
+                                    Text('View Details'),
                                   ],
                                 ),
                               ),
-                            if (status.toLowerCase() != 'denied')
-                              const PopupMenuItem(
-                                value: 'deny',
+                              PopupMenuItem(
+                                value: 'change_role',
+                                enabled: canModify,
                                 child: Row(
                                   children: [
-                                    Icon(Icons.close, color: Colors.red),
-                                    SizedBox(width: 8),
-                                    Text('Deny'),
+                                    Icon(
+                                      Icons.admin_panel_settings, 
+                                      color: canModify ? Colors.blue : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Change Role',
+                                      style: TextStyle(
+                                        color: canModify ? Colors.black : Colors.grey,
+                                      ),
+                                    ),
+                                    if (isCurrentUser) 
+                                      const Text(' (You)', style: TextStyle(fontStyle: FontStyle.italic)),
                                   ],
                                 ),
                               ),
-                            const PopupMenuItem(
-                              value: 'remove',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.person_remove, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Remove'),
-                                ],
+                              if (status.toLowerCase() != 'approved')
+                                PopupMenuItem(
+                                  value: 'approve',
+                                  enabled: canModify,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.check, 
+                                        color: canModify ? Colors.green : Colors.grey,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Approve',
+                                        style: TextStyle(
+                                          color: canModify ? Colors.black : Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (status.toLowerCase() != 'denied')
+                                PopupMenuItem(
+                                  value: 'deny',
+                                  enabled: canModify,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.close, 
+                                        color: canModify ? Colors.red : Colors.grey,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Deny',
+                                        style: TextStyle(
+                                          color: canModify ? Colors.black : Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              PopupMenuItem(
+                                value: 'remove',
+                                enabled: canModify,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.person_remove, 
+                                      color: canModify ? Colors.red : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Remove',
+                                      style: TextStyle(
+                                        color: canModify ? Colors.black : Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ];
+                          },
                         ),
                 ),
               );

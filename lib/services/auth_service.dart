@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/models/user.dart' as app_user;
 import 'package:org_wallet/models/organization.dart';
 import 'package:org_wallet/models/officer.dart';
+import 'package:org_wallet/constants/role_permissions.dart';
 
 class AuthService extends ChangeNotifier {
   Organization? _organization;
@@ -323,5 +324,44 @@ class AuthService extends ChangeNotifier {
 
   bool isApprovedMember() {
     return _currentOfficer?.status == OfficerStatus.approved;
+  }
+
+  // Role-based permission checking methods
+  bool isTreasurer() {
+    return hasRole(OfficerRole.treasurer);
+  }
+
+  bool isSecretary() {
+    return hasRole(OfficerRole.secretary);
+  }
+
+  bool isAuditor() {
+    return hasRole(OfficerRole.auditor);
+  }
+
+  bool isMember() {
+    return hasRole(OfficerRole.member);
+  }
+
+  bool hasManagementAccess() {
+    return isPresident() || isModerator() || isTreasurer() || isSecretary() || isAuditor();
+  }
+
+  bool hasTransactionAccess() {
+    return isPresident() || isModerator() || isTreasurer() || isSecretary() || isAuditor();
+  }
+
+  bool hasFullPrivileges() {
+    return isPresident() || isModerator();
+  }
+
+  bool canAccessDrawerItem(String menuItem) {
+    if (_currentOfficer == null) return false;
+    return RolePermissions.canAccessDrawerItem(_currentOfficer!.role, menuItem);
+  }
+
+  bool canPerformAction(String action) {
+    if (_currentOfficer == null) return false;
+    return RolePermissions.canPerformAction(_currentOfficer!.role, action);
   }
 }

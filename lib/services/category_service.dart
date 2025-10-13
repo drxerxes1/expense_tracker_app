@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:org_wallet/models/category.dart';
 
 class CategoryService {
@@ -503,8 +504,8 @@ class CategoryService {
               id: 'club_funds',
               name: 'Club Funds',
               type: CategoryType.fund,
-              icon: 'sports',
-              color: '#22C55E',
+              icon: 'groups',
+              color: '#8B5CF6',
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
             );
@@ -518,6 +519,59 @@ class CategoryService {
       }
       
       await batch.commit();
+    }
+    
+    // Update existing Club Funds to use the new icon and color
+    await updateClubFundsIconAndColor(orgId);
+  }
+
+  /// Force update Club Funds icon and color - call this to manually update
+  Future<void> forceUpdateClubFundsIconAndColor(String orgId) async {
+    try {
+      final clubFundsRef = _categoriesRef(orgId).doc('club_funds');
+      await clubFundsRef.update({
+        'icon': 'groups',
+        'color': '#8B5CF6',
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+      debugPrint('Successfully updated Club Funds icon and color');
+    } catch (e) {
+      debugPrint('Error force updating Club Funds: $e');
+      // If update fails, try to create the document
+      try {
+        final clubFundsRef = _categoriesRef(orgId).doc('club_funds');
+        await clubFundsRef.set({
+          'id': 'club_funds',
+          'name': 'Club Funds',
+          'type': 'fund',
+          'icon': 'groups',
+          'color': '#8B5CF6',
+          'createdAt': Timestamp.fromDate(DateTime.now()),
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+        debugPrint('Successfully created Club Funds with new icon and color');
+      } catch (e2) {
+        debugPrint('Error creating Club Funds: $e2');
+      }
+    }
+  }
+
+  /// Update existing Club Funds to use the new icon and color
+  Future<void> updateClubFundsIconAndColor(String orgId) async {
+    try {
+      final clubFundsRef = _categoriesRef(orgId).doc('club_funds');
+      final clubFundsDoc = await clubFundsRef.get();
+      
+      if (clubFundsDoc.exists) {
+        await clubFundsRef.update({
+          'icon': 'groups',
+          'color': '#8B5CF6',
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+      }
+    } catch (e) {
+      // Ignore errors - this is a non-critical update
+      debugPrint('Error updating Club Funds icon and color: $e');
     }
   }
 

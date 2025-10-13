@@ -29,6 +29,7 @@ class CategoryIcons {
     'furniture': Icons.chair,
     'maintenance': Icons.build,
     'tax': Icons.receipt,
+    'groups': Icons.groups,
     'miscellaneous': Icons.category,
     'category': Icons.category,
   };

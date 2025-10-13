@@ -93,18 +93,6 @@ class _MainDashboardState extends State<MainDashboard> {
               tooltip: 'Filter by date',
               onPressed: _selectDateRange,
             ),
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.black),
-              tooltip: 'Reset to this month',
-              onPressed: () {
-                final now = DateTime.now();
-                final start = DateTime(now.year, now.month, 1);
-                final end = now; // up-to-today
-                setState(() {
-                  _selectedDateRange = DateTimeRange(start: start, end: end);
-                });
-              },
-            ),
           ],
         ],
       ),
@@ -164,13 +152,18 @@ class _MainDashboardState extends State<MainDashboard> {
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
-                        if (authService.isPresident()) ...[
+                        // Edit Organization - Only President/Moderator
+                        if (authService.canAccessDrawerItem('edit_organization')) ...[
                           ListTile(
                             leading: const Icon(Icons.edit),
                             title: const Text('Edit Organization'),
                             onTap: () =>
                                 _handleMenuSelection('edit_org', context),
                           ),
+                        ],
+                        
+                        // Manage Dues - Only President/Moderator
+                        if (authService.canAccessDrawerItem('manage_dues')) ...[
                           ListTile(
                             leading: const Icon(Icons.playlist_add),
                             title: const Text('Manage Dues'),
@@ -182,12 +175,20 @@ class _MainDashboardState extends State<MainDashboard> {
                               );
                             },
                           ),
+                        ],
+                        
+                        // Manage Members - Only President/Moderator
+                        if (authService.canAccessDrawerItem('manage_members')) ...[
                           ListTile(
                             leading: const Icon(Icons.people),
                             title: const Text('Manage Members'),
                             onTap: () =>
                                 _handleMenuSelection('manage_members', context),
                           ),
+                        ],
+                        
+                        // Manage Categories - Treasurer/Secretary/Auditor/President/Moderator
+                        if (authService.canAccessDrawerItem('manage_categories')) ...[
                           ListTile(
                             leading: const Icon(Icons.category),
                             title: const Text('Manage Categories'),
@@ -199,6 +200,10 @@ class _MainDashboardState extends State<MainDashboard> {
                               );
                             },
                           ),
+                        ],
+                        
+                        // Invite QR - Only President/Moderator
+                        if (authService.canAccessDrawerItem('invite_qr')) ...[
                           ListTile(
                             leading: const Icon(Icons.qr_code),
                             title: const Text('Invite QR'),
@@ -220,6 +225,10 @@ class _MainDashboardState extends State<MainDashboard> {
                               }
                             },
                           ),
+                        ],
+                        
+                        // Export Reports - All roles (view-only access)
+                        if (authService.canAccessDrawerItem('export_reports')) ...[
                           ListTile(
                             leading: const Icon(Icons.download),
                             title: const Text('Export Reports'),
@@ -227,12 +236,17 @@ class _MainDashboardState extends State<MainDashboard> {
                                 _handleMenuSelection('export_reports', context),
                           ),
                         ],
+                        
                         const Divider(),
+                        
+                        // Profile - All roles
                         ListTile(
                           leading: const Icon(Icons.person),
                           title: const Text('Profile'),
                           onTap: () => _handleMenuSelection('profile', context),
                         ),
+                        
+                        // Join QR - All roles
                         ListTile(
                           leading: const Icon(Icons.qr_code_scanner),
                           title: const Text('Join QR'),
@@ -244,11 +258,15 @@ class _MainDashboardState extends State<MainDashboard> {
                             );
                           },
                         ),
+                        
+                        // Switch Organization - All roles
                         ListTile(
                           leading: const Icon(Icons.swap_horiz),
                           title: const Text('Switch Organization'),
                           onTap: () => _showOrganizationSwitcher(context),
                         ),
+                        
+                        // Logout - All roles
                         ListTile(
                           leading: const Icon(Icons.logout),
                           title: const Text('Logout'),
@@ -287,7 +305,7 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
         ],
       ),
-      floatingActionButton: _currentIndex == 0
+      floatingActionButton: _currentIndex == 0 && authService.canPerformAction('add_transaction')
           ? FloatingActionButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TransactionScreen()),
@@ -376,6 +394,76 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Future<void> _selectDateRange() async {
+    // Show a bottom sheet with predefined options and custom range
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select Date Range',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // This Month option
+            ListTile(
+              leading: const Icon(Icons.calendar_month),
+              title: const Text('This Month'),
+              subtitle: Text(_formatThisMonthRange()),
+              onTap: () {
+                Navigator.pop(context);
+                _setThisMonthRange();
+              },
+            ),
+            
+            const Divider(),
+            
+            // Custom Range option
+            ListTile(
+              leading: const Icon(Icons.date_range),
+              title: const Text('Custom Range'),
+              subtitle: Text(_selectedDateRange != null 
+                ? _formatRange(_selectedDateRange!)
+                : 'Select custom dates'),
+              onTap: () {
+                Navigator.pop(context);
+                _selectCustomDateRange();
+              },
+            ),
+            
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setThisMonthRange() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final end = now; // up-to-today
+    setState(() {
+      _selectedDateRange = DateTimeRange(start: start, end: end);
+    });
+  }
+
+  String _formatThisMonthRange() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final end = now;
+    return '${start.day}/${start.month}/${start.year} - ${end.day}/${end.month}/${end.year}';
+  }
+
+  Future<void> _selectCustomDateRange() async {
     // Ensure lastDate is at least as late as the current initial range end
     DateTime lastDate = DateTime.now();
     if (_selectedDateRange != null && _selectedDateRange!.end.isAfter(lastDate)) {
