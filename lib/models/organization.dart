@@ -38,8 +38,8 @@ class Organization {
       'description': description,
       'createdBy': createdBy,
       'roles': roles,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
 

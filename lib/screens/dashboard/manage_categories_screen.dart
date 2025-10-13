@@ -8,6 +8,7 @@ import 'package:org_wallet/services/category_service.dart';
 import 'package:org_wallet/constants/category_constants.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class ManageCategoriesScreen extends StatefulWidget {
   const ManageCategoriesScreen({super.key});
@@ -221,8 +222,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                       type: selectedType,
                     );
                     if (exists) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('A ${selectedType.toShortString()} category with this name already exists')),
+                      SnackBarHelper.showError(
+                        ctx,
+                        message: 'A ${selectedType.toShortString()} category with this name already exists',
                       );
                       return;
                     }
@@ -243,8 +245,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                       excludeCategoryId: category.id,
                     );
                     if (exists) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('A ${selectedType.toShortString()} category with this name already exists')),
+                      SnackBarHelper.showError(
+                        ctx,
+                        message: 'A ${selectedType.toShortString()} category with this name already exists',
                       );
                       return;
                     }
@@ -260,8 +263,9 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
                   }
                   Navigator.of(ctx).pop(true);
                 } catch (e) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('Save failed: $e')),
+                  SnackBarHelper.showError(
+                    ctx,
+                    message: 'Save failed: $e',
                   );
                 }
               },
@@ -303,13 +307,15 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
       try {
         await _categoryService.ensureDefaultCategoriesExist(orgId);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Default categories restored successfully')),
+        SnackBarHelper.showSuccess(
+          context,
+          message: 'Default categories restored successfully',
         );
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to restore default categories: $e')),
+        SnackBarHelper.showError(
+          context,
+          message: 'Failed to restore default categories: $e',
         );
       }
     }
@@ -392,19 +398,17 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
           categoryId: category.id,
         );
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isDefault 
-                ? 'Default category deleted successfully'
-                : 'Category deleted successfully'
-            ),
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          message: isDefault 
+              ? 'Default category deleted successfully'
+              : 'Category deleted successfully',
         );
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e')),
+        SnackBarHelper.showError(
+          context,
+          message: 'Delete failed: $e',
         );
       }
     }

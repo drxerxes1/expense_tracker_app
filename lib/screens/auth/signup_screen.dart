@@ -5,6 +5,7 @@ import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/screens/organization/create_organization_screen.dart';
 import 'package:org_wallet/widgets/custom_text_field.dart';
 import 'package:org_wallet/widgets/custom_button.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -47,11 +48,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (success && mounted) {
         // Show success message and navigate to organization creation
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          message: 'Account created successfully!',
         );
 
         // Navigate to organization creation
@@ -61,14 +60,16 @@ class _SignupScreenState extends State<SignupScreen> {
       } else if (mounted) {
         final error =
             authService.lastErrorMessage ?? 'Failed to create account';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        SnackBarHelper.showError(
+          context,
+          message: error,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error: $e',
         );
       }
     } finally {

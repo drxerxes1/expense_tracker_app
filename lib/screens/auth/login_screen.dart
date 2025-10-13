@@ -8,6 +8,7 @@ import 'package:org_wallet/screens/organization/scan_qr_screen.dart';
 import 'package:org_wallet/screens/main_dashboard.dart';
 import 'package:org_wallet/widgets/custom_text_field.dart';
 import 'package:org_wallet/widgets/custom_button.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -51,22 +52,45 @@ class _LoginScreenState extends State<LoginScreen> {
           _showOrganizationOptions();
         }
       } else if (mounted) {
-        final error =
-            authService.lastErrorMessage ?? 'Invalid email or password';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        final error = _getUserFriendlyErrorMessage(
+            authService.lastErrorMessage ?? 'Invalid email or password');
+        SnackBarHelper.showError(
+          context,
+          message: error,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBarHelper.showError(
+          context,
+          message: 'An unexpected error occurred. Please try again.',
         );
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  String _getUserFriendlyErrorMessage(String errorMessage) {
+    // Convert Firebase error messages to user-friendly messages
+    if (errorMessage.toLowerCase().contains('user-not-found')) {
+      return 'No account found with this email address. Please check your email or create a new account.';
+    } else if (errorMessage.toLowerCase().contains('wrong-password')) {
+      return 'Incorrect password. Please check your password and try again.';
+    } else if (errorMessage.toLowerCase().contains('invalid-email')) {
+      return 'Invalid email format. Please enter a valid email address.';
+    } else if (errorMessage.toLowerCase().contains('user-disabled')) {
+      return 'This account has been disabled. Please contact support.';
+    } else if (errorMessage.toLowerCase().contains('too-many-requests')) {
+      return 'Too many failed attempts. Please wait a moment before trying again.';
+    } else if (errorMessage.toLowerCase().contains('network-request-failed')) {
+      return 'Network error. Please check your internet connection and try again.';
+    } else if (errorMessage.toLowerCase().contains('authentication error')) {
+      return 'Login failed. Please check your email and password, then try again.';
+    } else {
+      return 'Login failed. Please verify your credentials and try again.';
     }
   }
 

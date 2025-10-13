@@ -5,6 +5,7 @@ import 'package:org_wallet/widgets/custom_text_field.dart';
 import 'package:org_wallet/widgets/custom_button.dart';
 import 'package:org_wallet/screens/main_dashboard.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   final String role;
@@ -61,8 +62,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         final err =
             authService.lastErrorMessage ?? 'Failed to create account and join';
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(err), backgroundColor: Colors.red),
+          SnackBarHelper.showError(
+            context,
+            message: err,
           );
         }
         return;
@@ -76,8 +78,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error: $e',
         );
       }
     } finally {

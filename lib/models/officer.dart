@@ -58,9 +58,9 @@ class Officer {
       'email': email,
       'role': role.toString().split('.').last,
       'status': status.toString().split('.').last,
-      'joinedAt': joinedAt,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
+      'joinedAt': Timestamp.fromDate(joinedAt),
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
 

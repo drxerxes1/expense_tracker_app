@@ -9,6 +9,7 @@ import 'package:org_wallet/services/due_service.dart';
 import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/officer.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class AddEditDueScreen extends StatefulWidget {
   final DueModel? existing;
@@ -80,9 +81,10 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
           createdBy: auth.user?.id ?? '',
         );
         await _dueService.createDue(due);
-        ScaffoldMessenger.of(
+        SnackBarHelper.showSuccess(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Due created')));
+          message: 'Due created',
+        );
         // After creating, load payments (there will be none) and enable list
         Navigator.of(context).pop(true);
       } else {
@@ -92,15 +94,17 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
           'frequency': _frequency,
           'dueDate': Timestamp.fromDate(_dueDate),
         });
-        ScaffoldMessenger.of(
+        SnackBarHelper.showSuccess(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Due updated')));
+          message: 'Due updated',
+        );
         Navigator.of(context).pop(true);
       }
     } catch (e) {
-      ScaffoldMessenger.of(
+      SnackBarHelper.showError(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error saving: $e')));
+        message: 'Error saving: $e',
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -307,10 +311,9 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                       }
                                     }
                                     setState(() => _paid.remove(userId));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Payment removed'),
-                                      ),
+                                    SnackBarHelper.showSuccess(
+                                      context,
+                                      message: 'Payment removed',
                                     );
                                   } catch (e) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -372,22 +375,14 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                         _paid[userId] = true;
                                         _sessionCreatedDocIds[userId] = ref.id;
                                       });
-                                      ScaffoldMessenger.of(
+                                      SnackBarHelper.showSuccess(
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Payment recorded'),
-                                        ),
+                                        message: 'Payment recorded',
                                       );
                                     } catch (e2) {
-                                      ScaffoldMessenger.of(
+                                      SnackBarHelper.showError(
                                         context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Failed to record payment: $e',
-                                          ),
-                                        ),
+                                        message: 'Failed to record payment: $e',
                                       );
                                     }
                                   }

@@ -7,6 +7,7 @@ import 'package:org_wallet/models/organization.dart';
 import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/widgets/organization_switcher_modal.dart';
 import 'package:org_wallet/screens/organization/scan_qr_screen.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class PendingMembershipScreen extends StatelessWidget {
   const PendingMembershipScreen({super.key});
@@ -372,10 +373,9 @@ class PendingMembershipScreen extends StatelessWidget {
     switch (value) {
       case 'profile':
         // Navigate to profile screen
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile feature coming soon'),
-          ),
+        SnackBarHelper.showInfo(
+          context,
+          message: 'Profile feature coming soon',
         );
         break;
       case 'logout':

@@ -8,6 +8,7 @@ import 'package:org_wallet/screens/main_dashboard.dart';
 import 'package:org_wallet/screens/auth/create_account_screen.dart';
 import 'package:hive/hive.dart';
 import 'package:org_wallet/models/user_login.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class ScanQRScreen extends StatefulWidget {
   const ScanQRScreen({super.key});
@@ -189,8 +190,9 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
 
   void _showError(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBarHelper.showError(
+        context,
+        message: message,
       );
       setState(() {
         _isScanning = true;

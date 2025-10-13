@@ -7,6 +7,7 @@ import 'package:org_wallet/models/transaction.dart';
 import 'package:org_wallet/services/transaction_service.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:provider/provider.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 // import 'package:org_wallet/models/expense.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -63,8 +64,9 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading transactions: $e')),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error loading transactions: $e',
         );
       }
     }

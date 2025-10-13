@@ -7,6 +7,7 @@ import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/organization.dart';
 import 'package:org_wallet/models/officer.dart';
 import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class CreateOrganizationScreen extends StatefulWidget {
   const CreateOrganizationScreen({super.key});
@@ -20,14 +21,12 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _departmentController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _departmentController.dispose();
     super.dispose();
   }
 
@@ -39,6 +38,15 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final firestore = FirebaseFirestore.instance;
+
+      // Validate that user is authenticated and has user data
+      if (authService.firebaseUser == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      if (authService.user == null) {
+        throw Exception('User data not loaded. Please try again.');
+      }
 
       // Create organization
       final orgDoc = firestore.collection('organizations').doc();
@@ -59,6 +67,7 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
         updatedAt: DateTime.now(),
       );
 
+      // Create organization document
       await orgDoc.set(organization.toMap());
 
       // Create officer record for the president
@@ -76,6 +85,7 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
         updatedAt: DateTime.now(),
       );
 
+      // Create officer document
       await officerDoc.set(officer.toMap());
 
       // Update user's organizations list
@@ -86,13 +96,14 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
             'organizations': FieldValue.arrayUnion([orgDoc.id]),
           });
 
+      // Reload user data to include the new organization
+      await authService.reloadUserData();
+
       if (mounted) {
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Organization created successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          message: 'Organization created successfully!',
         );
 
         // Navigate to QR generator
@@ -104,11 +115,9 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error creating organization: $e'),
-            backgroundColor: Colors.red,
-          ),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error creating organization: $e',
         );
       }
     } finally {
@@ -122,7 +131,7 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Organization'),
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -161,11 +170,13 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
                 // Organization Name
                 TextFormField(
                   controller: _nameController,
+                  maxLength: 30,
                   decoration: const InputDecoration(
                     labelText: 'Organization Name',
                     prefixIcon: Icon(Icons.business),
                     border: OutlineInputBorder(),
                     hintText: 'e.g., ABC Company',
+                    counterText: '', // Hide the character counter
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -174,23 +185,8 @@ class _CreateOrganizationScreenState extends State<CreateOrganizationScreen> {
                     if (value.length < 3) {
                       return 'Name must be at least 3 characters';
                     }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-
-                // Department
-                TextFormField(
-                  controller: _departmentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Department',
-                    prefixIcon: Icon(Icons.business),
-                    border: OutlineInputBorder(),
-                    hintText: 'e.g., Finance, IT, Marketing',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter department';
+                    if (value.length > 30) {
+                      return 'Name must not exceed 30 characters';
                     }
                     return null;
                   },

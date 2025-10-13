@@ -12,6 +12,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:org_wallet/constants/category_constants.dart';
 import 'package:intl/intl.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 // Helper class to group transactions by date
 class TransactionDateGroup {
@@ -411,9 +412,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       setState(() {
         _tombstonedIds.remove(id);
       });
-      ScaffoldMessenger.of(
+      SnackBarHelper.showError(
         context,
-      ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+        message: 'Delete failed: $e',
+      );
     }
   }
 

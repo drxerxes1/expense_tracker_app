@@ -364,4 +364,9 @@ class AuthService extends ChangeNotifier {
     if (_currentOfficer == null) return false;
     return RolePermissions.canPerformAction(_currentOfficer!.role, action);
   }
+
+  /// Public method to reload user data
+  Future<void> reloadUserData() async {
+    await _loadUserData();
+  }
 }

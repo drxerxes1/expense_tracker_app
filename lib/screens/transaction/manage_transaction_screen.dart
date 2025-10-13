@@ -16,6 +16,7 @@ import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/services/category_service.dart';
 import 'package:org_wallet/widgets/safe_category_dropdown.dart';
 import 'package:org_wallet/widgets/edit_reason_dialog.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class TransactionScreen extends StatefulWidget {
   final AppTransaction? transaction;
@@ -355,8 +356,9 @@ class _TransactionScreenState extends State<TransactionScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving: $e')),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error saving: $e',
         );
       }
     } finally {
@@ -442,8 +444,9 @@ class _TransactionScreenState extends State<TransactionScreen>
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting: $e')),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error deleting: $e',
         );
       }
     } finally {

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/audit_trail.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class LogsScreen extends StatefulWidget {
   const LogsScreen({super.key});
@@ -183,9 +184,10 @@ class _LogsScreenState extends State<LogsScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(
+        SnackBarHelper.showError(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error loading audit logs: $e')));
+          message: 'Error loading audit logs: $e',
+        );
       }
     }
   }

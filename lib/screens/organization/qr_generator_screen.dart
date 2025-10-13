@@ -4,6 +4,9 @@ import 'package:org_wallet/models/organization.dart';
 import 'package:org_wallet/models/officer.dart';
 import 'package:org_wallet/screens/main_dashboard.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class QRGeneratorScreen extends StatefulWidget {
   final Organization organization;
@@ -17,6 +20,7 @@ class QRGeneratorScreen extends StatefulWidget {
 class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
   OfficerRole _selectedRole = OfficerRole.member;
   String? _qrData;
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -38,6 +42,7 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         iconTheme: const IconThemeData(color: Colors.black),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -140,10 +145,9 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
                                       ClipboardData(text: _qrData ?? ''),
                                     );
                                     // ignore: use_build_context_synchronously
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Invite code copied'),
-                                      ),
+                                    SnackBarHelper.showSuccess(
+                                      context,
+                                      message: 'Invite code copied',
                                     );
                                   },
                                   icon: const Icon(Icons.copy),
@@ -165,14 +169,46 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) => const MainDashboard(),
-                          ),
-                        );
+                      onPressed: _isNavigating ? null : () async {
+                        setState(() => _isNavigating = true);
+                        
+                        // Capture context before async operations
+                        final navigator = Navigator.of(context);
+                        final scaffoldMessenger = ScaffoldMessenger.of(context);
+                        final authService = Provider.of<AuthService>(context, listen: false);
+                        
+                        try {
+                          // Switch to the newly created organization
+                          await authService.switchOrganization(widget.organization.id);
+                          
+                          // Navigate to main dashboard
+                          if (mounted) {
+                            navigator.pushReplacement(
+                              MaterialPageRoute(
+                                builder: (_) => const MainDashboard(),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          // Handle error if organization switch fails
+                          if (mounted) {
+                            scaffoldMessenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Error switching to organization: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            setState(() => _isNavigating = false);
+                          }
+                        }
                       },
-                      child: const Text('Done'),
+                      child: _isNavigating
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Done'),
                     ),
                   ),
                 ],

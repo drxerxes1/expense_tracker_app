@@ -7,6 +7,7 @@ import 'package:org_wallet/models/organization.dart';
 import 'package:org_wallet/screens/organization/create_organization_screen.dart';
 import 'package:org_wallet/screens/auth/pending_membership_screen.dart';
 import 'package:org_wallet/screens/main_dashboard.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class OrganizationSwitcherModal extends StatefulWidget {
   const OrganizationSwitcherModal({super.key});
@@ -91,21 +92,17 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
             (route) => false,
           );
           // Show success message for approved members
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Switched to ${_organizations.firstWhere((org) => org.id == orgId).name}'),
-              backgroundColor: TWColors.emerald.shade500,
-            ),
+          SnackBarHelper.showSuccess(
+            context,
+            message: 'Switched to ${_organizations.firstWhere((org) => org.id == orgId).name}',
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error switching organization: $e'),
-            backgroundColor: TWColors.red.shade500,
-          ),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error switching organization: $e',
         );
       }
     }
@@ -145,9 +142,25 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CreateOrganizationScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      tooltip: 'Create Organization',
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -199,67 +212,100 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
       return _buildEmptyState();
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _organizations.length,
-      itemBuilder: (context, index) {
-        final org = _organizations[index];
-        final isSelected = _selectedOrgId == org.id;
-        
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          elevation: isSelected ? 4 : 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: isSelected ? TWColors.slate.shade900 : Colors.transparent,
-              width: 2,
-            ),
-          ),
-          child: RadioListTile<String>(
-            value: org.id,
-            groupValue: _selectedOrgId,
-            onChanged: (value) {
-              if (value != null) {
-                _switchOrganization(value);
-              }
-            },
-            title: Text(
-              org.name,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? TWColors.slate.shade900 : Colors.black87,
-              ),
-            ),
-            subtitle: org.description.isNotEmpty
-                ? Text(
-                    org.description,
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _organizations.length,
+            itemBuilder: (context, index) {
+              final org = _organizations[index];
+              final isSelected = _selectedOrgId == org.id;
+              
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                elevation: isSelected ? 4 : 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: isSelected ? TWColors.slate.shade900 : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+                child: RadioListTile<String>(
+                  value: org.id,
+                  groupValue: _selectedOrgId,
+                  onChanged: (value) {
+                    if (value != null) {
+                      _switchOrganization(value);
+                    }
+                  },
+                  title: Text(
+                    org.name,
                     style: TextStyle(
-                      color: isSelected ? TWColors.slate.shade700 : Colors.grey[600],
-                    ),
-                  )
-                : Text(
-                    'ID: ${org.id.substring(0, 8)}...',
-                    style: TextStyle(
-                      color: isSelected ? TWColors.slate.shade700 : Colors.grey[600],
-                      fontFamily: 'monospace',
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? TWColors.slate.shade900 : Colors.black87,
                     ),
                   ),
-            secondary: CircleAvatar(
-              backgroundColor: isSelected ? TWColors.slate.shade900 : TWColors.slate.shade300,
-              child: Text(
-                org.name.isNotEmpty ? org.name[0].toUpperCase() : 'O',
-                style: TextStyle(
-                  color: isSelected ? Colors.white : TWColors.slate.shade700,
-                  fontWeight: FontWeight.bold,
+                  subtitle: org.description.isNotEmpty
+                      ? Text(
+                          org.description,
+                          style: TextStyle(
+                            color: isSelected ? TWColors.slate.shade700 : Colors.grey[600],
+                          ),
+                        )
+                      : Text(
+                          'ID: ${org.id.substring(0, 8)}...',
+                          style: TextStyle(
+                            color: isSelected ? TWColors.slate.shade700 : Colors.grey[600],
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                  secondary: CircleAvatar(
+                    backgroundColor: isSelected ? TWColors.slate.shade900 : TWColors.slate.shade300,
+                    child: Text(
+                      org.name.isNotEmpty ? org.name[0].toUpperCase() : 'O',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : TWColors.slate.shade700,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  activeColor: TWColors.slate.shade900,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+              );
+            },
+          ),
+        ),
+        // Create Organization Button at bottom
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CreateOrganizationScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Create New Organization'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: TWColors.slate.shade900,
+                side: BorderSide(color: TWColors.slate.shade900),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
             ),
-            activeColor: TWColors.slate.shade900,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 

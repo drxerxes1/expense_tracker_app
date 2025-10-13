@@ -15,6 +15,7 @@ import 'package:org_wallet/screens/organization/manage_members_screen.dart';
 import 'package:org_wallet/screens/dashboard/manage_categories_screen.dart';
 import 'package:org_wallet/widgets/organization_switcher_modal.dart';
 import 'package:org_wallet/screens/auth/pending_membership_screen.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -217,10 +218,9 @@ class _MainDashboardState extends State<MainDashboard> {
                                   ),
                                 );
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('No organization selected'),
-                                  ),
+                                SnackBarHelper.showError(
+                                  context,
+                                  message: 'No organization selected',
                                 );
                               }
                             },

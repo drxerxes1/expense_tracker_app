@@ -5,6 +5,7 @@ import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/services/due_service.dart';
 import 'package:org_wallet/models/due.dart';
 import 'package:org_wallet/screens/dues/add_edit_due_screen.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class ManageDuesScreen extends StatefulWidget {
   const ManageDuesScreen({super.key});
@@ -25,9 +26,10 @@ class _ManageDuesScreenState extends State<ManageDuesScreen> {
   void _showDueForm({DueModel? existing}) async {
     final orgId = Provider.of<AuthService>(context, listen: false).currentOrgId;
     if (orgId == null) {
-      ScaffoldMessenger.of(
+      SnackBarHelper.showError(
         context,
-      ).showSnackBar(const SnackBar(content: Text('No organization selected')));
+        message: 'No organization selected',
+      );
       return;
     }
 

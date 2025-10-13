@@ -6,6 +6,7 @@ import 'package:org_wallet/models/officer.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class ManageMembersScreen extends StatefulWidget {
   const ManageMembersScreen({super.key});
@@ -31,11 +32,9 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     // Security check: Only presidents can update status, and they cannot update their own status
     if (!_canModifyMember(memberUserId)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('You cannot modify your own status'),
-            backgroundColor: TWColors.red.shade500,
-          ),
+        SnackBarHelper.showError(
+          context,
+          message: 'You cannot modify your own status',
         );
       }
       return;
@@ -49,20 +48,16 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     });
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Member status updated to $status'),
-            backgroundColor: TWColors.emerald.shade500,
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          message: 'Member status updated to $status',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating status: $e'),
-            backgroundColor: TWColors.red.shade500,
-          ),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error updating status: $e',
         );
       }
     } finally {
@@ -74,11 +69,9 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     // Security check: Only presidents can remove members, and they cannot remove themselves
     if (!_canModifyMember(userId)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('You cannot remove yourself'),
-            backgroundColor: TWColors.red.shade500,
-          ),
+        SnackBarHelper.showError(
+          context,
+          message: 'You cannot remove yourself',
         );
       }
       return;
@@ -96,20 +89,16 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     }
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Member removed successfully'),
-            backgroundColor: TWColors.emerald.shade500,
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          message: 'Member removed successfully',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error removing member: $e'),
-            backgroundColor: TWColors.red.shade500,
-          ),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error removing member: $e',
         );
       }
     } finally {
@@ -121,11 +110,9 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     // Security check: Only presidents can change roles, and they cannot change their own role
     if (!_canModifyMember(memberUserId)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('You cannot modify your own role'),
-            backgroundColor: TWColors.red.shade500,
-          ),
+        SnackBarHelper.showError(
+          context,
+          message: 'You cannot modify your own role',
         );
       }
       return;
@@ -160,20 +147,16 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
       }
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$memberName role changed to ${_getRoleDisplayName(newRole)}'),
-            backgroundColor: TWColors.emerald.shade500,
-          ),
+        SnackBarHelper.showSuccess(
+          context,
+          message: '$memberName role changed to ${_getRoleDisplayName(newRole)}',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error changing role: $e'),
-            backgroundColor: TWColors.red.shade500,
-          ),
+        SnackBarHelper.showError(
+          context,
+          message: 'Error changing role: $e',
         );
       }
     } finally {
@@ -203,11 +186,9 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
   void _showRoleChangeDialog(String docId, String currentRole, String memberName, String orgId, String memberUserId) {
     // Security check: Only presidents can change roles, and they cannot change their own role
     if (!_canModifyMember(memberUserId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('You cannot modify your own role'),
-          backgroundColor: TWColors.red.shade500,
-        ),
+      SnackBarHelper.showError(
+        context,
+        message: 'You cannot modify your own role',
       );
       return;
     }

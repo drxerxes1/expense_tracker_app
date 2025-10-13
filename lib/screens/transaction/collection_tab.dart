@@ -9,6 +9,7 @@ import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/models/due_payment.dart';
 import 'package:org_wallet/models/due.dart';
 import 'package:org_wallet/models/officer.dart';
+import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class CollectionTab extends StatefulWidget {
   final String orgId;
@@ -225,8 +226,9 @@ class _CollectionTabState extends State<CollectionTab> {
         widget.onAmountChanged!(_totalCollected);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error collecting for $userName: $e')),
+      SnackBarHelper.showError(
+        context,
+        message: 'Error collecting for $userName: $e',
       );
     } finally {
       setState(() {
@@ -603,7 +605,10 @@ class _CollectionTabState extends State<CollectionTab> {
                                   });
                                   if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
                                 } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to remove payment: $e')));
+                                  SnackBarHelper.showError(
+                                    context,
+                                    message: 'Failed to remove payment: $e',
+                                  );
                                 } finally {
                                   setState(() {
                                     _processing.remove(userId);
