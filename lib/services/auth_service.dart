@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:org_wallet/models/user_login.dart';
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,7 @@ class AuthService extends ChangeNotifier {
   Officer? _currentOfficer;
   String? _currentOrgId;
   String? _lastErrorMessage;
+  StreamSubscription<QuerySnapshot>? _officerSubscription;
 
   User? get firebaseUser => _firebaseUser;
   app_user.User? get user => _user;
@@ -49,6 +51,9 @@ class AuthService extends ChangeNotifier {
       _user = null;
       _currentOfficer = null;
       _currentOrgId = null;
+      // Cancel officer subscription
+      _officerSubscription?.cancel();
+      _officerSubscription = null;
       // Remove login info from Hive
       loginBox.delete('current');
     }
@@ -128,7 +133,38 @@ class AuthService extends ChangeNotifier {
   Future<void> _loadCurrentOfficerData() async {
     if (_currentOrgId == null || _firebaseUser == null) return;
 
+    // Cancel existing subscription
+    await _officerSubscription?.cancel();
+
     try {
+      // Set up real-time listener for officer data changes
+      _officerSubscription = _firestore
+          .collection('officers')
+          .where('orgId', isEqualTo: _currentOrgId)
+          .where('userId', isEqualTo: _firebaseUser!.uid)
+          .snapshots()
+          .listen((snapshot) {
+        try {
+          if (snapshot.docs.isNotEmpty) {
+            final doc = snapshot.docs.first;
+            _currentOfficer = Officer.fromMap({
+              'id': doc.id,
+              ...doc.data(),
+            });
+            notifyListeners();
+          } else {
+            _currentOfficer = null;
+            notifyListeners();
+          }
+        } catch (e) {
+          debugPrint('Error parsing officer data in stream: $e');
+          // Don't crash the app, just log the error
+        }
+      }, onError: (e) {
+        debugPrint('Error in officer data stream: $e');
+      });
+
+      // Also do an initial load
       final officerDoc = await _firestore
           .collection('officers')
           .where('orgId', isEqualTo: _currentOrgId)
@@ -136,10 +172,15 @@ class AuthService extends ChangeNotifier {
           .get();
 
       if (officerDoc.docs.isNotEmpty) {
-        _currentOfficer = Officer.fromMap({
-          'id': officerDoc.docs.first.id,
-          ...officerDoc.docs.first.data(),
-        });
+        try {
+          _currentOfficer = Officer.fromMap({
+            'id': officerDoc.docs.first.id,
+            ...officerDoc.docs.first.data(),
+          });
+        } catch (e) {
+          debugPrint('Error parsing officer data in initial load: $e');
+          _currentOfficer = null;
+        }
       }
     } catch (e) {
       debugPrint('Error loading officer data: $e');
@@ -280,6 +321,9 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> switchOrganization(String orgId) async {
+    // Cancel existing subscription before switching
+    await _officerSubscription?.cancel();
+    
     _currentOrgId = orgId;
     await _loadCurrentOfficerData();
     await _loadOrganization();
@@ -347,8 +391,9 @@ class AuthService extends ChangeNotifier {
     return isPresident() || isModerator() || isTreasurer() || isSecretary() || isAuditor();
   }
 
-  bool hasTransactionAccess() {
-    return isPresident() || isModerator() || isTreasurer() || isSecretary() || isAuditor();
+  bool hasCollectionAccess() {
+    // Only officers (Treasurer, Secretary, Auditor, President, Moderator) can manage collections
+    return hasManagementAccess();
   }
 
   bool hasFullPrivileges() {
@@ -373,5 +418,17 @@ class AuthService extends ChangeNotifier {
   /// Public method to reload organization data
   Future<void> reloadOrganizationData() async {
     await _loadOrganization();
+  }
+
+  /// Public method to reload current officer data
+  Future<void> reloadCurrentOfficerData() async {
+    await _loadCurrentOfficerData();
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _officerSubscription?.cancel();
+    super.dispose();
   }
 }

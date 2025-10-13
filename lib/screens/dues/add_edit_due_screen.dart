@@ -3,9 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:org_wallet/models/due.dart';
-import 'package:org_wallet/models/due_payment.dart';
-import 'package:org_wallet/services/due_service.dart';
 import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/officer.dart';
@@ -21,7 +20,6 @@ class AddEditDueScreen extends StatefulWidget {
 }
 
 class _AddEditDueScreenState extends State<AddEditDueScreen> {
-  late final DueService _dueService;
   late final DuesService _duesService;
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
@@ -30,15 +28,12 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
   String _frequency = 'monthly';
   bool _saving = false;
 
-  // payment status map userId -> paid
+  // payment status map userId -> paid (read-only for display)
   final Map<String, bool> _paid = {};
-  // Map of session-created payment doc ids for undoing creations: userId -> docId
-  final Map<String, String> _sessionCreatedDocIds = {};
 
   @override
   void initState() {
     super.initState();
-    _dueService = DueService();
     _duesService = DuesService();
     // initialize text controllers with existing values when editing
     _nameCtrl = TextEditingController(text: widget.existing?.name ?? '');
@@ -80,7 +75,11 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
           dueDate: _dueDate,
           createdBy: auth.user?.id ?? '',
         );
-        await _dueService.createDue(due);
+        final createdDue = await _duesService.createDueWithId(due: due);
+        
+        // Create payment placeholders for all organization members
+        await _duesService.createPaymentPlaceholders(widget.orgId, createdDue.id, amount);
+        
         SnackBarHelper.showSuccess(
           context,
           message: 'Due created',
@@ -88,12 +87,16 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
         // After creating, load payments (there will be none) and enable list
         Navigator.of(context).pop(true);
       } else {
-        await _dueService.updateDue(widget.orgId, widget.existing!.id, {
-          'name': name,
-          'amount': amount,
-          'frequency': _frequency,
-          'dueDate': Timestamp.fromDate(_dueDate),
-        });
+        await _duesService.updateDueWithMap(
+          orgId: widget.orgId,
+          dueId: widget.existing!.id,
+          updates: {
+            'name': name,
+            'amount': amount,
+            'frequency': _frequency,
+            'dueDate': Timestamp.fromDate(_dueDate),
+          },
+        );
         SnackBarHelper.showSuccess(
           context,
           message: 'Due updated',
@@ -110,6 +113,7 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
     }
   }
 
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -121,279 +125,428 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.existing == null ? 'Add Due' : 'Edit Due'),
+        title: Text(
+          widget.existing == null ? 'Add Due' : 'Edit Due',
+          style: const TextStyle(color: Colors.black),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black),
+        centerTitle: false,
+        backgroundColor: TWColors.slate.shade200,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Name'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _amountCtrl,
-                    decoration: const InputDecoration(labelText: 'Amount'),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    validator: (v) {
-                      final parsed = double.tryParse(v ?? '');
-                      if (parsed == null || parsed <= 0) {
-                        return 'Enter valid amount';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
+            // Form Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          'Due date: ${_dueDate.toLocal().toString().split(' ')[0]}',
+                      Text(
+                        'Due Information',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: TWColors.slate.shade800,
                         ),
                       ),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _dueDate,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) setState(() => _dueDate = picked);
+                      const SizedBox(height: 20),
+                      
+                      // Name Field
+                      TextFormField(
+                        controller: _nameCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Due Name',
+                          hintText: 'e.g., Monthly Membership Fee',
+                          prefixIcon: const Icon(Icons.label_outline),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: TWColors.slate.shade50,
+                        ),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Due name is required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Amount Field
+                      TextFormField(
+                        controller: _amountCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Amount',
+                          hintText: '0.00',
+                          prefixIcon: const Icon(Icons.attach_money),
+                          prefixText: '₱ ',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: TWColors.slate.shade50,
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (v) {
+                          final parsed = double.tryParse(v ?? '');
+                          if (parsed == null || parsed <= 0) {
+                            return 'Please enter a valid amount';
+                          }
+                          return null;
                         },
-                        child: const Text('Change'),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _frequency,
-                    items: const [
-                      DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
-                      DropdownMenuItem(
-                        value: 'monthly',
-                        child: Text('Monthly'),
+                      const SizedBox(height: 16),
+                      
+                      // Due Date Field
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: TWColors.slate.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                          color: TWColors.slate.shade50,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_today, color: TWColors.slate.shade600),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Due Date',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: TWColors.slate.shade600,
+                                    ),
+                                  ),
+                                  Text(
+                                    _dueDate.toLocal().toString().split(' ')[0],
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _dueDate,
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2100),
+                                );
+                                if (picked != null) setState(() => _dueDate = picked);
+                              },
+                              icon: const Icon(Icons.edit, size: 16),
+                              label: const Text('Change'),
+                            ),
+                          ],
+                        ),
                       ),
-                      DropdownMenuItem(
-                        value: 'quarterly',
-                        child: Text('Quarterly'),
+                      const SizedBox(height: 16),
+                      
+                      // Frequency Field
+                      DropdownButtonFormField<String>(
+                        value: _frequency,
+                        decoration: InputDecoration(
+                          labelText: 'Frequency',
+                          prefixIcon: const Icon(Icons.schedule),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: TWColors.slate.shade50,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                          DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                          DropdownMenuItem(value: 'quarterly', child: Text('Quarterly')),
+                          DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                        ],
+                        onChanged: (v) => setState(() => _frequency = v ?? _frequency),
                       ),
-                      DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _frequency = v ?? _frequency),
-                    decoration: const InputDecoration(labelText: 'Frequency'),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
+                      const SizedBox(height: 24),
+                      
+                      // Save Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
                           onPressed: _saving ? null : _save,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: TWColors.blue.shade600,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                           child: _saving
-                              ? const CircularProgressIndicator()
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
                               : Text(
-                                  widget.existing == null ? 'Save' : 'Update',
+                                  widget.existing == null ? 'Create Due' : 'Update Due',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: widget.existing == null
-                  ? const Center(
-                      child: Text('Save the due to enable member payment list'),
-                    )
-                  : StreamBuilder<QuerySnapshot>(
-                      // Query by orgId only and normalize status client-side.
-                      stream: FirebaseFirestore.instance
-                          .collection('officers')
-                          .where('orgId', isEqualTo: widget.orgId)
-                          .snapshots(),
-                      builder: (context, snap) {
-                        if (snap.connectionState == ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final docs = snap.data?.docs ?? [];
-                        final approvedDocs = docs.where((doc) {
-                          final m = doc.data() as Map<String, dynamic>;
-                          final status = m['status'];
-                          if (status == null) return false;
-                          if (status is String) return status == 'approved';
-                          if (status is int) {
-                            return status == OfficerStatus.approved.index;
-                          }
-                          return false;
-                        }).toList();
-                        if (approvedDocs.isEmpty) {
-                          return const Center(child: Text('No members'));
-                        }
-                        return ListView.builder(
-                          itemCount: approvedDocs.length,
-                          itemBuilder: (context, i) {
-                            final m =
-                                approvedDocs[i].data() as Map<String, dynamic>;
-                            final userId = (m['userId'] ?? '').toString();
-                            final name = (m['name'] ?? m['email'] ?? userId)
-                                .toString();
-                            final paid = _paid[userId] == true;
-                            return ListTile(
-                              title: Text(name),
-                              trailing: paid
-                                  ? const Chip(label: Text('Paid'))
-                                  : const Text('Unpaid'),
-                              onTap: () async {
-                                // Capture controller text early to avoid using it after dispose
-                                final amountText = _amountCtrl.text;
-                                if (widget.existing == null) return;
-                                final dueId = widget.existing!.id;
-                                final createdDocId =
-                                    _sessionCreatedDocIds[userId];
-                                if (paid) {
-                                  // Attempt to delete session-created or existing payment
-                                  try {
-                                    if (createdDocId != null) {
-                                      await FirebaseFirestore.instance
-                                          .collection('organizations')
-                                          .doc(widget.orgId)
-                                          .collection('dues')
-                                          .doc(dueId)
-                                          .collection('due_payments')
-                                          .doc(createdDocId)
-                                          .delete();
-                                      _sessionCreatedDocIds.remove(userId);
-                                    } else {
-                                      // try delete doc with id == userId
-                                      final docRef = FirebaseFirestore.instance
-                                          .collection('organizations')
-                                          .doc(widget.orgId)
-                                          .collection('dues')
-                                          .doc(dueId)
-                                          .collection('due_payments')
-                                          .doc(userId);
-                                      final doc = await docRef.get();
-                                      if (doc.exists) {
-                                        await docRef.delete();
-                                      } else {
-                                        final q = await FirebaseFirestore
-                                            .instance
-                                            .collection('organizations')
-                                            .doc(widget.orgId)
-                                            .collection('dues')
-                                            .doc(dueId)
-                                            .collection('due_payments')
-                                            .where('userId', isEqualTo: userId)
-                                            .limit(1)
-                                            .get();
-                                        if (q.docs.isNotEmpty) {
-                                          await q.docs.first.reference.delete();
-                                        } else {
-                                          throw Exception(
-                                            'Payment doc not found',
-                                          );
-                                        }
-                                      }
-                                    }
-                                    setState(() => _paid.remove(userId));
-                                    SnackBarHelper.showSuccess(
-                                      context,
-                                      message: 'Payment removed',
-                                    );
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Failed to remove payment: $e',
+            const SizedBox(height: 20),
+            
+            // Member Payment Management Section
+            if (widget.existing != null) ...[
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.people, color: TWColors.slate.shade700),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Member Payments',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: TWColors.slate.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'View member payment status for this due',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: TWColors.slate.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 400,
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('officers')
+                              .where('orgId', isEqualTo: widget.orgId)
+                              .snapshots(),
+                          builder: (context, snap) {
+                            if (snap.connectionState == ConnectionState.waiting) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+                            final docs = snap.data?.docs ?? [];
+                            final approvedDocs = docs.where((doc) {
+                              final m = doc.data() as Map<String, dynamic>;
+                              final status = m['status'];
+                              if (status == null) return false;
+                              if (status is String) return status == 'approved';
+                              if (status is int) {
+                                return status == OfficerStatus.approved.index;
+                              }
+                              return false;
+                            }).toList();
+                            
+                            if (approvedDocs.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.people_outline,
+                                      size: 48,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No members found',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Add members to your organization first',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                            
+                            return ListView.builder(
+                              itemCount: approvedDocs.length,
+                              itemBuilder: (context, i) {
+                                final m = approvedDocs[i].data() as Map<String, dynamic>;
+                                final userId = (m['userId'] ?? '').toString();
+                                final name = (m['name'] ?? m['email'] ?? userId).toString();
+                                final role = (m['role'] ?? '').toString();
+                                final paid = _paid[userId] == true;
+                                
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(
+                                      color: paid ? Colors.green.shade200 : Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    leading: CircleAvatar(
+                                      backgroundColor: paid 
+                                          ? Colors.green.shade100 
+                                          : Colors.grey.shade200,
+                                      child: Icon(
+                                        paid ? Icons.check : Icons.person,
+                                        color: paid 
+                                            ? Colors.green.shade700 
+                                            : Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: paid ? Colors.green.shade800 : null,
+                                      ),
+                                    ),
+                                    subtitle: role.isNotEmpty 
+                                        ? Text(
+                                            role,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          )
+                                        : null,
+                                    trailing: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: paid 
+                                            ? Colors.green.shade100 
+                                            : Colors.orange.shade100,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: paid 
+                                              ? Colors.green.shade300 
+                                              : Colors.orange.shade300,
                                         ),
                                       ),
-                                    );
-                                  }
-                                } else {
-                                  // create payment with fallback
-                                  try {
-                                    final payment = DuePaymentModel(
-                                      id: userId,
-                                      dueId: dueId,
-                                      userId: userId,
-                                      transactionId: '',
-                                      amount: double.tryParse(amountText) ?? widget.existing?.amount ?? 0.0,
-                                      paidAt: DateTime.now(),
-                                      createdAt: DateTime.now(),
-                                      updatedAt: DateTime.now(),
-                                    );
-                                    final created = await _duesService
-                                        .createDuePayment(
-                                          orgId: widget.orgId,
-                                          payment: payment,
-                                        );
-                                    setState(() {
-                                      _paid[userId] = true;
-                                      _sessionCreatedDocIds[userId] =
-                                          created.id;
-                                    });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Payment recorded'),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            paid ? Icons.check_circle : Icons.pending,
+                                            size: 16,
+                                            color: paid 
+                                                ? Colors.green.shade700 
+                                                : Colors.orange.shade700,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            paid ? 'Paid' : 'Unpaid',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: paid 
+                                                  ? Colors.green.shade700 
+                                                  : Colors.orange.shade700,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    );
-                                  } catch (e) {
-                                    try {
-                                      final paymentsColl = FirebaseFirestore
-                                          .instance
-                                          .collection('organizations')
-                                          .doc(widget.orgId)
-                                          .collection('dues')
-                                          .doc(dueId)
-                                          .collection('due_payments');
-                                      final now = DateTime.now();
-                                      final ref = await paymentsColl.add({
-                                        'dueId': dueId,
-                                        'userId': userId,
-                                        'transactionId': '',
-                                        'amount': double.tryParse(amountText) ?? widget.existing?.amount ?? 0.0,
-                                        'paidAt': Timestamp.fromDate(now),
-                                        'createdAt': Timestamp.fromDate(now),
-                                        'updatedAt': Timestamp.fromDate(now),
-                                      });
-                                      setState(() {
-                                        _paid[userId] = true;
-                                        _sessionCreatedDocIds[userId] = ref.id;
-                                      });
-                                      SnackBarHelper.showSuccess(
-                                        context,
-                                        message: 'Payment recorded',
-                                      );
-                                    } catch (e2) {
-                                      SnackBarHelper.showError(
-                                        context,
-                                        message: 'Failed to record payment: $e',
-                                      );
-                                    }
-                                  }
-                                }
+                                    ),
+                                  ),
+                                );
                               },
                             );
                           },
-                        );
-                      },
-                    ),
-            ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              // Empty state for new dues
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.save_outlined,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Save the due to manage member payments',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'After creating the due, you can track which members have paid',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

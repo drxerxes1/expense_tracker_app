@@ -477,7 +477,10 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
   Widget _buildCategoryList(String orgId, CategoryType type) {
     return StreamBuilder<List<CategoryModel>>(
       stream: _categoryService.watchCategories(orgId: orgId, type: type)
-          .map((categories) => categories.where((c) => !_categoryService.isFundAccount(c.id)).toList()),
+          .map((categories) => categories.where((c) => 
+              !_categoryService.isFundAccount(c.id) && 
+              (type == CategoryType.expense || c.id.toLowerCase() != 'collections')
+            ).toList()),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));

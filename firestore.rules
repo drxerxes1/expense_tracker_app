@@ -25,7 +25,7 @@ service cloud.firestore {
         // Members of the org can read payments
         allow read: if isOrgMember(orgId);
 
-        // Enforce payment doc id == userId to guarantee uniqueness (dueId, userId)
+        // Allow creation with userId-based doc ID (preferred method)
         allow create: if isOrgMember(orgId)
           && request.auth.uid == request.resource.id
           && request.resource.data.userId == request.auth.uid
@@ -33,14 +33,22 @@ service cloud.firestore {
           && (request.resource.data.amount is number || request.resource.data.amount is int)
           && (request.resource.data.transactionId is string || request.resource.data.transactionId == null);
 
-        // Allow the payment owner or org admins to update their payment (e.g., attach transactionId / paidAt)
-        allow update: if isOrgMember(orgId) && (request.auth.uid == resource.data.userId || isOrgAdmin(orgId));
+        // Allow creation with auto-generated doc ID (fallback method for officers collecting dues)
+        allow create: if isOrgMember(orgId)
+          && request.resource.data.userId is string
+          && request.resource.data.dueId == dueId
+          && (request.resource.data.amount is number || request.resource.data.amount is int)
+          && (request.resource.data.transactionId is string || request.resource.data.transactionId == null)
+          && (isOrgAdmin(orgId) || isOrgOfficer(orgId));
 
-        // Only org admins can delete payment records
-        allow delete: if isOrgMember(orgId) && isOrgAdmin(orgId);
+        // Allow the payment owner or org admins/officers to update their payment
+        allow update: if isOrgMember(orgId) && (request.auth.uid == resource.data.userId || isOrgAdmin(orgId) || isOrgOfficer(orgId));
+
+        // Allow org admins/officers to delete payment records
+        allow delete: if isOrgMember(orgId) && (isOrgAdmin(orgId) || isOrgOfficer(orgId));
       }
 
-      // Protect meta/summary docs (only org admins or server functions should write)
+      // Protect meta/summary docs (only org admins can write)
       match /meta/{docId} {
         allow read: if isOrgMember(orgId);
         allow write: if isOrgAdmin(orgId);
@@ -54,6 +62,10 @@ service cloud.firestore {
 
     function isOrgAdmin(orgId) {
       return request.auth != null && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOrgOfficer(orgId) {
+      return request.auth != null && exists(/databases/$(database)/documents/officers/$(request.auth.uid)) && get(/databases/$(database)/documents/officers/$(request.auth.uid)).data.orgId == orgId && get(/databases/$(database)/documents/officers/$(request.auth.uid)).data.status == 'approved';
     }
   }
 }

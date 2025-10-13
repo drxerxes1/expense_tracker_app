@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/models/officer.dart';
 import 'package:org_wallet/screens/dashboard/transactions_screen.dart';
 import 'package:org_wallet/screens/dashboard/reports_screen.dart';
 import 'package:org_wallet/screens/dashboard/logs_screen.dart';
@@ -30,20 +31,17 @@ class _MainDashboardState extends State<MainDashboard> {
   int _currentIndex = 0;
   // Removed PageController, not needed for non-swipable tabs
   DateTimeRange? _selectedDateRange;
+  int _transactionScreenKey = 0;
 
   @override
   void initState() {
     super.initState();
     // Default to current month
-  final now = DateTime.now();
-  final start = DateTime(now.year, now.month, 1);
-    // Force end to today
-    final end = now;
-    _selectedDateRange = DateTimeRange(start: start, end: end);
+    _refreshDateRange();
   }
 
   List<Widget> get _screens => [
-    TransactionsScreen(dateRange: _selectedDateRange),
+    TransactionsScreen(key: ValueKey(_transactionScreenKey), dateRange: _selectedDateRange),
     const ReportsScreen(),
     const LogsScreen(),
     const OrgInfoScreen(),
@@ -128,7 +126,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                 authService.user?.name ?? '',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 18,
+                                  fontSize: 24,
                                   color: Colors.white,
                                 ),
                               ),
@@ -137,9 +135,29 @@ class _MainDashboardState extends State<MainDashboard> {
                                 authService.user?.email ?? '',
                                 style: TextStyle(
                                   color: Colors.grey[400],
-                                  fontSize: 12,
+                                  fontSize: 14,
                                 ),
                               ),
+                              const SizedBox(height: 6),
+                              if (authService.currentOfficer != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: TWColors.slate.shade700,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    _getRoleDisplayName(authService.currentOfficer!.role),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -199,6 +217,21 @@ class _MainDashboardState extends State<MainDashboard> {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => const ManageCategoriesScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                        
+                        // Manage Dues - Treasurer/Secretary/Auditor/President/Moderator
+                        if (authService.canAccessDrawerItem('manage_collections')) ...[
+                          ListTile(
+                            leading: const Icon(Icons.payments),
+                            title: const Text('Manage Dues'),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ManageDuesScreen(),
                                 ),
                               );
                             },
@@ -309,9 +342,19 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
       floatingActionButton: _currentIndex == 0 && authService.canPerformAction('add_transaction')
           ? FloatingActionButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TransactionScreen()),
-              ),
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TransactionScreen()),
+                );
+                // If a transaction was added/updated, refresh the transactions screen
+                if (result == true) {
+                  setState(() {
+                    _transactionScreenKey++;
+                    // Update date range to ensure it includes the current moment
+                    _refreshDateRange();
+                  });
+                }
+              },
               backgroundColor: TWColors.slate.shade900,
               foregroundColor: Colors.white,
               shape: const CircleBorder(),
@@ -333,6 +376,29 @@ class _MainDashboardState extends State<MainDashboard> {
       return '${months[start.month - 1]} ${start.day}–${end.day}';
     }
     return '$startStr – $endStr';
+  }
+
+  String _getRoleDisplayName(OfficerRole role) {
+    switch (role) {
+      case OfficerRole.president:
+        return 'President';
+      case OfficerRole.treasurer:
+        return 'Treasurer';
+      case OfficerRole.secretary:
+        return 'Secretary';
+      case OfficerRole.auditor:
+        return 'Auditor';
+      case OfficerRole.moderator:
+        return 'Moderator';
+      case OfficerRole.member:
+        return 'Member';
+    }
+  }
+
+  void _refreshDateRange() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    _selectedDateRange = DateTimeRange(start: start, end: now);
   }
 
   // Removed _getAppBarTitle, will use organization name in app bar
@@ -458,11 +524,8 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _setThisMonthRange() {
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month, 1);
-    final end = now; // up-to-today
     setState(() {
-      _selectedDateRange = DateTimeRange(start: start, end: end);
+      _refreshDateRange();
     });
   }
 

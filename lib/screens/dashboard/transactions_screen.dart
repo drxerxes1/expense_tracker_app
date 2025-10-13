@@ -142,6 +142,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               final txs = (snapshot.data ?? [])
                   .where((t) => !_tombstonedIds.contains(t.id))
                   .toList();
+              
+              // Debug: Print transaction details
+              debugPrint('TransactionsScreen: Loaded ${txs.length} transactions');
+              debugPrint('Date range: ${widget.dateRange?.start} to ${widget.dateRange?.end}');
+              for (final tx in txs) {
+                debugPrint('Transaction: ${tx.id}, Type: ${tx.type}, Amount: ${tx.amount}, Date: ${tx.createdAt}');
+              }
+              
               double fundsAdded = 0, expenses = 0;
               double schoolFundsAdded = 0, schoolFundsExpense = 0;
               double clubFundsAdded = 0, clubFundsExpense = 0;
@@ -422,12 +430,22 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Widget _buildGroupedTransactionList(List<model.AppTransaction> transactions) {
     final groupedTransactions = groupTransactionsByDate(transactions);
     
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Added bottom padding for FAB
-      itemCount: _getTotalItemCount(groupedTransactions),
-      itemBuilder: (context, index) {
-        return _buildListItem(groupedTransactions, index);
+    return RefreshIndicator(
+      onRefresh: () async {
+        // Force a complete refresh by recreating the stream
+        setState(() {
+          // This will trigger a rebuild and recreate the stream
+        });
+        // Add a small delay to show the refresh indicator
+        await Future.delayed(const Duration(milliseconds: 1000));
       },
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Added bottom padding for FAB
+        itemCount: _getTotalItemCount(groupedTransactions),
+        itemBuilder: (context, index) {
+          return _buildListItem(groupedTransactions, index);
+        },
+      ),
     );
   }
 
@@ -520,23 +538,26 @@ class TransactionListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isExpense = transaction.type == 'expense';
-    final amountStyle = TextStyle(
-      fontWeight: FontWeight.bold,
-      color: isExpense ? Colors.red : Colors.green,
-      fontSize: 18,
-    );
-    final amountStr = formatAmount(transaction.amount, isExpense);
-
     // Determine collection by category id/name. Collections are stored with
     // categoryId 'collections' and usually have a categoryName containing 'collect'.
     final isCollection =
         (transaction.categoryId == 'collections' ||
         transaction.categoryName.toLowerCase().contains('collect'));
+    
+    final isExpense = transaction.type == 'expense';
+    final amountStyle = TextStyle(
+      fontWeight: FontWeight.bold,
+      color: isCollection 
+          ? Colors.orange 
+          : isExpense 
+          ? Colors.red 
+          : Colors.green,
+      fontSize: 18,
+    );
+    final amountStr = formatAmount(transaction.amount, isExpense);
 
-    // If this is a collection, don't allow tapping or long-press actions for now.
-    // Render with slightly reduced opacity to indicate non-interactive state.
-    // Determine left indicator color: show for both expense and fund
+    // Collection transactions are now editable and deletable
+    // Determine left indicator color: show for expense, fund, and collection
     final targetId = transaction.fundId.isNotEmpty
         ? transaction.fundId
         : transaction.categoryId;
@@ -550,11 +571,12 @@ class TransactionListItem extends StatelessWidget {
       } else {
         leftBorderColor = Colors.green;
       }
+    } else if (isCollection) {
+      // Collection transactions: use bright orange color to distinguish them
+      leftBorderColor = Colors.orange;
     }
     return GestureDetector(
-      onTap: isCollection
-          ? null
-          : () async {
+      onTap: () async {
               String? dueIdForTx;
               try {
                 final duesSnap = await FirebaseFirestore.instance
@@ -594,8 +616,8 @@ class TransactionListItem extends StatelessWidget {
             return SafeArea(
               child: Wrap(
                 children: [
-                  // Show Edit only for non-collection transactions and if user has permission
-                  if (!isCollection && authService.canPerformAction('edit_transaction'))
+                  // Show Edit for all transactions if user has permission
+                  if (authService.canPerformAction('edit_transaction'))
                     ListTile(
                       leading: const Icon(Icons.edit),
                       title: const Text('Edit'),
@@ -806,7 +828,7 @@ IconData getCategoryIcon(String? categoryId) {
     case 'investment':
       return Icons.trending_up;
     case 'collections':
-      return Icons.collections;
+      return Icons.payments;
     default:
       return Icons.category;
   }

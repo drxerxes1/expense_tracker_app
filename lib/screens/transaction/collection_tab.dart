@@ -173,36 +173,31 @@ class _CollectionTabState extends State<CollectionTab> {
           id: userId,
           dueId: selectedDue.id,
           userId: userId,
-          transactionId: '',
+          transactionId: widget.currentTransactionId ?? '',
           amount: dueAmount,
           paidAt: DateTime.now(),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        final createdPayment = await _duesService.createDuePayment(orgId: widget.orgId, payment: payment);
+        final createdPayment = await _duesService.createDuePaymentWithTransaction(
+          orgId: widget.orgId,
+          payment: payment,
+          transactionId: widget.currentTransactionId,
+        );
         created = true;
         createdDocId = createdPayment.id;
       } catch (e) {
         // Fallback: create an auto-id payment doc with userId field set
         try {
-          final paymentsColl = FirebaseFirestore.instance
-              .collection('organizations')
-              .doc(widget.orgId)
-              .collection('dues')
-              .doc(selectedDue.id)
-              .collection('due_payments');
-          final now = DateTime.now();
-          final ref = await paymentsColl.add({
-            'dueId': selectedDue.id,
-            'userId': userId,
-            'transactionId': '',
-            'amount': dueAmount,
-            'paidAt': Timestamp.fromDate(now),
-            'createdAt': Timestamp.fromDate(now),
-            'updatedAt': Timestamp.fromDate(now),
-          });
+          final createdPayment = await _duesService.createDuePaymentWithAutoId(
+            orgId: widget.orgId,
+            dueId: selectedDue.id,
+            userId: userId,
+            amount: dueAmount,
+            transactionId: widget.currentTransactionId,
+          );
           created = true;
-          createdDocId = ref.id;
+          createdDocId = createdPayment.id;
         } catch (e2) {
           // if fallback also fails, rethrow original error to be shown to user
           rethrow;
@@ -214,16 +209,9 @@ class _CollectionTabState extends State<CollectionTab> {
           _selected[userId] = true;
           _sessionPaidUserIds.add(userId);
           if (createdDocId != null) _sessionCreatedDocIds[userId] = createdDocId;
-          _totalCollected += dueAmount;
         });
-      }
-      if (widget.onAmountChanged != null) {
-        widget.onAmountChanged!(_totalCollected);
-      }
-      // After creating payment, recalc to ensure consistency
-      _recalculateTotalForSelectedMembers();
-      if (widget.onAmountChanged != null) {
-        widget.onAmountChanged!(_totalCollected);
+        // Recalculate total after creating payment
+        _recalculateTotalForSelectedMembers();
       }
     } catch (e) {
       SnackBarHelper.showError(
@@ -237,20 +225,6 @@ class _CollectionTabState extends State<CollectionTab> {
     }
   }
 
-  Future<void> _loadPaidForDue(String dueId) async {
-    // Deprecated: replaced by realtime subscription. Keep for fallback if needed.
-    try {
-      final payments = await _duesService.listDuePayments(widget.orgId, dueId);
-      if (!mounted) return;
-      setState(() {
-        _existingPaidUserIds.clear();
-        for (final p in payments) {
-          _existingPaidUserIds.add(p.userId);
-        }
-      });
-      _recalculateTotalForSelectedMembers();
-    } catch (_) {}
-  }
 
   void _subscribeToDuePayments(String dueId) {
     // cancel existing
@@ -326,24 +300,44 @@ class _CollectionTabState extends State<CollectionTab> {
   }
 
   bool _isPaymentInCurrentPeriod(DateTime paidAt, DueModel due) {
-  final freq = due.frequency.toLowerCase();
-    final now = DateTime.now();
+    final freq = due.frequency.toLowerCase();
+    final dueDate = due.dueDate;
+    
     if (freq == 'weekly') {
-      final start = _startOfWeek(now);
-      final end = start.add(const Duration(days: 7));
-      return !paidAt.isBefore(start) && paidAt.isBefore(end);
+      // Check if payment falls within the same week as the due date
+      final dueStart = _startOfWeek(dueDate);
+      final dueEnd = dueStart.add(const Duration(days: 7));
+      return !paidAt.isBefore(dueStart) && paidAt.isBefore(dueEnd);
     }
+    
     if (freq == 'monthly') {
-      return paidAt.year == now.year && paidAt.month == now.month;
+      // Check if payment falls within the same month as the due date
+      return paidAt.year == dueDate.year && paidAt.month == dueDate.month;
     }
-    // custom: treat payments as in-period if they occur on the same day-of-month as due.dueDate
+    
+    if (freq == 'quarterly') {
+      // Check if payment falls within the same quarter as the due date
+      final dueQuarter = _getQuarter(dueDate);
+      final paymentQuarter = _getQuarter(paidAt);
+      return paidAt.year == dueDate.year && dueQuarter == paymentQuarter;
+    }
+    
+    if (freq == 'yearly') {
+      // Check if payment falls within the same year as the due date
+      return paidAt.year == dueDate.year;
+    }
+    
+    // Custom frequency: treat payments as in-period if they occur on the same day-of-month as due.dueDate
     // within the same month/year. This is an assumption; adjust logic if you track custom windows differently.
     try {
-      final dd = due.dueDate;
-      return paidAt.year == now.year && paidAt.month == now.month && paidAt.day == dd.day;
+      return paidAt.year == dueDate.year && paidAt.month == dueDate.month && paidAt.day == dueDate.day;
     } catch (_) {
       return false;
     }
+  }
+
+  int _getQuarter(DateTime date) {
+    return ((date.month - 1) / 3).floor() + 1;
   }
 
   DateTime _startOfWeek(DateTime d) {
@@ -360,6 +354,25 @@ class _CollectionTabState extends State<CollectionTab> {
 
   Future<bool> _hasExistingPayment(String userId, String dueId) async {
     try {
+      // Get the due to check payment periods
+      DueModel? due;
+      try {
+        due = _dues.firstWhere((d) => d.id == dueId);
+      } catch (_) {
+        // Fallback: fetch due from Firestore
+        final dueDoc = await FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(widget.orgId)
+            .collection('dues')
+            .doc(dueId)
+            .get();
+        if (dueDoc.exists) {
+          due = DueModel.fromFirestore(dueDoc);
+        }
+      }
+      
+      if (due == null) return false;
+
       // check for a payment doc with id == userId under the due's subcollection
       final paymentsColl = FirebaseFirestore.instance
           .collection('organizations')
@@ -370,12 +383,26 @@ class _CollectionTabState extends State<CollectionTab> {
 
       // 1) Check doc with id == userId (the fast path used elsewhere)
       final doc = await paymentsColl.doc(userId).get();
-      if (doc.exists) return true;
+      if (doc.exists) {
+        final payment = DuePaymentModel.fromFirestore(doc);
+        final paidAt = payment.paidAt ?? payment.createdAt;
+        if (paidAt != null && _isPaymentInCurrentPeriod(paidAt, due)) {
+          return true;
+        }
+      }
 
       // 2) Fallback: some payments may be created with auto-ids and include a userId field.
-      // Query for any payment with the same userId
-      final q = await paymentsColl.where('userId', isEqualTo: userId).limit(1).get();
-      return q.docs.isNotEmpty;
+      // Query for any payment with the same userId and check if it's in the correct period
+      final q = await paymentsColl.where('userId', isEqualTo: userId).get();
+      for (final paymentDoc in q.docs) {
+        final payment = DuePaymentModel.fromFirestore(paymentDoc);
+        final paidAt = payment.paidAt ?? payment.createdAt;
+        if (paidAt != null && _isPaymentInCurrentPeriod(paidAt, due)) {
+          return true;
+        }
+      }
+      
+      return false;
     } catch (_) {
       return false;
     }
@@ -397,10 +424,21 @@ class _CollectionTabState extends State<CollectionTab> {
       dueAmount = 0.0;
     }
     double total = 0.0;
-    // count existing/session selected members and use per-member amounts when available
+    
+    // Get all unique members who should be counted
     final Set<String> allSelected = {};
+    
+    // Add session-selected members (newly selected in this session)
     allSelected.addAll(_selected.keys.where((k) => _selected[k] == true));
-    allSelected.addAll(_existingPaidUserIds);
+    
+    // Add existing paid members (but avoid double-counting session members)
+    for (final userId in _existingPaidUserIds) {
+      if (!_sessionPaidUserIds.contains(userId)) {
+        allSelected.add(userId);
+      }
+    }
+    
+    // Calculate total using per-member amounts when available
     for (final userId in allSelected) {
       final amt = _memberAmounts[userId] ?? dueAmount;
       total += amt;
@@ -416,8 +454,8 @@ class _CollectionTabState extends State<CollectionTab> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
-    if (!auth.isPresident()) {
-      return const Center(child: Text('Only Presidents can use collection'));
+    if (!auth.hasCollectionAccess()) {
+      return const Center(child: Text('Only officers can manage collections'));
     }
 
     return Padding(
@@ -470,10 +508,20 @@ class _CollectionTabState extends State<CollectionTab> {
                             onChanged: (v) async {
                               setState(() {
                                 _selectedDueId = v;
+                                // Reset total when switching dues
+                                _totalCollected = 0.0;
+                                // Clear session selections when switching dues
+                                _selected.clear();
+                                _sessionPaidUserIds.clear();
+                                _sessionCreatedDocIds.clear();
                               });
                               if (v != null) {
-                                await _loadPaidForDue(v);
+                                _subscribeToDuePayments(v);
                                 _recalculateTotalForSelectedMembers();
+                                // Notify parent about due change
+                                if (widget.onSelectedDueChanged != null) {
+                                  widget.onSelectedDueChanged!(v);
+                                }
                               }
                             },
                           );
@@ -493,10 +541,20 @@ class _CollectionTabState extends State<CollectionTab> {
                         onChanged: (v) async {
                           setState(() {
                             _selectedDueId = v;
+                            // Reset total when switching dues
+                            _totalCollected = 0.0;
+                            // Clear session selections when switching dues
+                            _selected.clear();
+                            _sessionPaidUserIds.clear();
+                            _sessionCreatedDocIds.clear();
                           });
                           if (v != null) {
-                            await _loadPaidForDue(v);
+                            _subscribeToDuePayments(v);
                             _recalculateTotalForSelectedMembers();
+                            // Notify parent about due change
+                            if (widget.onSelectedDueChanged != null) {
+                              widget.onSelectedDueChanged!(v);
+                            }
                           }
                         },
                       ),

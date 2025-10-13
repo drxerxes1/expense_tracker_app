@@ -158,6 +158,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Consumer<AuthService>(
             builder: (context, authService, child) {
               return IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () async {
+                  // Show loading indicator
+                  setState(() => _isLoading = true);
+                  
+                  // Refresh user data and officer data
+                  await authService.reloadUserData();
+                  await authService.reloadCurrentOfficerData();
+                  
+                  // Reload organizations
+                  await _loadUserOrganizations();
+                  
+                  // Hide loading indicator
+                  if (mounted) {
+                    setState(() => _isLoading = false);
+                    // ignore: use_build_context_synchronously
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile data refreshed'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                tooltip: 'Refresh Profile Data',
+              );
+            },
+          ),
+          Consumer<AuthService>(
+            builder: (context, authService, child) {
+              return IconButton(
                 icon: const Icon(Icons.edit),
                 onPressed: () {
                   Navigator.of(context).push(
@@ -546,9 +577,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 24),
 
                 // Action Buttons
-                Row(
+                Column(
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () {
                           Navigator.of(context).push(
@@ -559,6 +591,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                         icon: const Icon(Icons.edit),
                         label: const Text('Edit Profile'),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const EditProfileScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.security),
+                        label: const Text('Change Password'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.secondary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                       ),
                     ),
                   ],

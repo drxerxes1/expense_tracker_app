@@ -21,6 +21,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
   final String _selectedPeriod = 'This Month';
   List<AppTransaction> _transactions = [];
   bool _isLoading = true;
+  bool _isDisposed = false;
   late TabController _tabController;
 
   @override
@@ -32,18 +33,24 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
 
   @override
   void dispose() {
+    _isDisposed = true;
     _tabController.dispose();
     super.dispose();
   }
 
   Future<void> _loadTransactions() async {
+    // Check if widget is disposed before starting
+    if (_isDisposed) return;
+    
     final authService = Provider.of<AuthService>(context, listen: false);
     final orgId = authService.currentOrgId;
 
     if (orgId == null) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       return;
     }
 
@@ -55,15 +62,20 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
         orgId,
         range: dateRange,
       );
-      setState(() {
-        _transactions = transactions;
-        _isLoading = false;
-      });
+      
+      // Check if widget is still mounted and not disposed before updating state
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _transactions = transactions;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
+      // Check if widget is still mounted and not disposed before updating state
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isLoading = false;
+        });
         SnackBarHelper.showError(
           context,
           message: 'Error loading transactions: $e',

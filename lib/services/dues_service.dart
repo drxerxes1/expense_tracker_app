@@ -55,23 +55,60 @@ class DuesService {
     await batch.commit();
   }
 
-  // Payments CRUD
-  // NOTE: to enforce uniqueness (dueId, userId) use the payment document ID as the userId.
-  Future<DuePaymentModel> createDuePayment({
+  // Enhanced payment creation with transaction linking
+  Future<DuePaymentModel> createDuePaymentWithTransaction({
     required String orgId,
     required DuePaymentModel payment,
+    String? transactionId,
   }) async {
     final docRef = _duePayments(orgId, payment.dueId).doc(payment.id);
+    
+    // Update payment with transaction ID if provided
+    final paymentData = payment.toMap();
+    if (transactionId != null && transactionId.isNotEmpty) {
+      paymentData['transactionId'] = transactionId;
+    }
+    
     // Use a transaction to ensure we don't create duplicate payments for the same user+due
     return await _db.runTransaction<DuePaymentModel>((tx) async {
       final existing = await tx.get(docRef);
       if (existing.exists) {
+        // Update existing payment with transaction ID if provided
+        if (transactionId != null && transactionId.isNotEmpty) {
+          tx.update(docRef, {'transactionId': transactionId, 'updatedAt': FieldValue.serverTimestamp()});
+        }
         return DuePaymentModel.fromFirestore(existing);
       }
-      tx.set(docRef, payment.toMap());
+      tx.set(docRef, paymentData);
       final created = await tx.get(docRef);
       return DuePaymentModel.fromFirestore(created);
     });
+  }
+
+  // Create payment with auto-generated ID (fallback method)
+  Future<DuePaymentModel> createDuePaymentWithAutoId({
+    required String orgId,
+    required String dueId,
+    required String userId,
+    required double amount,
+    String? transactionId,
+  }) async {
+    final paymentsColl = _duePayments(orgId, dueId);
+    final now = DateTime.now();
+    
+    final paymentData = {
+      'dueId': dueId,
+      'userId': userId,
+      'transactionId': transactionId ?? '',
+      'amount': amount,
+      'paidAt': Timestamp.fromDate(now),
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    };
+    
+    final docRef = await paymentsColl.add(paymentData);
+    final created = await docRef.get();
+    return DuePaymentModel.fromFirestore(created);
   }
 
   Future<DuePaymentModel> updateDuePayment({
@@ -97,5 +134,91 @@ class DuesService {
   Future<List<DuePaymentModel>> listDuePayments(String orgId, String dueId) async {
     final snap = await _duePayments(orgId, dueId).get();
     return snap.docs.map((d) => DuePaymentModel.fromFirestore(d)).toList();
+  }
+
+  // Stream methods for real-time updates
+  Stream<List<DueModel>> watchDues(String orgId) {
+    return _orgDues(orgId).orderBy('dueDate').snapshots().map((snap) {
+      return snap.docs.map((d) => DueModel.fromFirestore(d)).toList();
+    });
+  }
+
+  Future<List<DueModel>> getAllDues(String orgId) async {
+    final snap = await _orgDues(orgId).orderBy('dueDate').get();
+    return snap.docs.map((d) => DueModel.fromFirestore(d)).toList();
+  }
+
+  // Enhanced create method that handles ID assignment properly
+  Future<DueModel> createDueWithId({required DueModel due}) async {
+    final docRef = _orgDues(due.orgId).doc();
+    final data = Map<String, dynamic>.from(due.toMap());
+    data['id'] = docRef.id;
+    await docRef.set(data);
+    final snap = await docRef.get();
+    return DueModel.fromFirestore(snap);
+  }
+
+  // Enhanced update method
+  Future<DueModel> updateDueWithMap({required String orgId, required String dueId, required Map<String, dynamic> updates}) async {
+    updates['updatedAt'] = FieldValue.serverTimestamp();
+    await _dueDoc(orgId, dueId).update(updates);
+    final snap = await _dueDoc(orgId, dueId).get();
+    return DueModel.fromFirestore(snap);
+  }
+
+  // Create payment placeholders for all organization members
+  Future<void> createPaymentPlaceholders(String orgId, String dueId, double amount) async {
+    // Get organization members
+    final membersSnap = await _db.collection('organizations').doc(orgId).collection('members').get();
+    final batch = _db.batch();
+    
+    for (final memberDoc in membersSnap.docs) {
+      final uid = memberDoc.id;
+      final paymentRef = _duePayments(orgId, dueId).doc(uid);
+      
+      // Check if payment already exists
+      final existing = await paymentRef.get();
+      if (!existing.exists) {
+        batch.set(paymentRef, {
+          'id': uid,
+          'dueId': dueId,
+          'userId': uid,
+          'transactionId': '',
+          'amount': amount,
+          'paidAt': null,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+    
+    await batch.commit();
+  }
+
+  // Get payment summary for a due (calculated client-side)
+  Future<Map<String, dynamic>> getDueSummary(String orgId, String dueId) async {
+    final paymentsSnap = await _duePayments(orgId, dueId).get();
+    double totalCollected = 0;
+    int paidCount = 0;
+    int unpaidCount = 0;
+    
+    for (final doc in paymentsSnap.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final amount = (data['amount'] ?? 0).toDouble();
+      if (data['paidAt'] != null) {
+        totalCollected += amount;
+        paidCount += 1;
+      } else {
+        unpaidCount += 1;
+      }
+    }
+    
+    return {
+      'totalCollected': totalCollected,
+      'paidCount': paidCount,
+      'unpaidCount': unpaidCount,
+      'totalMembers': paymentsSnap.size,
+      'lastUpdated': DateTime.now(),
+    };
   }
 }

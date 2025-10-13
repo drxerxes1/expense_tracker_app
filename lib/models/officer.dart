@@ -29,6 +29,34 @@ class Officer {
   });
 
   factory Officer.fromMap(Map<String, dynamic> map) {
+    // Handle different data formats for role and status
+    String roleString;
+    if (map['role'] is int) {
+      roleString = OfficerRole.values[map['role']].toString().split('.').last;
+    } else {
+      roleString = map['role']?.toString() ?? 'member';
+    }
+
+    String statusString;
+    if (map['status'] is int) {
+      statusString = OfficerStatus.values[map['status']].toString().split('.').last;
+    } else {
+      statusString = map['status']?.toString() ?? 'pending';
+    }
+
+    // Handle different date formats
+    DateTime parseDate(dynamic dateValue) {
+      if (dateValue is Timestamp) {
+        return dateValue.toDate();
+      } else if (dateValue is String) {
+        return DateTime.parse(dateValue);
+      } else if (dateValue is DateTime) {
+        return dateValue;
+      } else {
+        return DateTime.now(); // fallback
+      }
+    }
+
     return Officer(
       id: map['id'] ?? '',
       orgId: map['orgId'] ?? '',
@@ -36,16 +64,16 @@ class Officer {
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       role: OfficerRole.values.firstWhere(
-        (e) => e.toString().split('.').last == map['role'],
+        (e) => e.toString().split('.').last == roleString,
         orElse: () => OfficerRole.member,
       ),
       status: OfficerStatus.values.firstWhere(
-        (e) => e.toString().split('.').last == map['status'],
+        (e) => e.toString().split('.').last == statusString,
         orElse: () => OfficerStatus.pending,
       ),
-      joinedAt: (map['joinedAt'] as Timestamp).toDate(),
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      joinedAt: parseDate(map['joinedAt']),
+      createdAt: parseDate(map['createdAt']),
+      updatedAt: parseDate(map['updatedAt']),
     );
   }
 

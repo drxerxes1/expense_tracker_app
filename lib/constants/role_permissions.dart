@@ -17,6 +17,9 @@ class RolePermissions {
       case 'manage_categories':
         return _hasManagementAccess(role);
       
+      case 'manage_collections':
+        return _hasCollectionAccess(role);
+      
       case 'invite_qr':
         return _hasFullPrivileges(role);
       
@@ -70,6 +73,9 @@ class RolePermissions {
       case 'approve_requests':
         return _hasFullPrivileges(role);
       
+      case 'manage_collections':
+        return _hasCollectionAccess(role);
+      
       case 'view_reports':
         return true; // All roles can view reports
       
@@ -104,6 +110,16 @@ class RolePermissions {
            role == OfficerRole.moderator;
   }
 
+  /// Check if role has collection access (Officers only: Treasurer/Secretary/Auditor/President/Moderator)
+  static bool _hasCollectionAccess(OfficerRole role) {
+    // Only officers can manage collections, not regular members
+    return role == OfficerRole.treasurer ||
+           role == OfficerRole.secretary ||
+           role == OfficerRole.auditor ||
+           role == OfficerRole.president ||
+           role == OfficerRole.moderator;
+  }
+
   /// Get role display name with emoji
   static String getRoleDisplayName(OfficerRole role) {
     switch (role) {
@@ -128,11 +144,11 @@ class RolePermissions {
       case OfficerRole.president:
         return 'Full administrative access to all features';
       case OfficerRole.treasurer:
-        return 'Can manage transactions and categories';
+        return 'Can manage transactions, categories, and collections';
       case OfficerRole.secretary:
-        return 'Can manage transactions and categories';
+        return 'Can manage transactions, categories, and collections';
       case OfficerRole.auditor:
-        return 'Can manage transactions and categories';
+        return 'Can manage transactions, categories, and collections';
       case OfficerRole.moderator:
         return 'Full administrative access to all features';
       case OfficerRole.member:
@@ -156,6 +172,9 @@ class RolePermissions {
     }
     if (canAccessDrawerItem(role, 'manage_categories')) {
       items.add('manage_categories');
+    }
+    if (canAccessDrawerItem(role, 'manage_collections')) {
+      items.add('manage_collections');
     }
     if (canAccessDrawerItem(role, 'invite_qr')) {
       items.add('invite_qr');

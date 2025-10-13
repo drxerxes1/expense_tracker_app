@@ -12,6 +12,7 @@ import 'package:org_wallet/services/transaction_service.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/models/due_payment.dart';
+import 'package:org_wallet/models/due.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/services/category_service.dart';
 import 'package:org_wallet/widgets/safe_category_dropdown.dart';
@@ -21,11 +22,13 @@ import 'package:org_wallet/utils/snackbar_helper.dart';
 class TransactionScreen extends StatefulWidget {
   final AppTransaction? transaction;
   final String? initialCollectionDueId;
+  final bool startWithCollectionTab;
   
   const TransactionScreen({
     super.key,
     this.transaction,
     this.initialCollectionDueId,
+    this.startWithCollectionTab = false,
   });
 
   @override
@@ -90,8 +93,13 @@ class _TransactionScreenState extends State<TransactionScreen>
       int tabLength;
       if (tx == null) {
         tabLength = 3; // All tabs for new transactions
+        // If starting with collection tab, set the initial tab index
+        if (widget.startWithCollectionTab) {
+          _tabIndex = 2;
+        }
       } else if (detectedCollection) {
-        tabLength = 1; // Only collection tab
+        tabLength = 1; // Only collection tab for collection transactions
+        _tabIndex = 2; // Collection tab is at index 2 in original array
       } else {
         tabLength = 2; // Only expense and fund tabs
       }
@@ -127,7 +135,7 @@ class _TransactionScreenState extends State<TransactionScreen>
     
     if (catId == 'collections' || catName.contains('collect') || tx.type == 'collection') {
       _isCollectionOnly = true;
-      _tabIndex = 2;
+      _tabIndex = 2; // Collection tab is at index 2 in original array
     } else if (tx.type == 'fund') {
       _tabIndex = 1;
     } else {
@@ -176,7 +184,7 @@ class _TransactionScreenState extends State<TransactionScreen>
       if (mounted) {
         setState(() {
           _expenseCategories = expenseCategories.where((c) => !_categoryService.isFundAccount(c.id)).toList();
-          _fundCategories = fundCategories.where((c) => !_categoryService.isFundAccount(c.id)).toList();
+          _fundCategories = fundCategories.where((c) => !_categoryService.isFundAccount(c.id) && c.id.toLowerCase() != 'collections').toList();
           _fundAccounts = fundAccounts;
           _dataLoaded = true;
           
@@ -218,7 +226,7 @@ class _TransactionScreenState extends State<TransactionScreen>
       if (tx == null) {
         visibleIndices = [0, 1, 2];
       } else if (detectedCollection) {
-        visibleIndices = [2];
+        visibleIndices = [2]; // Only collection tab (index 2 in original array)
       } else {
         visibleIndices = [0, 1];
       }
@@ -302,7 +310,15 @@ class _TransactionScreenState extends State<TransactionScreen>
       String? categoryIdToUse = _selectedCategoryId;
       String? fundId = _selectedFundId;
 
-      if (_tabIndex == 2) {
+      // Check if this is a collection transaction (either by tab index or by transaction type)
+      final isCollectionTransaction = _tabIndex == 2 || 
+          (widget.transaction != null && (
+            widget.transaction!.categoryId.toLowerCase() == 'collections' ||
+            widget.transaction!.categoryName.toLowerCase().contains('collect') ||
+            widget.transaction!.type == 'collection'
+          ));
+      
+      if (isCollectionTransaction) {
         categoryIdToUse = 'collections';
         fundId = 'club_funds';
       } else {
@@ -332,7 +348,7 @@ class _TransactionScreenState extends State<TransactionScreen>
         );
 
         // Handle collection payments
-        if (_tabIndex == 2 &&
+        if (isCollectionTransaction &&
             _collectionSelectedUserIds.isNotEmpty &&
             _collectionSelectedDueId != null) {
           await _createCollectionPayments(orgId, txId, amount);
@@ -366,9 +382,30 @@ class _TransactionScreenState extends State<TransactionScreen>
     }
   }
 
-  Future<void> _createCollectionPayments(String orgId, String txId, double amount) async {
+  Future<void> _createCollectionPayments(String orgId, String txId, double totalAmount) async {
     final duesService = DuesService();
     final now = DateTime.now();
+    
+    // Get the due amount for individual payments
+    double individualAmount = 0.0;
+    if (_collectionSelectedDueId != null) {
+      try {
+        final dueDoc = await FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(orgId)
+            .collection('dues')
+            .doc(_collectionSelectedDueId!)
+            .get();
+        if (dueDoc.exists) {
+          final due = DueModel.fromFirestore(dueDoc);
+          individualAmount = due.amount;
+        }
+      } catch (e) {
+        debugPrint('Error getting due amount: $e');
+        // Fallback to total amount divided by number of members
+        individualAmount = totalAmount / _collectionSelectedUserIds.length;
+      }
+    }
     
     for (final memberId in _collectionSelectedUserIds) {
       try {
@@ -377,12 +414,16 @@ class _TransactionScreenState extends State<TransactionScreen>
           dueId: _collectionSelectedDueId!,
           userId: memberId,
           transactionId: txId,
-          amount: amount,
+          amount: individualAmount,
           paidAt: now,
           createdAt: now,
           updatedAt: now,
         );
-        await duesService.createDuePayment(orgId: orgId, payment: payment);
+        await duesService.createDuePaymentWithTransaction(
+          orgId: orgId, 
+          payment: payment,
+          transactionId: txId,
+        );
       } catch (e) {
         // Fallback to auto-id
         try {
@@ -396,7 +437,7 @@ class _TransactionScreenState extends State<TransactionScreen>
             'dueId': _collectionSelectedDueId!,
             'userId': memberId,
             'transactionId': txId,
-            'amount': amount,
+            'amount': individualAmount,
             'paidAt': Timestamp.fromDate(now),
             'createdAt': Timestamp.fromDate(now),
             'updatedAt': Timestamp.fromDate(now),
@@ -470,7 +511,7 @@ class _TransactionScreenState extends State<TransactionScreen>
     if (tx == null) {
       visibleIndices = [0, 1, 2];
     } else if (detectedCollection) {
-      visibleIndices = [2];
+      visibleIndices = [2]; // Only collection tab (index 2 in original array)
     } else {
       visibleIndices = [0, 1];
     }
@@ -492,10 +533,11 @@ class _TransactionScreenState extends State<TransactionScreen>
     final List<Widget> tabs = [];
     const List<String> tabLabels = ['Expense', 'Fund', 'Collection'];
     
-    for (int i = 0; i < tabLabels.length; i++) {
-      if (visibleIndices.contains(i)) {
-        tabs.add(Tab(text: tabLabels[i]));
-      }
+    for (int i = 0; i < visibleIndices.length; i++) {
+      final tabIndex = visibleIndices[i];
+      tabs.add(Tab(
+        child: Text(tabLabels[tabIndex]),
+      ));
     }
 
     return Container(
@@ -604,6 +646,14 @@ class _TransactionScreenState extends State<TransactionScreen>
     final auth = Provider.of<AuthService>(context, listen: false);
     final orgId = widget.transaction?.orgId ?? auth.currentOrgId;
     final isEdit = widget.transaction != null;
+    
+    // Check if this is a collection transaction
+    final isCollectionTransaction = _tabIndex == 2 || 
+        (widget.transaction != null && (
+          widget.transaction!.categoryId.toLowerCase() == 'collections' ||
+          widget.transaction!.categoryName.toLowerCase().contains('collect') ||
+          widget.transaction!.type == 'collection'
+        ));
 
     return Scaffold(
       appBar: AppBar(
@@ -635,7 +685,7 @@ class _TransactionScreenState extends State<TransactionScreen>
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
-                          enabled: _tabIndex != 2,
+                          enabled: !isCollectionTransaction,
                           validator: (v) {
                             if (v == null || v.isEmpty) return 'Enter amount';
                             final parsed = double.tryParse(v);
@@ -648,7 +698,7 @@ class _TransactionScreenState extends State<TransactionScreen>
                         const SizedBox(height: 12),
                         
                         // Collection Tab
-                        if (_tabIndex == 2)
+                        if (isCollectionTransaction)
                           orgId != null && orgId.isNotEmpty
                               ? CollectionTab(
                                   orgId: orgId,
@@ -668,7 +718,7 @@ class _TransactionScreenState extends State<TransactionScreen>
                                 ),
                         
                         // Expense/Fund Tabs
-                        if (_tabIndex != 2) ...[
+                        if (!isCollectionTransaction) ...[
                           if (orgId == null || orgId.isEmpty)
                             const Padding(
                               padding: EdgeInsets.all(16.0),
