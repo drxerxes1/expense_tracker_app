@@ -27,6 +27,21 @@ class TransactionDateGroup {
   String get formattedDate {
     return DateFormat('MMMM d, yyyy').format(date);
   }
+  
+  double get dailyTotal {
+    double totalFunds = 0.0;
+    double totalExpenses = 0.0;
+    
+    for (final transaction in transactions) {
+      if (transaction.type == 'fund') {
+        totalFunds += transaction.amount;
+      } else if (transaction.type == 'expense') {
+        totalExpenses += transaction.amount;
+      }
+    }
+    
+    return totalFunds - totalExpenses;
+  }
 }
 
 // Helper function to group transactions by date
@@ -60,10 +75,12 @@ List<TransactionDateGroup> groupTransactionsByDate(List<model.AppTransaction> tr
 // Date Header Widget
 class DateHeaderWidget extends StatelessWidget {
   final String dateText;
+  final double dailyTotal;
   
   const DateHeaderWidget({
     super.key,
     required this.dateText,
+    required this.dailyTotal,
   });
 
   @override
@@ -71,13 +88,40 @@ class DateHeaderWidget extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Text(
-        dateText,
-        style: GoogleFonts.poppins(
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-          color: TWColors.slate.shade700,
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            dateText,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+              color: TWColors.slate.shade700,
+            ),
+          ),
+          Row(
+            children: [
+              SvgPicture.asset(
+                'assets/svg/philippine-peso-icon.svg',
+                width: 12,
+                height: 12,
+                colorFilter: ColorFilter.mode(
+                  dailyTotal > 0 ? Colors.green : dailyTotal < 0 ? Colors.red : Colors.grey,
+                  BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                dailyTotal.abs().toStringAsFixed(2),
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  color: dailyTotal > 0 ? Colors.green : dailyTotal < 0 ? Colors.red : Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -460,7 +504,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     for (final group in groups) {
       // Check if this index is for the date header
       if (currentIndex == index) {
-        return DateHeaderWidget(dateText: group.formattedDate);
+        return DateHeaderWidget(
+          dateText: group.formattedDate,
+          dailyTotal: group.dailyTotal,
+        );
       }
       currentIndex++;
       

@@ -96,6 +96,8 @@ class _MainDashboardState extends State<MainDashboard> {
         ),
         backgroundColor: TWColors.slate.shade200,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           if (_currentIndex == 0) ...[
