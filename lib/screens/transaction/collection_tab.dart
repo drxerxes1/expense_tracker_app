@@ -59,8 +59,20 @@ class _CollectionTabState extends State<CollectionTab> {
   void initState() {
     super.initState();
     // prefer initialDueId if provided
-    if (widget.initialDueId != null) _selectedDueId = widget.initialDueId;
+    if (widget.initialDueId != null) {
+      _selectedDueId = widget.initialDueId;
+    }
     _loadDues();
+    
+    // If we have a current transaction ID, load its payments directly
+    if (widget.currentTransactionId != null && widget.currentTransactionId!.isNotEmpty) {
+      // Delay the loading to ensure the widget is fully initialized
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _loadExistingPaymentsForTransaction();
+        }
+      });
+    }
   }
 
   @override
@@ -77,6 +89,7 @@ class _CollectionTabState extends State<CollectionTab> {
           .collection('dues')
           .get();
       final dues = snap.docs.map((d) => DueModel.fromFirestore(d)).toList();
+      
       if (!mounted) return;
       setState(() {
         _dues = dues;
@@ -89,8 +102,74 @@ class _CollectionTabState extends State<CollectionTab> {
         }
         _recalculateTotalForSelectedMembers();
       });
-    } catch (_) {
+    } catch (e) {
       // ignore
+    }
+  }
+
+  Future<void> _loadExistingPaymentsForTransaction() async {
+    if (widget.currentTransactionId == null || widget.currentTransactionId!.isEmpty) {
+      return;
+    }
+
+    try {
+      
+      // Get all dues for this organization
+      final duesSnap = await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(widget.orgId)
+          .collection('dues')
+          .get();
+      
+      
+      final Set<String> paidUserIds = {};
+      String? foundDueId;
+      
+      // Check each due for payments with this transaction ID
+      for (final dueDoc in duesSnap.docs) {
+        final paymentsSnap = await dueDoc.reference
+            .collection('due_payments')
+            .where('transactionId', isEqualTo: widget.currentTransactionId)
+            .get();
+        
+        
+        if (paymentsSnap.docs.isNotEmpty) {
+          foundDueId = dueDoc.id;
+          
+          for (final paymentDoc in paymentsSnap.docs) {
+            final payment = DuePaymentModel.fromFirestore(paymentDoc);
+            paidUserIds.add(payment.userId);
+            _memberAmounts[payment.userId] = payment.amount;
+          }
+        }
+      }
+      
+      
+      if (foundDueId != null && mounted) {
+        setState(() {
+          _selectedDueId = foundDueId;
+          _existingPaidUserIds.clear();
+          _existingPaidUserIds.addAll(paidUserIds);
+        });
+        
+        // Subscribe to payments for this due
+        _subscribeToDuePayments(foundDueId);
+        
+        // Recalculate totals
+        _recalculateTotalForSelectedMembers();
+        
+        // Notify parent
+        if (widget.onSelectionChanged != null) {
+          widget.onSelectionChanged!(_existingPaidUserIds);
+        }
+        if (widget.onAmountChanged != null) {
+          widget.onAmountChanged!(_totalCollected);
+        }
+        
+      } else {
+      }
+    } catch (e) {
+      // ignore errors
     }
   }
 
@@ -248,12 +327,14 @@ class _CollectionTabState extends State<CollectionTab> {
     _paymentsSub = coll.snapshots().listen((snap) {
       // compute which userIds have a payment that falls within the current period
       final Set<String> paidNow = {};
+      
       for (final doc in snap.docs) {
         final p = DuePaymentModel.fromFirestore(doc);
         final paidAt = p.paidAt ?? p.createdAt;
         // include payments that are either in the current period OR attached to
         // the current transaction id (so saved transactions display their payments)
         final attachedToCurrentTx = widget.currentTransactionId != null && p.transactionId == widget.currentTransactionId;
+        
         if (paidAt == null && !attachedToCurrentTx) continue;
         if (due == null) {
           paidNow.add(p.userId);
@@ -265,6 +346,7 @@ class _CollectionTabState extends State<CollectionTab> {
           }
         }
       }
+      
       if (!mounted) return;
       setState(() {
         _existingPaidUserIds
@@ -280,7 +362,7 @@ class _CollectionTabState extends State<CollectionTab> {
       if (widget.onAmountChanged != null) {
         widget.onAmountChanged!(_totalCollected);
       }
-    }, onError: (_) {
+    }, onError: (error) {
       // ignore subscription errors for now
     });
   }
@@ -290,12 +372,21 @@ class _CollectionTabState extends State<CollectionTab> {
     super.didUpdateWidget(oldWidget);
     // If the initially-requested due changed after mount, update selection
     if (widget.initialDueId != oldWidget.initialDueId && widget.initialDueId != null) {
-      _selectedDueId = widget.initialDueId;
+      setState(() {
+        _selectedDueId = widget.initialDueId;
+      });
       _subscribeToDuePayments(_selectedDueId!);
     }
-    // If the currentTransactionId changed, resubscribe so attached payments are included
-    if (widget.currentTransactionId != oldWidget.currentTransactionId && _selectedDueId != null) {
-      _subscribeToDuePayments(_selectedDueId!);
+    // If the currentTransactionId changed, load existing payments for the new transaction
+    if (widget.currentTransactionId != oldWidget.currentTransactionId && 
+        widget.currentTransactionId != null && 
+        widget.currentTransactionId!.isNotEmpty) {
+      // Delay to ensure proper state
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted) {
+          _loadExistingPaymentsForTransaction();
+        }
+      });
     }
   }
 

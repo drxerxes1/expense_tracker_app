@@ -150,7 +150,7 @@ class _TransactionScreenState extends State<TransactionScreen>
     }
     
     if (_isCollectionOnly) {
-      _findDueForTransaction(tx.id, tx.orgId);
+      await _findDueForTransaction(tx.id, tx.orgId);
     }
   }
 
@@ -247,6 +247,7 @@ class _TransactionScreenState extends State<TransactionScreen>
           .collection('dues')
           .get();
       
+      
       for (final d in duesSnap.docs) {
         final paymentsColl = d.reference.collection('due_payments');
         final q = await paymentsColl
@@ -255,7 +256,9 @@ class _TransactionScreenState extends State<TransactionScreen>
             .get();
         if (q.docs.isNotEmpty) {
           if (mounted) {
-            setState(() => _collectionSelectedDueId = d.id);
+            setState(() {
+              _collectionSelectedDueId = d.id;
+            });
           }
           return;
         }
