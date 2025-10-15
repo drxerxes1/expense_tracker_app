@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/services/connectivity_service.dart';
+import 'package:org_wallet/services/membership_validation_service.dart';
 import 'package:org_wallet/screens/splash_screen.dart';
 
 import 'package:org_wallet/theme/app_theme.dart';
@@ -27,6 +28,7 @@ class OrgWalletApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => ConnectivityService()..initialize()),
+        ChangeNotifierProvider(create: (_) => MembershipValidationService()),
       ],
       child: MaterialApp(
         title: 'Org Wallet',

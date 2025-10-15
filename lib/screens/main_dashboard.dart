@@ -19,6 +19,7 @@ import 'package:org_wallet/screens/profile/profile_screen.dart';
 import 'package:org_wallet/widgets/organization_switcher_modal.dart';
 import 'package:org_wallet/screens/auth/pending_membership_screen.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
+import 'package:org_wallet/widgets/membership_validation_wrapper.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -77,6 +78,15 @@ class _MainDashboardState extends State<MainDashboard> {
       return const PendingMembershipScreen();
     }
 
+    // Wrap the dashboard with membership validation
+    return MembershipValidationWrapper(
+      userId: authService.firebaseUser?.uid,
+      orgId: authService.currentOrgId,
+      child: _buildDashboard(authService),
+    );
+  }
+
+  Widget _buildDashboard(AuthService authService) {
     return Scaffold(
       appBar: AppBar(
         centerTitle: false,

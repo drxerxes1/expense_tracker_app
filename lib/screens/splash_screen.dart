@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:hive/hive.dart';
 import 'package:org_wallet/models/user_login.dart';
 // ignore_for_file: deprecated_member_use

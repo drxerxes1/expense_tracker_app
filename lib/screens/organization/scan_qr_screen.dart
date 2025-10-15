@@ -190,10 +190,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
 
   void _showError(String message) {
     if (mounted) {
-      SnackBarHelper.showError(
-        context,
-        message: message,
-      );
+      SnackBarHelper.showError(context, message: message);
       setState(() {
         _isScanning = true;
       });
@@ -259,9 +256,9 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
               children: [
                 Text(
                   'Join Organization',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
@@ -391,17 +388,6 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: const Text('Cancel'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _isScanning = true;
-                          });
-                        },
-                        child: const Text('Scan Again'),
                       ),
                     ),
                   ],

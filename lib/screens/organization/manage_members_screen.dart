@@ -8,6 +8,7 @@ import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
+import 'package:org_wallet/widgets/membership_validation_wrapper.dart';
 
 class ManageMembersScreen extends StatefulWidget {
   const ManageMembersScreen({super.key});
@@ -549,6 +550,15 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
+    
+    return MembershipValidationWrapper(
+      userId: auth.firebaseUser?.uid,
+      orgId: auth.currentOrgId,
+      child: _buildContent(auth),
+    );
+  }
+
+  Widget _buildContent(AuthService auth) {
     if (!auth.isLoggedIn || auth.currentOrgId == null) {
       return Scaffold(
         appBar: AppBar(

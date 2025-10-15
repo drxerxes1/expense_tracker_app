@@ -8,6 +8,7 @@ import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/models/due.dart';
 import 'package:org_wallet/screens/dues/add_edit_due_screen.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
+import 'package:org_wallet/widgets/membership_validation_wrapper.dart';
 
 class ManageDuesScreen extends StatefulWidget {
   const ManageDuesScreen({super.key});
@@ -103,6 +104,15 @@ class _ManageDuesScreenState extends State<ManageDuesScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
+    
+    return MembershipValidationWrapper(
+      userId: auth.firebaseUser?.uid,
+      orgId: auth.currentOrgId,
+      child: _buildContent(auth),
+    );
+  }
+
+  Widget _buildContent(AuthService auth) {
     final orgId = auth.currentOrgId;
     if (orgId == null) {
       return const Scaffold(

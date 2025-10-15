@@ -9,6 +9,7 @@ import 'package:org_wallet/constants/category_constants.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
+import 'package:org_wallet/widgets/membership_validation_wrapper.dart';
 
 class ManageCategoriesScreen extends StatefulWidget {
   const ManageCategoriesScreen({super.key});
@@ -419,6 +420,15 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen>
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
+    
+    return MembershipValidationWrapper(
+      userId: auth.firebaseUser?.uid,
+      orgId: auth.currentOrgId,
+      child: _buildContent(auth),
+    );
+  }
+
+  Widget _buildContent(AuthService auth) {
     final orgId = auth.currentOrgId;
 
     return Scaffold(

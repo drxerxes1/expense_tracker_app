@@ -8,6 +8,7 @@ import 'package:org_wallet/models/user.dart' as app_user;
 import 'package:org_wallet/models/organization.dart';
 import 'package:org_wallet/models/officer.dart';
 import 'package:org_wallet/constants/role_permissions.dart';
+import 'package:org_wallet/services/membership_validation_service.dart';
 
 class AuthService extends ChangeNotifier {
   Organization? _organization;
@@ -345,6 +346,8 @@ class AuthService extends ChangeNotifier {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
+      // Reset membership validation service
+      await MembershipValidationService().reset();
       // Remove login info from Hive
       final loginBox = Hive.box<UserLogin>('userLogin');
       loginBox.delete('current');
