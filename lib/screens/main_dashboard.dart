@@ -99,178 +99,308 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
       drawer: Drawer(
         child: Container(
-          color: TWColors
-              .slate
-              .shade900, // 👈 gives SafeArea the same dark background
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                TWColors.slate.shade900,
+                TWColors.slate.shade800,
+              ],
+            ),
+          ),
           child: SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ===== Drawer Header =====
+                // ===== Enhanced Drawer Header =====
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        TWColors.slate.shade900,
+                        TWColors.slate.shade700,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  color: TWColors.slate.shade900, // 👈 matches SafeArea color
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                authService.user?.name ?? '',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 24,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                authService.user?.email ?? '',
-                                style: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              if (authService.currentOfficer != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: TWColors.slate.shade700,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    _getRoleDisplayName(authService.currentOfficer!.role),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
+                      // User Avatar
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              TWColors.blue.shade400,
+                              TWColors.purple.shade400,
                             ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            (authService.user?.name ?? 'U').substring(0, 1).toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      
+                      // User Name
+                      Text(
+                        authService.user?.name ?? 'User',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      
+                      // User Email
+                      Text(
+                        authService.user?.email ?? '',
+                        style: TextStyle(
+                          color: Colors.grey[300],
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      
+                      // Organization Info
+                      if (authService.organization != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.business,
+                                color: Colors.white.withOpacity(0.8),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  authService.organization!.name,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      
+                      // Role Badge
+                      if (authService.currentOfficer != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                TWColors.blue.shade600,
+                                TWColors.purple.shade600,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: TWColors.blue.shade600.withOpacity(0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            _getRoleDisplayName(authService.currentOfficer!.role),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
 
-                // ===== Drawer Body (with ripple effect) =====
+                // ===== Enhanced Drawer Body =====
                 Expanded(
-                  child: Material(
-                    color: Colors.white, // 👈 Material surface for ripple
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(0),
+                        topRight: Radius.circular(0),
+                      ),
+                    ),
                     child: ListView(
-                      padding: EdgeInsets.zero,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       children: [
-                        // Edit Organization - Only President/Moderator
-                        if (authService.canAccessDrawerItem('edit_organization')) ...[
-                          ListTile(
-                            leading: const Icon(Icons.edit),
-                            title: const Text('Edit Organization'),
-                            onTap: () =>
-                                _handleMenuSelection('edit_org', context),
-                          ),
+                        // Administrative Section
+                        if (authService.canAccessDrawerItem('edit_organization') || 
+                            authService.canAccessDrawerItem('manage_members')) ...[
+                          _buildSectionHeader('Administration'),
+                          const SizedBox(height: 8),
+                          
+                          // Edit Organization - Only President/Moderator
+                          if (authService.canAccessDrawerItem('edit_organization'))
+                            _buildMenuItem(
+                              icon: Icons.edit,
+                              title: 'Edit Organization',
+                              subtitle: 'Manage organization settings',
+                              onTap: () => _handleMenuSelection('edit_org', context),
+                            ),
+                          
+                          // Manage Members - Only President/Moderator
+                          if (authService.canAccessDrawerItem('manage_members'))
+                            _buildMenuItem(
+                              icon: Icons.people,
+                              title: 'Manage Members',
+                              subtitle: 'Add, remove, and manage members',
+                              onTap: () => _handleMenuSelection('manage_members', context),
+                            ),
+                          
+                          const SizedBox(height: 16),
                         ],
                         
-                        
-                        // Manage Members - Only President/Moderator
-                        if (authService.canAccessDrawerItem('manage_members')) ...[
-                          ListTile(
-                            leading: const Icon(Icons.people),
-                            title: const Text('Manage Members'),
-                            onTap: () =>
-                                _handleMenuSelection('manage_members', context),
-                          ),
-                        ],
-                        
-                        // Manage Categories - Treasurer/Secretary/Auditor/President/Moderator
-                        if (authService.canAccessDrawerItem('manage_categories')) ...[
-                          ListTile(
-                            leading: const Icon(Icons.category),
-                            title: const Text('Manage Categories'),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const ManageCategoriesScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                        
-                        // Manage Dues - Treasurer/Secretary/Auditor/President/Moderator
-                        if (authService.canAccessDrawerItem('manage_collections')) ...[
-                          ListTile(
-                            leading: const Icon(Icons.payments),
-                            title: const Text('Manage Dues'),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const ManageDuesScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                        
-                        // Invite QR - Only President/Moderator
-                        if (authService.canAccessDrawerItem('invite_qr')) ...[
-                          ListTile(
-                            leading: const Icon(Icons.qr_code),
-                            title: const Text('Invite QR'),
-                            onTap: () {
-                              if (authService.organization != null) {
+                        // Management Section
+                        if (authService.canAccessDrawerItem('manage_collections') || 
+                            authService.canAccessDrawerItem('manage_categories') ||
+                            authService.canAccessDrawerItem('invite_qr') ||
+                            authService.canAccessDrawerItem('export_reports')) ...[
+                          _buildSectionHeader('Management'),
+                          const SizedBox(height: 8),
+                          
+                          // Manage Dues - Treasurer/Secretary/Auditor/President/Moderator
+                          if (authService.canAccessDrawerItem('manage_collections'))
+                            _buildMenuItem(
+                              icon: Icons.payments,
+                              title: 'Manage Dues',
+                              subtitle: 'Track and manage member dues',
+                              onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => QRGeneratorScreen(
-                                      organization: authService.organization!,
-                                    ),
+                                    builder: (_) => const ManageDuesScreen(),
                                   ),
                                 );
-                              } else {
-                                SnackBarHelper.showError(
-                                  context,
-                                  message: 'No organization selected',
+                              },
+                            ),
+                          
+                          // Manage Categories - Treasurer/Secretary/Auditor/President/Moderator
+                          if (authService.canAccessDrawerItem('manage_categories'))
+                            _buildMenuItem(
+                              icon: Icons.category,
+                              title: 'Manage Categories',
+                              subtitle: 'Organize transaction categories',
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const ManageCategoriesScreen(),
+                                  ),
                                 );
-                              }
-                            },
-                          ),
+                              },
+                            ),
+                          
+                          // Invite QR - Only President/Moderator
+                          if (authService.canAccessDrawerItem('invite_qr'))
+                            _buildMenuItem(
+                              icon: Icons.qr_code,
+                              title: 'Invite QR',
+                              subtitle: 'Generate QR codes for invitations',
+                              onTap: () {
+                                if (authService.organization != null) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => QRGeneratorScreen(
+                                        organization: authService.organization!,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  SnackBarHelper.showError(
+                                    context,
+                                    message: 'No organization selected',
+                                  );
+                                }
+                              },
+                            ),
+                          
+                          // Export Reports - Only officers and presidents
+                          if (authService.canAccessDrawerItem('export_reports'))
+                            _buildMenuItem(
+                              icon: Icons.download,
+                              title: 'Export Reports',
+                              subtitle: 'Download financial reports',
+                              onTap: () => _handleMenuSelection('export_reports', context),
+                            ),
+                          
+                          const SizedBox(height: 16),
                         ],
                         
-                        // Export Reports - All roles (view-only access)
-                        if (authService.canAccessDrawerItem('export_reports')) ...[
-                          ListTile(
-                            leading: const Icon(Icons.download),
-                            title: const Text('Export Reports'),
-                            onTap: () =>
-                                _handleMenuSelection('export_reports', context),
-                          ),
-                        ],
-                        
-                        const Divider(),
+                        // Account Section
+                        _buildSectionHeader('Account'),
+                        const SizedBox(height: 8),
                         
                         // Profile - All roles
-                        ListTile(
-                          leading: const Icon(Icons.person),
-                          title: const Text('Profile'),
+                        _buildMenuItem(
+                          icon: Icons.person,
+                          title: 'Profile',
+                          subtitle: 'View and edit your profile',
                           onTap: () => _handleMenuSelection('profile', context),
                         ),
                         
                         // Join QR - All roles
-                        ListTile(
-                          leading: const Icon(Icons.qr_code_scanner),
-                          title: const Text('Join QR'),
+                        _buildMenuItem(
+                          icon: Icons.qr_code_scanner,
+                          title: 'Join QR',
+                          subtitle: 'Scan QR code to join organization',
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -281,18 +411,25 @@ class _MainDashboardState extends State<MainDashboard> {
                         ),
                         
                         // Switch Organization - All roles
-                        ListTile(
-                          leading: const Icon(Icons.swap_horiz),
-                          title: const Text('Switch Organization'),
+                        _buildMenuItem(
+                          icon: Icons.swap_horiz,
+                          title: 'Switch Organization',
+                          subtitle: 'Change your current organization',
                           onTap: () => _showOrganizationSwitcher(context),
                         ),
                         
+                        const SizedBox(height: 16),
+                        
                         // Logout - All roles
-                        ListTile(
-                          leading: const Icon(Icons.logout),
-                          title: const Text('Logout'),
+                        _buildMenuItem(
+                          icon: Icons.logout,
+                          title: 'Logout',
+                          subtitle: 'Sign out of your account',
                           onTap: () => _handleMenuSelection('logout', context),
+                          isDestructive: true,
                         ),
+                        
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
@@ -543,5 +680,100 @@ class _MainDashboardState extends State<MainDashboard> {
         _selectedDateRange = DateTimeRange(start: picked.start, end: cappedEnd);
       });
     }
+  }
+
+  // Helper method to build section headers
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: TWColors.slate.shade600,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build menu items
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.transparent,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isDestructive 
+                        ? Colors.red.shade50
+                        : TWColors.slate.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isDestructive 
+                        ? Colors.red.shade600
+                        : TWColors.slate.shade600,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDestructive 
+                              ? Colors.red.shade700
+                              : TWColors.slate.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: TWColors.slate.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: TWColors.slate.shade400,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

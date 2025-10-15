@@ -24,7 +24,7 @@ class RolePermissions {
         return _hasFullPrivileges(role);
       
       case 'export_reports':
-        return true; // All roles can export reports (view-only access)
+        return _hasManagementAccess(role); // Only officers and presidents can export reports
       
       case 'profile':
         return true; // All roles can access profile
@@ -80,7 +80,7 @@ class RolePermissions {
         return true; // All roles can view reports
       
       case 'export_reports':
-        return true; // All roles can export reports
+        return _hasManagementAccess(role); // Only officers and presidents can export reports
       
       default:
         return false;
