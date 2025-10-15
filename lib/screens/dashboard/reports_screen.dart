@@ -11,14 +11,22 @@ import 'package:org_wallet/utils/snackbar_helper.dart';
 // import 'package:org_wallet/models/expense.dart';
 
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key});
+  final DateTime selectedMonth;
+  final bool isLoading;
+  final VoidCallback onLoadingComplete;
+  
+  const ReportsScreen({
+    super.key,
+    required this.selectedMonth,
+    required this.isLoading,
+    required this.onLoadingComplete,
+  });
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
 class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateMixin {
-  final String _selectedPeriod = 'This Month';
   List<AppTransaction> _transactions = [];
   bool _isLoading = true;
   bool _isDisposed = false;
@@ -29,6 +37,19 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadTransactions();
+  }
+
+  @override
+  void didUpdateWidget(ReportsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedMonth != widget.selectedMonth) {
+      // Add a small delay to show loading state for better UX
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted && !_isDisposed) {
+          _loadTransactions();
+        }
+      });
+    }
   }
 
   @override
@@ -69,6 +90,8 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
           _transactions = transactions;
           _isLoading = false;
         });
+        // Notify parent that loading is complete
+        widget.onLoadingComplete();
       }
     } catch (e) {
       // Check if widget is still mounted and not disposed before updating state
@@ -76,6 +99,8 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
         setState(() {
           _isLoading = false;
         });
+        // Notify parent that loading is complete (even on error)
+        widget.onLoadingComplete();
         SnackBarHelper.showError(
           context,
           message: 'Error loading transactions: $e',
@@ -85,85 +110,105 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
   }
 
   DateTimeRange? _getDateRangeForPeriod() {
-    final now = DateTime.now();
-    switch (_selectedPeriod) {
-      case 'This Month':
-        final start = DateTime(now.year, now.month, 1);
-        return DateTimeRange(start: start, end: now);
-      case 'Last Month':
-        final lastMonth = DateTime(now.year, now.month - 1);
-        final start = DateTime(lastMonth.year, lastMonth.month, 1);
-        final end = DateTime(lastMonth.year, lastMonth.month + 1, 0);
-        return DateTimeRange(start: start, end: end);
-      case 'This Year':
-        final start = DateTime(now.year, 1, 1);
-        return DateTimeRange(start: start, end: now);
-      case 'All Time':
-        return null; // No date range filter
-      default:
-        return null;
-    }
+    // Use the selected month for filtering
+    final start = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
+    final end = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
+    return DateTimeRange(start: start, end: end);
   }
+
+  String _getMonthYearText(DateTime selectedMonth) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[selectedMonth.month - 1]} ${selectedMonth.year}';
+  }
+
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Tab Bar
-                Container(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  child: TabBar(
-                    controller: _tabController,
-                    tabs: const [
-                      Tab(text: 'Expenses'),
-                      Tab(text: 'Funds'),
-                    ],
-                    labelColor: Theme.of(context).colorScheme.primary,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: Theme.of(context).colorScheme.primary,
+    return Stack(
+      children: [
+        _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  // Tab Bar
+                  Container(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    child: TabBar(
+                      controller: _tabController,
+                      tabs: const [
+                        Tab(text: 'Expenses'),
+                        Tab(text: 'Funds'),
+                      ],
+                      labelColor: Theme.of(context).colorScheme.primary,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
-                ),
-                // Tab Content
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Expense Tab
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildCategoryChart('expense'),
-                            const SizedBox(height: 20),
-                            _buildExpenseRanking('expense'),
-                            const SizedBox(height: 20),
-                            _buildExpenseForecast('expense'),
-                          ],
+                  // Tab Content
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        // Expense Tab
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildCategoryChart('expense'),
+                              const SizedBox(height: 20),
+                              _buildExpenseRanking('expense'),
+                              const SizedBox(height: 20),
+                              _buildExpenseForecast('expense'),
+                            ],
+                          ),
                         ),
-                      ),
-                      // Fund Tab
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildCategoryChart('fund'),
-                            const SizedBox(height: 20),
-                            _buildExpenseRanking('fund'),
-                            const SizedBox(height: 20),
-                            _buildExpenseForecast('fund'),
-                          ],
+                        // Fund Tab
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildCategoryChart('fund'),
+                              const SizedBox(height: 20),
+                              _buildExpenseRanking('fund'),
+                              const SizedBox(height: 20),
+                              _buildExpenseForecast('fund'),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+        // Loading overlay when parent is loading
+        if (widget.isLoading)
+          Container(
+            color: Colors.black.withOpacity(0.3),
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    color: Colors.white,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading reports...',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ),
+      ],
     );
   }
 
@@ -475,74 +520,40 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
       );
     }
 
+    // Calculate statistics for actual data
+    final actualDaysWithData = dailyData.entries.where((entry) => entry.value > 0).toList();
+    final totalActualAmount = actualDaysWithData.fold<double>(0, (sum, entry) => sum + entry.value);
+    final avgDailyAmount = actualDaysWithData.isNotEmpty ? totalActualAmount / actualDaysWithData.length : 0.0;
+    final maxDailyAmount = actualDaysWithData.isNotEmpty ? actualDaysWithData.map((e) => e.value).reduce((a, b) => a > b ? a : b) : 0.0;
+    final highestDay = actualDaysWithData.isNotEmpty ? actualDaysWithData.firstWhere((e) => e.value == maxDailyAmount).key : 0;
+    
     // Generate forecast data for remaining days of the month
     final forecastData = <int, double>{};
     final actualData = <int, double>{};
     
-    // Calculate average daily transaction amount for forecasting
-    double totalActualAmount = 0;
-    int actualDaysCount = 0;
-    
     for (int day = 1; day <= daysInMonth; day++) {
       if (day <= currentDay) {
         actualData[day] = dailyData[day] ?? 0;
-        totalActualAmount += actualData[day]!;
-        if (actualData[day]! > 0) actualDaysCount++;
       } else {
-        // Forecast for future days
-        final avgDailyAmount = actualDaysCount > 0 ? totalActualAmount / actualDaysCount : 0.0;
+        // Forecast for future days using average
         forecastData[day] = avgDailyAmount;
       }
     }
 
-    // Create chart data with smoothing and zero-value handling
+    // Create chart data - only show actual data points for days with transactions
     final actualSpots = <FlSpot>[];
     final forecastSpots = <FlSpot>[];
     
-    // Only add spots for days with actual data or meaningful forecast
-    for (int day = 1; day <= daysInMonth; day++) {
-      final actualAmount = actualData[day] ?? 0;
-      final forecastAmount = forecastData[day] ?? 0;
-      
-      if (actualData.containsKey(day)) {
-        // Only add actual spots for non-zero values or important days
-        if (actualAmount > 0 || day == currentDay || day % 5 == 0) {
-          actualSpots.add(FlSpot(day.toDouble(), actualAmount));
-        }
-      } else if (forecastAmount > 0) {
-        // Only add forecast spots for meaningful predictions
-        forecastSpots.add(FlSpot(day.toDouble(), forecastAmount));
+    // Only add spots for days with actual transactions
+    for (final entry in actualDaysWithData) {
+      actualSpots.add(FlSpot(entry.key.toDouble(), entry.value));
+    }
+    
+    // Add forecast spots for future days (only if we have actual data to base forecast on)
+    if (actualDaysWithData.isNotEmpty) {
+      for (int day = currentDay + 1; day <= daysInMonth; day++) {
+        forecastSpots.add(FlSpot(day.toDouble(), avgDailyAmount));
       }
-    }
-    
-    // Add connecting points for smoother lines
-    final smoothedActualSpots = <FlSpot>[];
-    final smoothedForecastSpots = <FlSpot>[];
-    
-    // Smooth actual data by adding intermediate points
-    for (int i = 0; i < actualSpots.length - 1; i++) {
-      smoothedActualSpots.add(actualSpots[i]);
-      final current = actualSpots[i];
-      final next = actualSpots[i + 1];
-      final midX = (current.x + next.x) / 2;
-      final midY = (current.y + next.y) / 2;
-      smoothedActualSpots.add(FlSpot(midX, midY));
-    }
-    if (actualSpots.isNotEmpty) {
-      smoothedActualSpots.add(actualSpots.last);
-    }
-    
-    // Smooth forecast data
-    for (int i = 0; i < forecastSpots.length - 1; i++) {
-      smoothedForecastSpots.add(forecastSpots[i]);
-      final current = forecastSpots[i];
-      final next = forecastSpots[i + 1];
-      final midX = (current.x + next.x) / 2;
-      final midY = (current.y + next.y) / 2;
-      smoothedForecastSpots.add(FlSpot(midX, midY));
-    }
-    if (forecastSpots.isNotEmpty) {
-      smoothedForecastSpots.add(forecastSpots.last);
     }
 
     return Card(
@@ -559,6 +570,68 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
             ),
             const SizedBox(height: 16),
             
+            // Statistics Summary
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          'Total ${transactionType == 'expense' ? 'Spent' : 'Earned'}',
+                          'P${totalActualAmount.toStringAsFixed(2)}',
+                          Icons.account_balance_wallet,
+                          Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Days Active',
+                          '${actualDaysWithData.length}',
+                          Icons.calendar_today,
+                          Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          'Daily Average',
+                          'P${avgDailyAmount.toStringAsFixed(2)}',
+                          Icons.trending_up,
+                          Colors.green,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Highest Day',
+                          'P${maxDailyAmount.toStringAsFixed(2)}',
+                          Icons.keyboard_arrow_up,
+                          Colors.orange,
+                          '${_getMonthYearText(widget.selectedMonth).split(' ')[0]} $highestDay',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
             // Legend
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -567,13 +640,18 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                   children: [
                     Container(
                       width: 16,
-                      height: 2,
-                      color: Theme.of(context).colorScheme.primary,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(1.5),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Actual',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      'Actual Data',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -582,16 +660,18 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                   children: [
                     Container(
                       width: 16,
-                      height: 2,
+                      height: 3,
                       decoration: BoxDecoration(
                         color: Colors.grey[400],
-                        border: Border.all(color: Colors.grey[400]!, width: 1),
+                        borderRadius: BorderRadius.circular(1.5),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Forecast',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -600,14 +680,14 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
             const SizedBox(height: 16),
             
             SizedBox(
-              height: 280,
+              height: 300,
               child: LineChart(
                 LineChartData(
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: 1,
-                    verticalInterval: 1,
+                    horizontalInterval: _calculateYAxisInterval(totalActualAmount, maxDailyAmount),
+                    verticalInterval: 5,
                     getDrawingHorizontalLine: (value) {
                       return FlLine(
                         color: Colors.grey[200]!,
@@ -616,18 +696,30 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                     },
                   ),
                   titlesData: FlTitlesData(
-                    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        interval: _calculateYAxisInterval(totalActualAmount, maxDailyAmount),
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            'P${value.toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          );
+                        },
+                      ),
+                    ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 30,
-                        interval: 5, // Show every 5th day
+                        interval: 5,
                         getTitlesWidget: (value, meta) {
                           final day = value.toInt();
                           if (day >= 1 && day <= daysInMonth && day % 5 == 0) {
                             return Text(
-                              day.toString(),
-                              style: const TextStyle(fontSize: 10),
+                              '${_getMonthYearText(widget.selectedMonth).split(' ')[0]} $day',
+                              style: const TextStyle(fontSize: 10, color: Colors.grey),
                             );
                           }
                           return const SizedBox.shrink();
@@ -641,28 +733,63 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                     show: true,
                     border: Border.all(color: Colors.grey[300]!, width: 0.5),
                   ),
+                  lineTouchData: LineTouchData(
+                    enabled: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      tooltipBgColor: Colors.black87,
+                      tooltipRoundedRadius: 8,
+                      tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                        return touchedBarSpots.map((barSpot) {
+                          final day = barSpot.x.toInt();
+                          final amount = barSpot.y;
+                          final isActual = barSpot.barIndex == 0;
+                          
+                          return LineTooltipItem(
+                            '${isActual ? 'Actual' : 'Forecast'}\n${_getMonthYearText(widget.selectedMonth).split(' ')[0]} $day\nP${amount.toStringAsFixed(2)}',
+                            const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        }).toList();
+                      },
+                    ),
+                    getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+                      return spotIndexes.map((index) {
+                        return TouchedSpotIndicatorData(
+                          FlLine(
+                            color: barData.color ?? Theme.of(context).colorScheme.primary,
+                            strokeWidth: 2,
+                            dashArray: [5, 5],
+                          ),
+                          FlDotData(
+                            getDotPainter: (spot, percent, barData, index) {
+                              return FlDotCirclePainter(
+                                radius: 6,
+                                color: barData.color ?? Theme.of(context).colorScheme.primary,
+                                strokeWidth: 2,
+                                strokeColor: Colors.white,
+                              );
+                            },
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
                   lineBarsData: [
-                    // Actual data line
+                    // Actual data line - only show dots for actual transaction days
                     LineChartBarData(
-                      spots: smoothedActualSpots,
-                      isCurved: true,
+                      spots: actualSpots,
+                      isCurved: false,
                       color: Theme.of(context).colorScheme.primary,
-                      barWidth: 4,
+                      barWidth: 3,
                       dotData: FlDotData(
                         show: true,
                         getDotPainter: (spot, percent, barData, index) {
-                          // Only show dots for days with actual expense data
-                          final day = spot.x.toInt();
-                          final hasData = actualData.containsKey(day) && (actualData[day] ?? 0) > 0;
-                          
-                          if (!hasData) {
-                            return FlDotCirclePainter(
-                              radius: 0,
-                              color: Colors.transparent,
-                            );
-                          }
                           return FlDotCirclePainter(
-                            radius: 3,
+                            radius: 4,
                             color: Theme.of(context).colorScheme.primary,
                             strokeWidth: 2,
                             strokeColor: Colors.white,
@@ -674,36 +801,19 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                         color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                       ),
                     ),
-                    // Forecast data line
-                    LineChartBarData(
-                      spots: smoothedForecastSpots,
-                      isCurved: true,
-                      color: Colors.grey[400]!.withOpacity(0.7),
-                      barWidth: 3,
-                      dashArray: [8, 4],
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          // Only show dots for forecast days with meaningful predictions
-                          final day = spot.x.toInt();
-                          final forecastAmount = forecastData[day] ?? 0;
-                          
-                          if (forecastAmount <= 0) {
-                            return FlDotCirclePainter(
-                              radius: 0,
-                              color: Colors.transparent,
-                            );
-                          }
-                          return FlDotCirclePainter(
-                            radius: 2,
-                            color: Colors.grey[400]!.withOpacity(0.7),
-                            strokeWidth: 1,
-                            strokeColor: Colors.white,
-                          );
-                        },
+                    // Forecast data line - only show if we have actual data
+                    if (actualDaysWithData.isNotEmpty)
+                      LineChartBarData(
+                        spots: forecastSpots,
+                        isCurved: false,
+                        color: Colors.grey[400]!.withOpacity(0.6),
+                        barWidth: 2,
+                        dashArray: [5, 5],
+                        dotData: FlDotData(
+                          show: false, // Hide forecast dots to reduce clutter
+                        ),
+                        belowBarData: BarAreaData(show: false),
                       ),
-                      belowBarData: BarAreaData(show: false),
-                    ),
                   ],
                 ),
               ),
@@ -717,6 +827,74 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
   List<AppTransaction> _getFilteredTransactions() {
     // Since we're now filtering at the database level, just return all transactions
     return _transactions;
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color, [String? subtitle]) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Column(
+        children: [
+          // Show date as text instead of icon for highest day
+          if (subtitle != null && title == 'Highest Day')
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            )
+          else
+            Icon(icon, color: color, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (subtitle != null && title != 'Highest Day') ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: color.withOpacity(0.8),
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _calculateYAxisInterval(double totalAmount, double maxAmount) {
+    if (maxAmount == 0) return 100;
+    
+    // Calculate appropriate interval based on the maximum value
+    if (maxAmount <= 100) return 20;
+    if (maxAmount <= 500) return 50;
+    if (maxAmount <= 1000) return 100;
+    if (maxAmount <= 5000) return 500;
+    if (maxAmount <= 10000) return 1000;
+    return 2000;
   }
 
   Color _getCategoryColor(String categoryName) {
@@ -789,3 +967,4 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
     }
   }
 }
+

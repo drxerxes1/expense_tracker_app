@@ -14,7 +14,7 @@ import 'package:org_wallet/screens/organization/scan_qr_screen.dart';
 import 'package:org_wallet/screens/dues/manage_dues_screen.dart';
 import 'package:org_wallet/screens/organization/manage_members_screen.dart';
 import 'package:org_wallet/screens/organization/edit_organization_screen.dart';
-import 'package:org_wallet/screens/dashboard/manage_categories_screen.dart';
+import 'package:org_wallet/screens/organization/manage_categories_screen.dart';
 import 'package:org_wallet/screens/profile/profile_screen.dart';
 import 'package:org_wallet/widgets/organization_switcher_modal.dart';
 import 'package:org_wallet/screens/auth/pending_membership_screen.dart';
@@ -32,6 +32,8 @@ class _MainDashboardState extends State<MainDashboard> {
   // Removed PageController, not needed for non-swipable tabs
   DateTimeRange? _selectedDateRange;
   int _transactionScreenKey = 0;
+  DateTime _selectedMonth = DateTime.now();
+  bool _isReportsLoading = false;
 
   @override
   void initState() {
@@ -42,7 +44,15 @@ class _MainDashboardState extends State<MainDashboard> {
 
   List<Widget> get _screens => [
     TransactionsScreen(key: ValueKey(_transactionScreenKey), dateRange: _selectedDateRange),
-    const ReportsScreen(),
+    ReportsScreen(
+      selectedMonth: _selectedMonth,
+      isLoading: _isReportsLoading,
+      onLoadingComplete: () {
+        setState(() {
+          _isReportsLoading = false;
+        });
+      },
+    ),
     const LogsScreen(),
     const OrgInfoScreen(),
   ];
@@ -93,6 +103,42 @@ class _MainDashboardState extends State<MainDashboard> {
               icon: const Icon(Icons.date_range, color: Colors.black),
               tooltip: 'Filter by date',
               onPressed: _selectDateRange,
+            ),
+          ],
+          if (_currentIndex == 1) ...[
+            GestureDetector(
+              onTap: _showMonthYearPicker,
+              child: Container(
+                margin: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.black.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _getMonthYearText(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Colors.black,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ],
@@ -560,6 +606,32 @@ class _MainDashboardState extends State<MainDashboard> {
     _selectedDateRange = DateTimeRange(start: start, end: now);
   }
 
+  String _getMonthYearText() {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}';
+  }
+
+  void _showMonthYearPicker() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return _MonthYearPickerDialog(
+          selectedMonth: _selectedMonth,
+          onMonthSelected: (DateTime newMonth) {
+            setState(() {
+              _selectedMonth = newMonth;
+              _isReportsLoading = true;
+            });
+          },
+        );
+      },
+    );
+  }
+
   // Removed _getAppBarTitle, will use organization name in app bar
 
   void _handleMenuSelection(String value, BuildContext context) {
@@ -876,6 +948,206 @@ class _MainDashboardState extends State<MainDashboard> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthYearPickerDialog extends StatefulWidget {
+  final DateTime selectedMonth;
+  final Function(DateTime) onMonthSelected;
+
+  const _MonthYearPickerDialog({
+    required this.selectedMonth,
+    required this.onMonthSelected,
+  });
+
+  @override
+  State<_MonthYearPickerDialog> createState() => _MonthYearPickerDialogState();
+}
+
+class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
+  late DateTime _currentYear;
+  late DateTime _selectedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentYear = DateTime(widget.selectedMonth.year);
+    _selectedMonth = widget.selectedMonth;
+  }
+
+  void _previousYear() {
+    setState(() {
+      _currentYear = DateTime(_currentYear.year - 1);
+    });
+  }
+
+  void _nextYear() {
+    setState(() {
+      _currentYear = DateTime(_currentYear.year + 1);
+    });
+  }
+
+  void _selectMonth(int month) {
+    setState(() {
+      _selectedMonth = DateTime(_currentYear.year, month);
+    });
+    widget.onMonthSelected(_selectedMonth);
+    Navigator.of(context).pop();
+  }
+
+  String _getMonthYearText() {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header with current selection
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _getMonthYearText(),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Year navigation
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: _previousYear,
+                  icon: const Icon(Icons.chevron_left),
+                  iconSize: 28,
+                ),
+                Text(
+                  _currentYear.year.toString(),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  onPressed: _nextYear,
+                  icon: const Icon(Icons.chevron_right),
+                  iconSize: 28,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Month grid
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 1.5,
+              ),
+              itemCount: 12,
+              itemBuilder: (context, index) {
+                final month = index + 1;
+                final isSelected = _currentYear.year == _selectedMonth.year && 
+                                 month == _selectedMonth.month;
+                final isCurrentMonth = _currentYear.year == DateTime.now().year && 
+                                     month == DateTime.now().month;
+                
+                return GestureDetector(
+                  onTap: () => _selectMonth(month),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isSelected 
+                          ? Theme.of(context).colorScheme.primary
+                          : isCurrentMonth
+                              ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                              : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected 
+                            ? Theme.of(context).colorScheme.primary
+                            : isCurrentMonth
+                                ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                                : Colors.grey[300]!,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        months[index],
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected 
+                              ? Colors.white
+                              : isCurrentMonth
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            
+            // Close button
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Close',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
