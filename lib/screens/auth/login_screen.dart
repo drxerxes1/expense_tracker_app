@@ -9,6 +9,7 @@ import 'package:org_wallet/screens/main_dashboard.dart';
 import 'package:org_wallet/widgets/custom_text_field.dart';
 import 'package:org_wallet/widgets/custom_button.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
+import 'dart:async';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,16 +35,29 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Skip connectivity check for now - let Firebase handle network issues
+    // The timeout mechanism will catch network problems
     setState(() => _isLoading = true);
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+      
+      // Add timeout to prevent infinite loading
       final success = await authService.signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+      ).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          throw TimeoutException(
+            'Login taking too long. Please check your internet connection and try again.',
+            const Duration(seconds: 8),
+          );
+        },
       );
 
       if (success && mounted) {
+        // Check if user has organizations
         if (authService.user?.organizations.isNotEmpty == true) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const MainDashboard()),
@@ -59,14 +73,37 @@ class _LoginScreenState extends State<LoginScreen> {
           message: error,
         );
       }
-    } catch (e) {
+    } on TimeoutException catch (e) {
       if (mounted) {
         SnackBarHelper.showError(
           context,
-          message: 'An unexpected error occurred. Please try again.',
+          message: e.message ?? 'Login timeout occurred',
+          duration: const Duration(seconds: 6),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        String errorMessage = 'An unexpected error occurred. Please try again.';
+        
+        // Handle specific Firebase errors
+        if (e.toString().contains('network-request-failed')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (e.toString().contains('too-many-requests')) {
+          errorMessage = 'Too many failed attempts. Please try again later.';
+        } else if (e.toString().contains('user-disabled')) {
+          errorMessage = 'This account has been disabled. Please contact support.';
+        } else if (e.toString().contains('invalid-email')) {
+          errorMessage = 'Please enter a valid email address.';
+        }
+        
+        SnackBarHelper.showError(
+          context,
+          message: errorMessage,
+          duration: const Duration(seconds: 5),
         );
       }
     } finally {
+      // Always reset loading state
       if (mounted) {
         setState(() => _isLoading = false);
       }

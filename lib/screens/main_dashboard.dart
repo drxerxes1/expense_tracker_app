@@ -183,20 +183,6 @@ class _MainDashboardState extends State<MainDashboard> {
                           ),
                         ],
                         
-                        // Manage Dues - Only President/Moderator
-                        if (authService.canAccessDrawerItem('manage_dues')) ...[
-                          ListTile(
-                            leading: const Icon(Icons.playlist_add),
-                            title: const Text('Manage Dues'),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const ManageDuesScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
                         
                         // Manage Members - Only President/Moderator
                         if (authService.canAccessDrawerItem('manage_members')) ...[

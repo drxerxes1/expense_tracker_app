@@ -146,6 +146,10 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
 
                           // Members Section
                           _buildMembersSection(),
+                          const SizedBox(height: 20),
+                          
+                          // Pending Members Section (if any)
+                          _buildPendingMembersSection(),
                           const SizedBox(height: 100), // Bottom padding for FAB
                         ],
                       ),
@@ -312,8 +316,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
             const SizedBox(height: 20),
             _buildInfoRow('Created', _formatDate(_organization!.createdAt)),
             _buildInfoRow('Last Updated', _formatDate(_organization!.updatedAt)),
-            _buildInfoRow('Available Roles', _organization!.roles.join(', ')),
-            _buildInfoRow('Total Members', _officers.length.toString()),
+            _buildInfoRow('Members', _officers.where((officer) => officer.status == OfficerStatus.approved).length.toString()),
           ],
         ),
       ),
@@ -321,6 +324,9 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
   }
 
   Widget _buildMembersSection() {
+    // Filter out pending members - only show approved members
+    final approvedMembers = _officers.where((officer) => officer.status == OfficerStatus.approved).toList();
+    
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -356,7 +362,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
                     border: Border.all(color: TWColors.green.shade200),
                   ),
                   child: Text(
-                    '${_officers.length} Total',
+                    '${approvedMembers.length} Active',
                     style: GoogleFonts.poppins(
                       color: TWColors.green.shade700,
                       fontWeight: FontWeight.w600,
@@ -368,19 +374,91 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
             ),
             const SizedBox(height: 20),
 
-            if (_officers.isEmpty)
+            if (approvedMembers.isEmpty)
               _buildEmptyMembersState()
             else
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _officers.length,
+                itemCount: approvedMembers.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  final officer = _officers[index];
+                  final officer = approvedMembers[index];
                   return _buildMemberTile(officer);
                 },
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingMembersSection() {
+    // Get pending members
+    final pendingMembers = _officers.where((officer) => officer.status == OfficerStatus.pending).toList();
+    
+    // Only show this section if there are pending members
+    if (pendingMembers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.pending_actions,
+                  color: TWColors.orange.shade600,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Pending Approvals',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: TWColors.slate.shade800,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: TWColors.orange.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: TWColors.orange.shade200),
+                  ),
+                  child: Text(
+                    '${pendingMembers.length} Pending',
+                    style: GoogleFonts.poppins(
+                      color: TWColors.orange.shade700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: pendingMembers.length,
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final officer = pendingMembers[index];
+                return _buildPendingMemberTile(officer);
+              },
+            ),
           ],
         ),
       ),
@@ -414,6 +492,89 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
               fontSize: 14,
               color: TWColors.slate.shade500,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingMemberTile(Officer officer) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: TWColors.orange.shade100,
+            child: Icon(
+              Icons.pending,
+              color: TWColors.orange.shade600,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  officer.name,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: TWColors.slate.shade800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  officer.email,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: TWColors.slate.shade600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Requested: ${_formatDate(officer.joinedAt)}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: TWColors.slate.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: TWColors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: TWColors.orange.shade200,
+                  ),
+                ),
+                child: Text(
+                  'PENDING',
+                  style: GoogleFonts.poppins(
+                    color: TWColors.orange.shade700,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                officer.role.toString().split('.').last.toUpperCase(),
+                style: GoogleFonts.poppins(
+                  color: TWColors.slate.shade600,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
       ),

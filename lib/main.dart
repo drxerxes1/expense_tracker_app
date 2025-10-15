@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/services/connectivity_service.dart';
 import 'package:org_wallet/screens/splash_screen.dart';
 
 import 'package:org_wallet/theme/app_theme.dart';
@@ -23,7 +24,10 @@ class OrgWalletApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => AuthService())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => ConnectivityService()..initialize()),
+      ],
       child: MaterialApp(
         title: 'Org Wallet',
         theme: AppTheme.lightTheme,

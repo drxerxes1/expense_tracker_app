@@ -71,6 +71,9 @@ dependencies:
   # Math Expression Parser
   math_expressions: ^2.2.0
 
+  # Connectivity
+  connectivity_plus: ^5.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

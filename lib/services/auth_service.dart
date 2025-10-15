@@ -299,11 +299,44 @@ class AuthService extends ChangeNotifier {
       }
       return true;
     } on FirebaseAuthException catch (e) {
-      _lastErrorMessage = e.message ?? 'Authentication error';
+      // Provide more specific error messages
+      String errorMessage;
+      switch (e.code) {
+        case 'user-not-found':
+          errorMessage = 'No account found with this email address.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Incorrect password. Please try again.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Please enter a valid email address.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'This account has been disabled. Please contact support.';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Too many failed attempts. Please try again later.';
+          break;
+        case 'network-request-failed':
+          errorMessage = 'Network error. Please check your internet connection.';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Invalid email or password. Please check your credentials.';
+          break;
+        default:
+          errorMessage = e.message ?? 'Authentication failed. Please try again.';
+      }
+      _lastErrorMessage = errorMessage;
       debugPrint('Error during sign in: ${e.code} ${e.message}');
       return false;
     } catch (e) {
-      _lastErrorMessage = 'Unexpected error occurred';
+      String errorMessage = 'Unexpected error occurred';
+      if (e.toString().contains('network') || e.toString().contains('connection')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (e.toString().contains('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+      }
+      _lastErrorMessage = errorMessage;
       debugPrint('Error during sign in: $e');
       return false;
     }
