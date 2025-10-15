@@ -441,47 +441,83 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
 
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-        selectedItemColor: TWColors.slate.shade900,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Transactions',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(context).size.width * 0.04,
+              vertical: 12,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildNavItem(
+                  icon: Icons.receipt_long,
+                  label: 'Transactions',
+                  index: 0,
+                ),
+                _buildNavItem(
+                  icon: Icons.analytics,
+                  label: 'Reports',
+                  index: 1,
+                ),
+                _buildNavItem(
+                  icon: Icons.history,
+                  label: 'Logs',
+                  index: 2,
+                ),
+                _buildNavItem(
+                  icon: Icons.business,
+                  label: 'Org Info',
+                  index: 3,
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Reports',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Logs'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.business),
-            label: 'Org Info',
-          ),
-        ],
+        ),
       ),
       floatingActionButton: _currentIndex == 0 && authService.canPerformAction('add_transaction')
-          ? FloatingActionButton(
-              onPressed: () async {
-                final result = await Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TransactionScreen()),
-                );
-                // If a transaction was added/updated, refresh the transactions screen
-                if (result == true) {
-                  setState(() {
-                    _transactionScreenKey++;
-                    // Update date range to ensure it includes the current moment
-                    _refreshDateRange();
-                  });
-                }
-              },
-              backgroundColor: TWColors.slate.shade900,
-              foregroundColor: Colors.white,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add),
+          ? Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: TWColors.slate.shade900.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                onPressed: () async {
+                  final result = await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TransactionScreen()),
+                  );
+                  // If a transaction was added/updated, refresh the transactions screen
+                  if (result == true) {
+                    setState(() {
+                      _transactionScreenKey++;
+                      // Update date range to ensure it includes the current moment
+                      _refreshDateRange();
+                    });
+                  }
+                },
+                backgroundColor: TWColors.slate.shade900,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: const CircleBorder(),
+                child: const Icon(Icons.add, size: 24),
+              ),
             )
           : null,
     );
@@ -771,6 +807,74 @@ class _MainDashboardState extends State<MainDashboard> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build navigation items
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+  }) {
+    final isSelected = _currentIndex == index;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final iconSize = screenWidth < 360 ? 20.0 : 22.0;
+    final fontSize = screenWidth < 360 ? 12.0 : 13.0;
+    
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onTabTapped(index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Icon container with background
+              Container(
+                width: screenWidth < 360 ? 36 : 40,
+                height: screenWidth < 360 ? 36 : 40,
+                decoration: BoxDecoration(
+                  color: isSelected 
+                      ? TWColors.slate.shade900
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: isSelected ? [
+                    BoxShadow(
+                      color: TWColors.slate.shade900.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ] : null,
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected 
+                      ? Colors.white
+                      : TWColors.slate.shade600,
+                  size: iconSize,
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Label with proper spacing
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  color: isSelected 
+                      ? TWColors.slate.shade900
+                      : TWColors.slate.shade700,
+                  letterSpacing: 0.2,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),

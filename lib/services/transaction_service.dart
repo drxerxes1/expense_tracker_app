@@ -63,6 +63,9 @@ class TransactionService {
         'action': 'created',
         'reason': '',
         'by': addedBy,
+        'amount': amount,
+        'transactionType': type,
+        'categoryName': category.name,
         'createdAt': Timestamp.fromDate(DateTime.now()),
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
@@ -212,20 +215,53 @@ class TransactionService {
   /// Update an existing transaction document.
   Future<void> updateTransaction(String orgId, String txId, Map<String, dynamic> updates) async {
     final docRef = _org(orgId).doc(txId);
+    
+    // Get current transaction data for comparison
+    final currentDoc = await docRef.get();
+    final currentData = currentDoc.data() as Map<String, dynamic>? ?? {};
+    
     final data = Map<String, dynamic>.from(updates);
     data['updatedAt'] = Timestamp.fromDate(DateTime.now());
     await docRef.update(data);
 
-    // Write audit trail entry for edit
+    // Write audit trail entry for edit with old/new values
     try {
       final auditRef = _db.collection('auditTrail').doc();
+      
+      // Get old and new category names
+      String? oldCategoryName;
+      String? newCategoryName;
+      if (data['categoryId'] != null && data['categoryId'] != currentData['categoryId']) {
+        // Get old category name
+        if (currentData['categoryId'] != null) {
+          final oldCat = await _categories(orgId).doc(currentData['categoryId']).get();
+          final oldCatData = oldCat.data() as Map<String, dynamic>?;
+          oldCategoryName = oldCatData?['name'] ?? currentData['categoryId'];
+        }
+        // Get new category name
+        final newCat = await _categories(orgId).doc(data['categoryId']).get();
+        final newCatData = newCat.data() as Map<String, dynamic>?;
+        newCategoryName = newCatData?['name'] ?? data['categoryId'];
+      } else if (currentData['categoryId'] != null) {
+        // Category didn't change, use current category name
+        final cat = await _categories(orgId).doc(currentData['categoryId']).get();
+        final catData = cat.data() as Map<String, dynamic>?;
+        oldCategoryName = newCategoryName = catData?['name'] ?? currentData['categoryId'];
+      }
+      
       await auditRef.set({
         'id': auditRef.id,
         'transactionId': txId,
-        'orgId': orgId, // Add organization ID for efficient querying
+        'orgId': orgId,
         'action': 'edited',
         'reason': data['reason'] ?? '',
         'by': data['updatedBy'] ?? '',
+        'oldAmount': currentData['amount']?.toDouble(),
+        'newAmount': data['amount']?.toDouble(),
+        'oldTransactionType': currentData['type'],
+        'newTransactionType': data['type'],
+        'oldCategoryName': oldCategoryName,
+        'newCategoryName': newCategoryName,
         'createdAt': Timestamp.fromDate(DateTime.now()),
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
@@ -237,6 +273,19 @@ class TransactionService {
   /// Delete a transaction and write an audit trail entry.
   Future<void> deleteTransaction(String orgId, String txId, {String? by}) async {
     final docRef = _org(orgId).doc(txId);
+    
+    // Get transaction data before deletion for audit trail
+    final currentDoc = await docRef.get();
+    final currentData = currentDoc.data() as Map<String, dynamic>? ?? {};
+    
+    // Get category name for audit trail
+    String? categoryName;
+    if (currentData['categoryId'] != null) {
+      final cat = await _categories(orgId).doc(currentData['categoryId']).get();
+      final catData = cat.data() as Map<String, dynamic>?;
+      categoryName = catData?['name'] ?? currentData['categoryId'];
+    }
+    
     await docRef.delete();
     try {
       final auditRef = _db.collection('auditTrail').doc();
@@ -247,6 +296,9 @@ class TransactionService {
         'action': 'deleted',
         'reason': '',
         'by': by ?? '',
+        'amount': currentData['amount']?.toDouble(),
+        'transactionType': currentData['type'],
+        'categoryName': categoryName,
         'createdAt': Timestamp.fromDate(DateTime.now()),
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });

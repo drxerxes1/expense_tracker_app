@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/officer.dart';
+import 'package:org_wallet/models/audit_trail.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -28,6 +29,49 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     super.dispose();
   }
 
+  Future<void> _logMemberAction({
+    required AuditAction action,
+    required String memberId,
+    required String memberName,
+    required String memberEmail,
+    String? oldRole,
+    String? newRole,
+    required String reason,
+  }) async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUser = authService.firebaseUser;
+      final currentOrgId = authService.currentOrgId;
+      
+      if (currentUser == null || currentOrgId == null) return;
+
+      final auditTrail = AuditTrail(
+        id: _firestore.collection('audit_trails').doc().id,
+        transactionId: 'member_$memberId', // Use member ID as transaction ID for member actions
+        action: action,
+        reason: reason,
+        by: currentUser.uid,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        logType: 'member_action',
+        memberId: memberId,
+        memberName: memberName,
+        memberEmail: memberEmail,
+        oldRole: oldRole,
+        newRole: newRole,
+      );
+
+      await _firestore
+          .collection('organizations')
+          .doc(currentOrgId)
+          .collection('audit_trails')
+          .doc(auditTrail.id)
+          .set(auditTrail.toMap());
+    } catch (e) {
+      debugPrint('Error logging member action: $e');
+    }
+  }
+
   Future<void> _updateStatus(String docId, String status, String memberUserId) async {
     // Security check: Only presidents can update status, and they cannot update their own status
     if (!_canModifyMember(memberUserId)) {
@@ -42,10 +86,38 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
 
     setState(() => _isLoading = true);
     try {
-    await _firestore.collection('officers').doc(docId).update({
-      'status': status,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+      // Get member details before updating for audit log
+      final memberDoc = await _firestore.collection('officers').doc(docId).get();
+      final memberData = memberDoc.data();
+      final memberName = memberData?['name'] ?? 'Unknown';
+      final memberEmail = memberData?['email'] ?? '';
+
+      await _firestore.collection('officers').doc(docId).update({
+        'status': status,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      // Log the action
+      AuditAction action;
+      String reason;
+      if (status.toLowerCase() == 'approved') {
+        action = AuditAction.memberApproved;
+        reason = 'Member approved for organization access';
+      } else if (status.toLowerCase() == 'denied') {
+        action = AuditAction.memberDenied;
+        reason = 'Member denied organization access';
+      } else {
+        action = AuditAction.edited; // Generic edit for other status changes
+        reason = 'Member status changed to $status';
+      }
+
+      await _logMemberAction(
+        action: action,
+        memberId: memberUserId,
+        memberName: memberName,
+        memberEmail: memberEmail,
+        reason: reason,
+      );
       
       if (mounted) {
         SnackBarHelper.showSuccess(
@@ -79,14 +151,31 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
 
     setState(() => _isLoading = true);
     try {
-    await _firestore.collection('officers').doc(docId).delete();
-    try {
-      await _firestore.collection('users').doc(userId).update({
-        'organizations': FieldValue.arrayRemove([orgId]),
-      });
-    } catch (_) {
-      // ignore if user doc missing
-    }
+      // Get member details before removing for audit log
+      final memberDoc = await _firestore.collection('officers').doc(docId).get();
+      final memberData = memberDoc.data();
+      final memberName = memberData?['name'] ?? 'Unknown';
+      final memberEmail = memberData?['email'] ?? '';
+      final memberRole = memberData?['role'] ?? 'member';
+
+      await _firestore.collection('officers').doc(docId).delete();
+      try {
+        await _firestore.collection('users').doc(userId).update({
+          'organizations': FieldValue.arrayRemove([orgId]),
+        });
+      } catch (_) {
+        // ignore if user doc missing
+      }
+
+      // Log the removal action
+      await _logMemberAction(
+        action: AuditAction.memberRemoved,
+        memberId: userId,
+        memberName: memberName,
+        memberEmail: memberEmail,
+        oldRole: memberRole,
+        reason: 'Member removed from organization',
+      );
       
       if (mounted) {
         SnackBarHelper.showSuccess(
@@ -120,8 +209,11 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final currentUser = authService.firebaseUser!;
+      // Get member details before updating for audit log
+      final memberDoc = await _firestore.collection('officers').doc(docId).get();
+      final memberData = memberDoc.data();
+      final memberEmail = memberData?['email'] ?? '';
+      final oldRole = memberData?['role'] ?? 'member';
       
       // Update the officer's role
       await _firestore.collection('officers').doc(docId).update({
@@ -129,22 +221,16 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
         'updatedAt': DateTime.now().toIso8601String(),
       });
 
-      // Create audit trail entry for role change
-      try {
-        final auditRef = _firestore.collection('auditTrail').doc();
-        await auditRef.set({
-          'id': auditRef.id,
-          'transactionId': docId, // Using officer doc ID as transaction ID
-          'orgId': orgId,
-          'action': 'roleChanged',
-          'reason': 'Role changed from previous role to $newRole',
-          'by': currentUser.uid,
-          'createdAt': Timestamp.fromDate(DateTime.now()),
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        });
-      } catch (e) {
-        debugPrint('Failed to write audit trail for role change: $e');
-      }
+      // Log the role change action
+      await _logMemberAction(
+        action: AuditAction.memberRoleChanged,
+        memberId: memberUserId,
+        memberName: memberName,
+        memberEmail: memberEmail,
+        oldRole: oldRole,
+        newRole: newRole,
+        reason: 'Member role changed from ${_getRoleDisplayName(oldRole)} to ${_getRoleDisplayName(newRole)}',
+      );
       
       if (mounted) {
         SnackBarHelper.showSuccess(
@@ -763,7 +849,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                                     ],
                                   ),
                                 ),
-                              if (status.toLowerCase() != 'denied')
+                              if (status.toLowerCase() != 'denied' && status.toLowerCase() != 'approved')
                                 PopupMenuItem(
                                   value: 'deny',
                                   enabled: canModify,
