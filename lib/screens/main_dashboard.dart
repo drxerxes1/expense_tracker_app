@@ -7,6 +7,7 @@ import 'package:org_wallet/screens/dashboard/transactions_screen.dart';
 import 'package:org_wallet/screens/dashboard/reports_screen.dart';
 import 'package:org_wallet/screens/dashboard/logs_screen.dart';
 import 'package:org_wallet/screens/dashboard/org_info_screen.dart';
+import 'package:org_wallet/screens/dashboard/export_reports_screen.dart';
 import 'package:org_wallet/screens/transaction/manage_transaction_screen.dart';
 import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
@@ -661,7 +662,11 @@ class _MainDashboardState extends State<MainDashboard> {
         ).push(MaterialPageRoute(builder: (_) => const ManageMembersScreen()));
         break;
       case 'export_reports':
-        // Navigate to export reports screen
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const ExportReportsScreen(),
+          ),
+        );
         break;
       case 'profile':
         Navigator.of(context).push(
