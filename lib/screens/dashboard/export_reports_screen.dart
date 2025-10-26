@@ -171,13 +171,31 @@ class _ExportReportsScreenState extends State<ExportReportsScreen> {
   ) {
     final buffer = StringBuffer();
 
-    // Header line
+    // Add date range header
+    if (dateRange != null) {
+      buffer.writeln(
+        'Date Range,${DateFormat('yyyy-MM-dd').format(dateRange.start)} to ${DateFormat('yyyy-MM-dd').format(dateRange.end)}',
+      );
+      buffer.writeln('');
+    }
+    buffer.writeln('Generated on: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now())}');
+    buffer.writeln('');
+
+    // Sort transactions chronologically
+    final sortedTransactions = List<AppTransaction>.from(transactions)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // Separate expenses and funds
+    final expenses = sortedTransactions.where((tx) => tx.type == 'expense').toList();
+    final funds = sortedTransactions.where((tx) => tx.type == 'fund').toList();
+
+    // === TIMELINE DATASET ===
+    buffer.writeln('=== TIMELINE DATASET (All Transactions) ===');
     buffer.writeln(
       'Date,Type,Category,Amount,Note,Created At,Updated At',
     );
 
-    // Data lines
-    for (final transaction in transactions) {
+    for (final transaction in sortedTransactions) {
       final date = DateFormat('yyyy-MM-dd').format(transaction.createdAt);
       final type = transaction.type;
       final category = transaction.categoryName;
@@ -193,6 +211,120 @@ class _ExportReportsScreenState extends State<ExportReportsScreen> {
       buffer.writeln(
         '$date,$type,$category,$amount,$note,$createdAt,$updatedAt',
       );
+    }
+    buffer.writeln('');
+
+    // === EXPENSES SECTION ===
+    buffer.writeln('=== EXPENSES ===');
+    buffer.writeln(
+      'Date,Category,Amount,Note,Created At,Updated At',
+    );
+
+    double expenseTotal = 0;
+    for (final transaction in expenses) {
+      final date = DateFormat('yyyy-MM-dd').format(transaction.createdAt);
+      final category = transaction.categoryName;
+      final amount = transaction.amount.toStringAsFixed(2);
+      final note = transaction.note.replaceAll(',', ';').replaceAll('\n', ' ');
+      final createdAt = DateFormat(
+        'yyyy-MM-dd HH:mm:ss',
+      ).format(transaction.createdAt);
+      final updatedAt = DateFormat(
+        'yyyy-MM-dd HH:mm:ss',
+      ).format(transaction.updatedAt);
+
+      buffer.writeln(
+        '$date,$category,$amount,$note,$createdAt,$updatedAt',
+      );
+      expenseTotal += transaction.amount;
+    }
+
+    // Expense summary
+    buffer.writeln('');
+    buffer.writeln('Expense Summary:');
+    buffer.writeln('Total Transactions,${expenses.length}');
+    buffer.writeln('Total Amount,P${expenseTotal.toStringAsFixed(2)}');
+    if (expenses.isNotEmpty) {
+      buffer.writeln('Average Amount,P${(expenseTotal / expenses.length).toStringAsFixed(2)}');
+    }
+    buffer.writeln('');
+
+    // === FUNDS SECTION ===
+    buffer.writeln('=== FUNDS ===');
+    buffer.writeln(
+      'Date,Category,Amount,Note,Created At,Updated At',
+    );
+
+    double fundsTotal = 0;
+    for (final transaction in funds) {
+      final date = DateFormat('yyyy-MM-dd').format(transaction.createdAt);
+      final category = transaction.categoryName;
+      final amount = transaction.amount.toStringAsFixed(2);
+      final note = transaction.note.replaceAll(',', ';').replaceAll('\n', ' ');
+      final createdAt = DateFormat(
+        'yyyy-MM-dd HH:mm:ss',
+      ).format(transaction.createdAt);
+      final updatedAt = DateFormat(
+        'yyyy-MM-dd HH:mm:ss',
+      ).format(transaction.updatedAt);
+
+      buffer.writeln(
+        '$date,$category,$amount,$note,$createdAt,$updatedAt',
+      );
+      fundsTotal += transaction.amount;
+    }
+
+    // Funds summary
+    buffer.writeln('');
+    buffer.writeln('Funds Summary:');
+    buffer.writeln('Total Transactions,${funds.length}');
+    buffer.writeln('Total Amount,P${fundsTotal.toStringAsFixed(2)}');
+    if (funds.isNotEmpty) {
+      buffer.writeln('Average Amount,P${(fundsTotal / funds.length).toStringAsFixed(2)}');
+    }
+    buffer.writeln('');
+
+    // === OVERALL SUMMARY ===
+    buffer.writeln('=== OVERALL SUMMARY ===');
+    buffer.writeln('Total Transactions,${transactions.length}');
+    buffer.writeln('Total Expenses,P${expenseTotal.toStringAsFixed(2)}');
+    buffer.writeln('Total Funds,P${fundsTotal.toStringAsFixed(2)}');
+    buffer.writeln('Net Balance,P${(fundsTotal - expenseTotal).toStringAsFixed(2)}');
+    buffer.writeln('');
+    
+    // Category breakdown for expenses
+    if (expenses.isNotEmpty) {
+      buffer.writeln('=== EXPENSES BY CATEGORY ===');
+      final categoryData = <String, double>{};
+      for (final tx in expenses) {
+        categoryData[tx.categoryName] = (categoryData[tx.categoryName] ?? 0) + tx.amount;
+      }
+      
+      final sortedCategories = categoryData.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+      
+      buffer.writeln('Category,Amount,Percentage');
+      for (final entry in sortedCategories) {
+        final percentage = (entry.value / expenseTotal * 100).toStringAsFixed(2);
+        buffer.writeln('${entry.key},P${entry.value.toStringAsFixed(2)},$percentage%');
+      }
+      buffer.writeln('');
+    }
+
+    // Category breakdown for funds
+    if (funds.isNotEmpty) {
+      buffer.writeln('=== FUNDS BY CATEGORY ===');
+      final categoryData = <String, double>{};
+      for (final tx in funds) {
+        categoryData[tx.categoryName] = (categoryData[tx.categoryName] ?? 0) + tx.amount;
+      }
+      
+      final sortedCategories = categoryData.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+      
+      buffer.writeln('Category,Amount,Percentage');
+      for (final entry in sortedCategories) {
+        final percentage = (entry.value / fundsTotal * 100).toStringAsFixed(2);
+        buffer.writeln('${entry.key},P${entry.value.toStringAsFixed(2)},$percentage%');
+      }
     }
 
     return buffer.toString();

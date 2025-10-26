@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/membership_validation_service.dart';
-import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/screens/organization/join_organization_screen.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
 
@@ -24,12 +23,38 @@ class MembershipValidationWrapper extends StatefulWidget {
 
 class _MembershipValidationWrapperState extends State<MembershipValidationWrapper> {
   late MembershipValidationService _validationService;
+  late VoidCallback _accessRevokedCallback;
+  late VoidCallback _roleChangedCallback;
+  late VoidCallback _organizationChangedCallback;
   bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _validationService = MembershipValidationService();
+    
+    // Create callbacks with proper references
+    _accessRevokedCallback = () {
+      if (mounted) {
+        _showAccessRevokedDialog();
+      }
+    };
+    
+    _roleChangedCallback = () {
+      if (mounted) {
+        SnackBarHelper.showInfo(
+          context,
+          message: 'Your role has been updated',
+        );
+      }
+    };
+    
+    _organizationChangedCallback = () {
+      if (mounted) {
+        // Organization information updated - no notification needed
+      }
+    };
+    
     _setupValidationCallbacks();
   }
 
@@ -41,28 +66,13 @@ class _MembershipValidationWrapperState extends State<MembershipValidationWrappe
 
   void _setupValidationCallbacks() {
     // Handle access revoked
-    _validationService.addOnAccessRevokedCallback(() {
-      if (mounted) {
-        _showAccessRevokedDialog();
-      }
-    });
+    _validationService.addOnAccessRevokedCallback(_accessRevokedCallback);
 
     // Handle role changes
-    _validationService.addOnRoleChangedCallback(() {
-      if (mounted) {
-        SnackBarHelper.showInfo(
-          context,
-          message: 'Your role has been updated',
-        );
-      }
-    });
+    _validationService.addOnRoleChangedCallback(_roleChangedCallback);
 
     // Handle organization changes
-    _validationService.addOnOrganizationChangedCallback(() {
-      if (mounted) {
-        // Organization information updated - no notification needed
-      }
-    });
+    _validationService.addOnOrganizationChangedCallback(_organizationChangedCallback);
   }
 
   Future<void> _initializeValidation() async {
@@ -81,54 +91,13 @@ class _MembershipValidationWrapperState extends State<MembershipValidationWrappe
   }
 
   void _showAccessRevokedDialog() {
+    // Skip showing dialog - let the Consumer handle the redirect directly
+    // This prevents conflicts between dialog and Consumer redirect
+    debugPrint('Access revoked - redirecting to join organization screen');
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.block, color: Colors.red.shade600),
-                const SizedBox(width: 8),
-                const Text('Access Revoked'),
-              ],
-            ),
-            content: const Text(
-              'Your access to this organization has been removed. You will be redirected to join another organization.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _redirectToJoinOrganization();
-                },
-                child: const Text('Join Organization'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _redirectToLogin();
-                },
-                child: Text(
-                  'Logout',
-                  style: TextStyle(color: Colors.red.shade600),
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-    });
-  }
-
-  void _redirectToLogin() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
+        _redirectToJoinOrganization();
       }
     });
   }
@@ -166,6 +135,10 @@ class _MembershipValidationWrapperState extends State<MembershipValidationWrappe
 
           // Check if user has valid membership
           if (!validationService.canAccessOrganizationScreen()) {
+            // If officer doesn't exist (kicked/removed), show join screen immediately
+            if (validationService.currentOfficer == null && validationService.currentOrganization == null) {
+              return const JoinOrganizationScreen();
+            }
             // Return appropriate screen based on status
             return validationService.getRedirectScreen();
           }
@@ -179,9 +152,9 @@ class _MembershipValidationWrapperState extends State<MembershipValidationWrappe
 
   @override
   void dispose() {
-    _validationService.removeOnAccessRevokedCallback(() {});
-    _validationService.removeOnRoleChangedCallback(() {});
-    _validationService.removeOnOrganizationChangedCallback(() {});
+    _validationService.removeOnAccessRevokedCallback(_accessRevokedCallback);
+    _validationService.removeOnRoleChangedCallback(_roleChangedCallback);
+    _validationService.removeOnOrganizationChangedCallback(_organizationChangedCallback);
     super.dispose();
   }
 }

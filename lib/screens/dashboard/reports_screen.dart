@@ -543,10 +543,26 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
     // Create chart data - only show actual data points for days with transactions
     final actualSpots = <FlSpot>[];
     final forecastSpots = <FlSpot>[];
+    final trendSpots = <FlSpot>[];
     
     // Only add spots for days with actual transactions
     for (final entry in actualDaysWithData) {
       actualSpots.add(FlSpot(entry.key.toDouble(), entry.value));
+    }
+    
+    // Calculate trendline if we have enough data points
+    final trendline = actualDaysWithData.length >= 3 
+        ? _calculateTrendline(actualDaysWithData) 
+        : null;
+    
+    // Add trendline spots for all actual days
+    if (trendline != null) {
+      for (int day = 1; day <= currentDay; day++) {
+        final trendValue = trendline.slope * day + trendline.intercept;
+        if (trendValue >= 0) {
+          trendSpots.add(FlSpot(day.toDouble(), trendValue));
+        }
+      }
     }
     
     // Add forecast spots for future days (only if we have actual data to base forecast on)
@@ -633,10 +649,13 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
             const SizedBox(height: 16),
             
             // Legend
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 16,
+              runSpacing: 8,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 16,
@@ -655,15 +674,37 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                     ),
                   ],
                 ),
-                const SizedBox(width: 24),
+                if (trendline != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 16,
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Trendline',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 16,
-                      height: 3,
+                      height: 2,
                       decoration: BoxDecoration(
                         color: Colors.grey[400],
-                        borderRadius: BorderRadius.circular(1.5),
+                        borderRadius: BorderRadius.circular(1),
+                        border: Border.all(color: Colors.grey[400]!, width: 1),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -741,9 +782,20 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                       tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
                         return touchedBarSpots.map((barSpot) {
+                          // Skip trendline (index 0 if trendline exists) - return empty tooltip
+                          if (trendline != null && barSpot.barIndex == 0) {
+                            return LineTooltipItem(
+                              '',
+                              const TextStyle(color: Colors.transparent, fontSize: 0),
+                            );
+                          }
+                          
                           final day = barSpot.x.toInt();
                           final amount = barSpot.y;
-                          final isActual = barSpot.barIndex == 0;
+                          // Adjust index based on whether trendline exists
+                          final isActual = trendline != null 
+                              ? barSpot.barIndex == 1 
+                              : barSpot.barIndex == 0;
                           
                           return LineTooltipItem(
                             '${isActual ? 'Actual' : 'Forecast'}\n${_getMonthYearText(widget.selectedMonth).split(' ')[0]} $day\nP${amount.toStringAsFixed(2)}',
@@ -757,6 +809,20 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                       },
                     ),
                     getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+                      // Skip indicators for trendline - it's visual only
+                      if (barData.dashArray != null && barData.dashArray!.isNotEmpty) {
+                        // This is likely the trendline or forecast
+                        if (barData.color == Colors.orange) {
+                          // Trendline - return empty indicator
+                          return spotIndexes.map((index) {
+                            return TouchedSpotIndicatorData(
+                              FlLine(color: Colors.transparent, strokeWidth: 0),
+                              FlDotData(show: false),
+                            );
+                          }).toList();
+                        }
+                      }
+                      
                       return spotIndexes.map((index) {
                         return TouchedSpotIndicatorData(
                           FlLine(
@@ -779,6 +845,18 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                     },
                   ),
                   lineBarsData: [
+                    // Trendline - show first so it appears behind actual data
+                    if (trendSpots.isNotEmpty)
+                      LineChartBarData(
+                        spots: trendSpots,
+                        isCurved: false,
+                        color: Colors.orange,
+                        barWidth: 2,
+                        dashArray: [8, 4],
+                        preventCurveOverShooting: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
                     // Actual data line - only show dots for actual transaction days
                     LineChartBarData(
                       spots: actualSpots,
@@ -809,7 +887,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                         color: Colors.grey[400]!.withOpacity(0.6),
                         barWidth: 2,
                         dashArray: [5, 5],
-                        dotData: FlDotData(
+                        dotData: const FlDotData(
                           show: false, // Hide forecast dots to reduce clutter
                         ),
                         belowBarData: BarAreaData(show: false),
@@ -966,5 +1044,43 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
         return Icons.category;
     }
   }
+
+  /// Calculate linear regression trendline for the given data points
+  /// Returns TrendlineResult with slope and intercept for y = mx + b
+  _TrendlineResult? _calculateTrendline(List<MapEntry<int, double>> dataPoints) {
+    if (dataPoints.isEmpty || dataPoints.length < 2) return null;
+
+    final n = dataPoints.length;
+    double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+
+    for (final point in dataPoints) {
+      final x = point.key.toDouble();
+      final y = point.value;
+      sumX += x;
+      sumY += y;
+      sumXY += x * y;
+      sumX2 += x * x;
+    }
+
+    // Calculate slope (m) and intercept (b) for y = mx + b
+    final denominator = n * sumX2 - sumX * sumX;
+    if (denominator == 0) return null;
+
+    final slope = (n * sumXY - sumX * sumY) / denominator;
+    final intercept = (sumY - slope * sumX) / n;
+
+    return _TrendlineResult(slope: slope, intercept: intercept);
+  }
+}
+
+/// Simple data class to hold trendline calculation results
+class _TrendlineResult {
+  final double slope;
+  final double intercept;
+
+  _TrendlineResult({
+    required this.slope,
+    required this.intercept,
+  });
 }
 
