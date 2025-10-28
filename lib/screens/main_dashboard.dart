@@ -251,79 +251,82 @@ class _MainDashboardState extends State<MainDashboard> {
                       ),
                       const SizedBox(height: 8),
                       
-                      // Organization Info
-                      if (authService.organization != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.business,
-                                color: Colors.white.withOpacity(0.8),
-                                size: 16,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  authService.organization!.name,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.9),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                      // Organization + Role in one row
+                      if (authService.organization != null || authService.currentOfficer != null)
+                        Row(
+                          children: [
+                            // Organization name first
+                            if (authService.organization != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.2),
+                                    width: 1,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.business,
+                                      color: Colors.white.withOpacity(0.8),
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      authService.organization?.name ?? '',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      
-                      // Role Badge
-                      if (authService.currentOfficer != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                TWColors.blue.shade600,
-                                TWColors.purple.shade600,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: TWColors.blue.shade600.withOpacity(0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                            if (authService.organization != null && authService.currentOfficer != null)
+                              const SizedBox(width: 8),
+                            // Role second
+                            if (authService.currentOfficer != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      TWColors.blue.shade600,
+                                      TWColors.purple.shade600,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: TWColors.blue.shade600.withOpacity(0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  _getRoleDisplayName(authService.currentOfficer!.role),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            _getRoleDisplayName(authService.currentOfficer!.role),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          ],
                         ),
                     ],
                   ),
@@ -353,7 +356,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             _buildMenuItem(
                               icon: Icons.edit,
                               title: 'Edit Organization',
-                              subtitle: 'Manage organization settings',
+                              // subtitle: 'Manage organization settings',
                               onTap: () => _handleMenuSelection('edit_org', context),
                             ),
                           
@@ -362,7 +365,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             _buildMenuItem(
                               icon: Icons.people,
                               title: 'Manage Members',
-                              subtitle: 'Add, remove, and manage members',
+                              // subtitle: 'Add, remove, and manage members',
                               onTap: () => _handleMenuSelection('manage_members', context),
                             ),
                           
@@ -382,7 +385,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             _buildMenuItem(
                               icon: Icons.payments,
                               title: 'Manage Dues',
-                              subtitle: 'Track and manage member dues',
+                              // subtitle: 'Track and manage member dues',
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
@@ -397,7 +400,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             _buildMenuItem(
                               icon: Icons.category,
                               title: 'Manage Categories',
-                              subtitle: 'Organize transaction categories',
+                              // subtitle: 'Organize transaction categories',
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
@@ -412,7 +415,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             _buildMenuItem(
                               icon: Icons.qr_code,
                               title: 'Invite QR',
-                              subtitle: 'Generate QR codes for invitations',
+                              // subtitle: 'Generate QR codes for invitations',
                               onTap: () {
                                 if (authService.organization != null) {
                                   Navigator.of(context).push(
@@ -436,7 +439,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             _buildMenuItem(
                               icon: Icons.download,
                               title: 'Export Reports',
-                              subtitle: 'Download financial reports',
+                              // subtitle: 'Download financial reports',
                               onTap: () => _handleMenuSelection('export_reports', context),
                             ),
                           
@@ -451,7 +454,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         _buildMenuItem(
                           icon: Icons.person,
                           title: 'Profile',
-                          subtitle: 'View and edit your profile',
+                          // subtitle: 'View and edit your profile',
                           onTap: () => _handleMenuSelection('profile', context),
                         ),
                         
@@ -459,7 +462,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         _buildMenuItem(
                           icon: Icons.qr_code_scanner,
                           title: 'Join QR',
-                          subtitle: 'Scan QR code to join organization',
+                          // subtitle: 'Scan QR code to join organization',
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -473,7 +476,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         _buildMenuItem(
                           icon: Icons.swap_horiz,
                           title: 'Switch Organization',
-                          subtitle: 'Change your current organization',
+                          // subtitle: 'Change your current organization',
                           onTap: () => _showOrganizationSwitcher(context),
                         ),
                         
@@ -483,7 +486,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         _buildMenuItem(
                           icon: Icons.logout,
                           title: 'Logout',
-                          subtitle: 'Sign out of your account',
+                          //  subtitle: 'Sign out of your account',
                           onTap: () => _handleMenuSelection('logout', context),
                           isDestructive: true,
                         ),
@@ -827,7 +830,7 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget _buildMenuItem({
     required IconData icon,
     required String title,
-    required String subtitle,
+    String? subtitle,
     required VoidCallback onTap,
     bool isDestructive = false,
   }) {
@@ -879,21 +882,21 @@ class _MainDashboardState extends State<MainDashboard> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: TWColors.slate.shade500,
-                        ),
-                      ),
+                      // Text(
+                      //   subtitle ?? '',
+                      //   style: TextStyle(
+                      //     fontSize: 13,
+                      //     color: TWColors.slate.shade500,
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right,
-                  color: TWColors.slate.shade400,
-                  size: 20,
-                ),
+                // Icon(
+                //   Icons.chevron_right,
+                //   color: TWColors.slate.shade400,
+                //   size: 20,
+                // ),
               ],
             ),
           ),

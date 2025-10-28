@@ -748,96 +748,93 @@ class TransactionListItem extends StatelessWidget {
           },
         );
       },
-      child: Opacity(
-        opacity: isCollection ? 0.6 : 1.0,
-        child: Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Left indicator that fills the card height when present
-                if (leftBorderColor != null)
-                  Container(
-                    width: 6,
-                    decoration: BoxDecoration(
-                      color: leftBorderColor,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
-                      ),
-                    ),
-                  ),
-                // Content area
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 12,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FutureBuilder<IconData>(
-                          future: _getCategoryIcon(context),
-                          builder: (context, snapshot) {
-                            final icon = snapshot.data ?? Icons.category;
-                            return CircleAvatar(
-                              backgroundColor: Colors.grey[200],
-                              child: Icon(
-                                icon,
-                                color: transaction.type == 'expense'
-                                    ? Colors.red
-                                    : transaction.type == 'fund'
-                                    ? Colors.green
-                                    : Colors.teal,
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                transaction.categoryName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              if (transaction.note.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4.0),
-                                  child: Text(
-                                    transaction.note,
-                                    style: TextStyle(
-                                      color: Colors.grey[700],
-                                      fontSize: 14,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [Text(amountStr, style: amountStyle)],
-                        ),
-                      ],
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left indicator that fills the card height when present
+              if (leftBorderColor != null)
+                Container(
+                  width: 6,
+                  decoration: BoxDecoration(
+                    color: leftBorderColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
                     ),
                   ),
                 ),
-              ],
-            ),
+              // Content area
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 12,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FutureBuilder<IconData>(
+                        future: _getCategoryIcon(context),
+                        builder: (context, snapshot) {
+                          final icon = snapshot.data ?? Icons.category;
+                          return CircleAvatar(
+                            backgroundColor: Colors.grey[200],
+                            child: Icon(
+                              icon,
+                              color: transaction.type == 'expense'
+                                  ? Colors.red
+                                  : transaction.type == 'fund'
+                                  ? Colors.green
+                                  : Colors.teal,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              transaction.categoryName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            if (transaction.note.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Text(
+                                  transaction.note,
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [Text(amountStr, style: amountStyle)],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

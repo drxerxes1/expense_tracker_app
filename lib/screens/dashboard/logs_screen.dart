@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/services/auth_service.dart';
@@ -296,27 +297,29 @@ class _LogsScreenState extends State<LogsScreen> {
 
       // Get audit trail for the organization from both collections
       // Note: We avoid orderBy in query to prevent composite index requirement
-      
+
       // Get transaction logs from global auditTrail collection
       final transactionAuditSnapshot = await FirebaseFirestore.instance
           .collection('auditTrail')
           .where('orgId', isEqualTo: authService.currentOrgId)
           .get();
-      
+
       // Get member management logs from organization's audit_trails subcollection
       final memberAuditSnapshot = await FirebaseFirestore.instance
           .collection('organizations')
           .doc(authService.currentOrgId)
           .collection('audit_trails')
           .get();
-      
+
       // Combine both collections
       final allAuditDocs = [
         ...transactionAuditSnapshot.docs,
         ...memberAuditSnapshot.docs,
       ];
-      
-      debugPrint('Loaded ${transactionAuditSnapshot.docs.length} transaction logs and ${memberAuditSnapshot.docs.length} member management logs');
+
+      debugPrint(
+        'Loaded ${transactionAuditSnapshot.docs.length} transaction logs and ${memberAuditSnapshot.docs.length} member management logs',
+      );
 
       if (!mounted) return;
 
@@ -327,11 +330,17 @@ class _LogsScreenState extends State<LogsScreen> {
             ..sort(
               (a, b) => b.createdAt.compareTo(a.createdAt),
             ); // Sort by createdAt descending
-      
+
       // Debug: Print log types
-      final memberActionLogs = auditLogs.where((log) => log.logType == 'member_action').toList();
-      final transactionLogs = auditLogs.where((log) => log.logType != 'member_action').toList();
-      debugPrint('Processed ${transactionLogs.length} transaction logs and ${memberActionLogs.length} member action logs');
+      final memberActionLogs = auditLogs
+          .where((log) => log.logType == 'member_action')
+          .toList();
+      final transactionLogs = auditLogs
+          .where((log) => log.logType != 'member_action')
+          .toList();
+      debugPrint(
+        'Processed ${transactionLogs.length} transaction logs and ${memberActionLogs.length} member action logs',
+      );
 
       // Resolve user names, roles, and transaction types for all audit logs
       for (final auditLog in auditLogs) {
@@ -344,7 +353,8 @@ class _LogsScreenState extends State<LogsScreen> {
           }
         }
         // Only look up transaction types for actual transactions, not member management logs
-        if (auditLog.logType != 'member_action' && !_transactionTypes.containsKey(auditLog.transactionId)) {
+        if (auditLog.logType != 'member_action' &&
+            !_transactionTypes.containsKey(auditLog.transactionId)) {
           await _getTransactionType(auditLog.transactionId);
         }
       }
@@ -528,17 +538,11 @@ class _LogsScreenState extends State<LogsScreen> {
                           curve: Curves.easeInOut,
                           child: CircularProgressIndicator(
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Theme.of(context).primaryColor,
+                              TWColors.slate.shade900,
                             ),
-                            strokeWidth: 3,
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Text(
-                          'Loading audit logs...',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.grey[600]),
-                        ),
                       ],
                     ),
                   )

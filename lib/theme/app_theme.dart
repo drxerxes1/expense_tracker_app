@@ -30,6 +30,11 @@ class AppTheme {
         seedColor: primaryColor,
         brightness: Brightness.light,
       ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: primaryColor,
+        linearTrackColor: primaryColor.withOpacity(0.2),
+        circularTrackColor: primaryColor.withOpacity(0.15),
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,

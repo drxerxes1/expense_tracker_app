@@ -144,18 +144,18 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
                 ),
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const CreateOrganizationScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.add, color: Colors.white),
-                      tooltip: 'Create Organization',
-                    ),
+                    // IconButton(
+                    //   onPressed: () {
+                    //     Navigator.of(context).pop();
+                    //     Navigator.of(context).push(
+                    //       MaterialPageRoute(
+                    //         builder: (_) => const CreateOrganizationScreen(),
+                    //       ),
+                    //     );
+                    //   },
+                    //   icon: const Icon(Icons.add, color: Colors.white),
+                    //   tooltip: 'Create Organization',
+                    // ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close, color: Colors.white),

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:org_wallet/models/transaction.dart';
 import 'package:org_wallet/services/transaction_service.dart';
 import 'package:org_wallet/services/auth_service.dart';
@@ -142,9 +143,9 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                         Tab(text: 'Expenses'),
                         Tab(text: 'Funds'),
                       ],
-                      labelColor: Theme.of(context).colorScheme.primary,
+                      labelColor: TWColors.slate.shade900,
                       unselectedLabelColor: Colors.grey,
-                      indicatorColor: Theme.of(context).colorScheme.primary,
+                      indicatorColor: TWColors.slate.shade900,
                     ),
                   ),
                   // Tab Content
@@ -197,13 +198,6 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                     color: Colors.white,
                   ),
                   SizedBox(height: 16),
-                  Text(
-                    'Loading reports...',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -287,7 +281,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                               width: 16,
                               height: 16,
                               colorFilter: ColorFilter.mode(
-                                Theme.of(context).colorScheme.primary,
+                                TWColors.slate.shade900,
                                 BlendMode.srcIn,
                               ),
                             ),
@@ -296,7 +290,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                               totalAmount.toStringAsFixed(2),
                               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: TWColors.slate.shade900,
                               ),
                             ),
                           ],
@@ -590,10 +584,10 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                color: TWColors.slate.shade900.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  color: TWColors.slate.shade900.withOpacity(0.2),
                   width: 1,
                 ),
               ),
@@ -606,7 +600,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                           'Total ${transactionType == 'expense' ? 'Spent' : 'Earned'}',
                           'P${totalActualAmount.toStringAsFixed(2)}',
                           Icons.account_balance_wallet,
-                          Theme.of(context).colorScheme.primary,
+                          TWColors.slate.shade900,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -661,7 +655,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                       width: 16,
                       height: 3,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: TWColors.slate.shade900,
                         borderRadius: BorderRadius.circular(1.5),
                       ),
                     ),
@@ -826,7 +820,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                       return spotIndexes.map((index) {
                         return TouchedSpotIndicatorData(
                           FlLine(
-                            color: barData.color ?? Theme.of(context).colorScheme.primary,
+                            color: barData.color ?? TWColors.slate.shade900,
                             strokeWidth: 2,
                             dashArray: [5, 5],
                           ),
@@ -834,7 +828,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                             getDotPainter: (spot, percent, barData, index) {
                               return FlDotCirclePainter(
                                 radius: 6,
-                                color: barData.color ?? Theme.of(context).colorScheme.primary,
+                                color: barData.color ?? TWColors.slate.shade900,
                                 strokeWidth: 2,
                                 strokeColor: Colors.white,
                               );
@@ -861,14 +855,14 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                     LineChartBarData(
                       spots: actualSpots,
                       isCurved: false,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: TWColors.slate.shade900,
                       barWidth: 3,
                       dotData: FlDotData(
                         show: true,
                         getDotPainter: (spot, percent, barData, index) {
                           return FlDotCirclePainter(
                             radius: 4,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: TWColors.slate.shade900,
                             strokeWidth: 2,
                             strokeColor: Colors.white,
                           );
@@ -876,7 +870,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                       ),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        color: TWColors.slate.shade900.withOpacity(0.1),
                       ),
                     ),
                     // Forecast data line - only show if we have actual data
