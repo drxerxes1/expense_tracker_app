@@ -830,7 +830,7 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget _buildMenuItem({
     required IconData icon,
     required String title,
-    String? subtitle,
+    // String? subtitle,
     required VoidCallback onTap,
     bool isDestructive = false,
   }) {

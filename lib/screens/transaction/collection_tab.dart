@@ -67,9 +67,10 @@ class _CollectionTabState extends State<CollectionTab> {
       _selectedDueId = widget.initialDueId;
     }
     _loadDues();
-    
+
     // If we have a current transaction ID, load its payments directly
-    if (widget.currentTransactionId != null && widget.currentTransactionId!.isNotEmpty) {
+    if (widget.currentTransactionId != null &&
+        widget.currentTransactionId!.isNotEmpty) {
       // Delay the loading to ensure the widget is fully initialized
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
@@ -93,7 +94,7 @@ class _CollectionTabState extends State<CollectionTab> {
           .collection('dues')
           .get();
       final dues = snap.docs.map((d) => DueModel.fromFirestore(d)).toList();
-      
+
       if (!mounted) return;
       setState(() {
         _dues = dues;
@@ -104,8 +105,12 @@ class _CollectionTabState extends State<CollectionTab> {
         if (_selectedDueId != null) {
           _subscribeToDuePayments(_selectedDueId!);
           // If editing an existing transaction, prefill paid users for this due
-          if (widget.currentTransactionId != null && widget.currentTransactionId!.isNotEmpty) {
-            _prefillPaidForTransaction(_selectedDueId!, widget.currentTransactionId!);
+          if (widget.currentTransactionId != null &&
+              widget.currentTransactionId!.isNotEmpty) {
+            _prefillPaidForTransaction(
+              _selectedDueId!,
+              widget.currentTransactionId!,
+            );
           }
         }
         _recalculateTotalForSelectedMembers();
@@ -120,34 +125,32 @@ class _CollectionTabState extends State<CollectionTab> {
   }
 
   Future<void> _loadExistingPaymentsForTransaction() async {
-    if (widget.currentTransactionId == null || widget.currentTransactionId!.isEmpty) {
+    if (widget.currentTransactionId == null ||
+        widget.currentTransactionId!.isEmpty) {
       return;
     }
 
     try {
-      
       // Get all dues for this organization
       final duesSnap = await FirebaseFirestore.instance
           .collection('organizations')
           .doc(widget.orgId)
           .collection('dues')
           .get();
-      
-      
+
       final Set<String> paidUserIds = {};
       String? foundDueId;
-      
+
       // Check each due for payments with this transaction ID
       for (final dueDoc in duesSnap.docs) {
         final paymentsSnap = await dueDoc.reference
             .collection('due_payments')
             .where('transactionId', isEqualTo: widget.currentTransactionId)
             .get();
-        
-        
+
         if (paymentsSnap.docs.isNotEmpty) {
           foundDueId = dueDoc.id;
-          
+
           for (final paymentDoc in paymentsSnap.docs) {
             final payment = DuePaymentModel.fromFirestore(paymentDoc);
             paidUserIds.add(payment.userId);
@@ -155,25 +158,25 @@ class _CollectionTabState extends State<CollectionTab> {
           }
         }
       }
-      
-      
+
       if (foundDueId != null && mounted) {
         setState(() {
           _selectedDueId = foundDueId;
           _existingPaidUserIds.clear();
           _existingPaidUserIds.addAll(paidUserIds);
         });
-        
+
         // Subscribe to payments for this due
         _subscribeToDuePayments(foundDueId);
         // Prefill paid users for this transaction on the found due
-        if (widget.currentTransactionId != null && widget.currentTransactionId!.isNotEmpty) {
+        if (widget.currentTransactionId != null &&
+            widget.currentTransactionId!.isNotEmpty) {
           _prefillPaidForTransaction(foundDueId, widget.currentTransactionId!);
         }
-        
+
         // Recalculate totals
         _recalculateTotalForSelectedMembers();
-        
+
         // Notify parent
         if (widget.onSelectionChanged != null) {
           widget.onSelectionChanged!(_existingPaidUserIds);
@@ -184,15 +187,16 @@ class _CollectionTabState extends State<CollectionTab> {
         if (widget.onSelectedDueChanged != null) {
           widget.onSelectedDueChanged!(foundDueId);
         }
-        
-      } else {
-      }
+      } else {}
     } catch (e) {
       // ignore errors
     }
   }
 
-  Future<void> _prefillPaidForTransaction(String dueId, String transactionId) async {
+  Future<void> _prefillPaidForTransaction(
+    String dueId,
+    String transactionId,
+  ) async {
     try {
       final paymentsSnap = await FirebaseFirestore.instance
           .collection('organizations')
@@ -216,8 +220,7 @@ class _CollectionTabState extends State<CollectionTab> {
         // In delayed mode (createPaymentsImmediately == false), initialize local selection
         // from existing paid users so the UI reflects current state and allows unchecking.
         if (widget.createPaymentsImmediately == false) {
-          _selected
-            ..clear();
+          _selected.clear();
           for (final uid in paidUserIds) {
             _selected[uid] = true;
           }
@@ -252,9 +255,13 @@ class _CollectionTabState extends State<CollectionTab> {
           _selected[userId] = true;
         }
       });
-      if (widget.onSelectionChanged != null) widget.onSelectionChanged!(_selected.keys.toSet());
+      if (widget.onSelectionChanged != null) {
+        widget.onSelectionChanged!(_selected.keys.toSet());
+      }
       _recalculateTotalForSelectedMembers();
-      if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+      if (widget.onAmountChanged != null) {
+        widget.onAmountChanged!(_totalCollected);
+      }
       return;
     }
 
@@ -322,11 +329,12 @@ class _CollectionTabState extends State<CollectionTab> {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        final createdPayment = await _duesService.createDuePaymentWithTransaction(
-          orgId: widget.orgId,
-          payment: payment,
-          transactionId: widget.currentTransactionId,
-        );
+        final createdPayment = await _duesService
+            .createDuePaymentWithTransaction(
+              orgId: widget.orgId,
+              payment: payment,
+              transactionId: widget.currentTransactionId,
+            );
         created = true;
         createdDocId = createdPayment.id;
       } catch (e) {
@@ -351,7 +359,9 @@ class _CollectionTabState extends State<CollectionTab> {
         setState(() {
           _selected[userId] = true;
           _sessionPaidUserIds.add(userId);
-          if (createdDocId != null) _sessionCreatedDocIds[userId] = createdDocId;
+          if (createdDocId != null) {
+            _sessionCreatedDocIds[userId] = createdDocId;
+          }
         });
         // Recalculate total after creating payment
         _recalculateTotalForSelectedMembers();
@@ -367,7 +377,6 @@ class _CollectionTabState extends State<CollectionTab> {
       });
     }
   }
-
 
   void _subscribeToDuePayments(String dueId) {
     // cancel existing
@@ -388,69 +397,84 @@ class _CollectionTabState extends State<CollectionTab> {
         .doc(dueId)
         .collection('due_payments');
 
-    _paymentsSub = coll.snapshots().listen((snap) {
-      // compute which userIds have a payment that falls within the current period
-      final Set<String> paidNow = {};
-      
-      for (final doc in snap.docs) {
-        final p = DuePaymentModel.fromFirestore(doc);
-        final paidAt = p.paidAt ?? p.createdAt;
-        // include payments that are either in the current period OR attached to
-        // the current transaction id (so saved transactions display their payments)
-        final attachedToCurrentTx = widget.currentTransactionId != null && p.transactionId == widget.currentTransactionId;
-        // fallback: if not attached via transactionId, but the payment happened on the same day
-        // as the current transaction's date, consider it paid for this view
-        bool sameDayAsTx = false;
-        if (!attachedToCurrentTx && widget.currentTransactionDate != null && paidAt != null) {
-          final txDate = widget.currentTransactionDate!;
-          sameDayAsTx = paidAt.year == txDate.year && paidAt.month == txDate.month && paidAt.day == txDate.day;
-        }
-        
-        if (paidAt == null && !attachedToCurrentTx && !sameDayAsTx) continue;
-        if (due == null) {
-          paidNow.add(p.userId);
-          _memberAmounts[p.userId] = p.amount;
-        } else {
-          if (_isPaymentInCurrentPeriod(paidAt!, due) || attachedToCurrentTx || sameDayAsTx) {
+    _paymentsSub = coll.snapshots().listen(
+      (snap) {
+        // compute which userIds have a payment that falls within the current period
+        final Set<String> paidNow = {};
+
+        for (final doc in snap.docs) {
+          final p = DuePaymentModel.fromFirestore(doc);
+          final paidAt = p.paidAt ?? p.createdAt;
+          // include payments that are either in the current period OR attached to
+          // the current transaction id (so saved transactions display their payments)
+          final attachedToCurrentTx =
+              widget.currentTransactionId != null &&
+              p.transactionId == widget.currentTransactionId;
+          // fallback: if not attached via transactionId, but the payment happened on the same day
+          // as the current transaction's date, consider it paid for this view
+          bool sameDayAsTx = false;
+          if (!attachedToCurrentTx &&
+              widget.currentTransactionDate != null &&
+              paidAt != null) {
+            final txDate = widget.currentTransactionDate!;
+            sameDayAsTx =
+                paidAt.year == txDate.year &&
+                paidAt.month == txDate.month &&
+                paidAt.day == txDate.day;
+          }
+
+          if (paidAt == null && !attachedToCurrentTx && !sameDayAsTx) continue;
+          if (due == null) {
             paidNow.add(p.userId);
             _memberAmounts[p.userId] = p.amount;
+          } else {
+            if (_isPaymentInCurrentPeriod(paidAt!, due) ||
+                attachedToCurrentTx ||
+                sameDayAsTx) {
+              paidNow.add(p.userId);
+              _memberAmounts[p.userId] = p.amount;
+            }
           }
         }
-      }
-      
-      if (!mounted) return;
-      setState(() {
-        _existingPaidUserIds
-          ..clear()
-          ..addAll(paidNow);
-      });
-      _recalculateTotalForSelectedMembers();
-      // Notify parent about which members are currently paid (merge session-created)
-      if (widget.onSelectionChanged != null) {
-        final Set<String> merged = {}..addAll(_existingPaidUserIds)..addAll(_sessionPaidUserIds);
-        widget.onSelectionChanged!(merged);
-      }
-      if (widget.onAmountChanged != null) {
-        widget.onAmountChanged!(_totalCollected);
-      }
-    }, onError: (error) {
-      // ignore subscription errors for now
-    });
+
+        if (!mounted) return;
+        setState(() {
+          _existingPaidUserIds
+            ..clear()
+            ..addAll(paidNow);
+        });
+        _recalculateTotalForSelectedMembers();
+        // Notify parent about which members are currently paid (merge session-created)
+        if (widget.onSelectionChanged != null) {
+          final Set<String> merged = {}
+            ..addAll(_existingPaidUserIds)
+            ..addAll(_sessionPaidUserIds);
+          widget.onSelectionChanged!(merged);
+        }
+        if (widget.onAmountChanged != null) {
+          widget.onAmountChanged!(_totalCollected);
+        }
+      },
+      onError: (error) {
+        // ignore subscription errors for now
+      },
+    );
   }
 
   @override
   void didUpdateWidget(covariant CollectionTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     // If the initially-requested due changed after mount, update selection
-    if (widget.initialDueId != oldWidget.initialDueId && widget.initialDueId != null) {
+    if (widget.initialDueId != oldWidget.initialDueId &&
+        widget.initialDueId != null) {
       setState(() {
         _selectedDueId = widget.initialDueId;
       });
       _subscribeToDuePayments(_selectedDueId!);
     }
     // If the currentTransactionId changed, load existing payments for the new transaction
-    if (widget.currentTransactionId != oldWidget.currentTransactionId && 
-        widget.currentTransactionId != null && 
+    if (widget.currentTransactionId != oldWidget.currentTransactionId &&
+        widget.currentTransactionId != null &&
         widget.currentTransactionId!.isNotEmpty) {
       // Delay to ensure proper state
       Future.delayed(const Duration(milliseconds: 50), () {
@@ -466,31 +490,31 @@ class _CollectionTabState extends State<CollectionTab> {
     // This ensures payments made in the current cycle are recognized on the Collection screen.
     final freq = due.frequency.toLowerCase();
     final now = DateTime.now();
-    
+
     if (freq == 'weekly') {
       // Same ISO week as now
       final weekStart = _startOfWeek(now);
       final weekEnd = weekStart.add(const Duration(days: 7));
       return !paidAt.isBefore(weekStart) && paidAt.isBefore(weekEnd);
     }
-    
+
     if (freq == 'monthly') {
       // Same month as now
       return paidAt.year == now.year && paidAt.month == now.month;
     }
-    
+
     if (freq == 'quarterly') {
       // Same quarter in the same year as now
       final nowQuarter = _getQuarter(now);
       final paymentQuarter = _getQuarter(paidAt);
       return paidAt.year == now.year && paymentQuarter == nowQuarter;
     }
-    
+
     if (freq == 'yearly') {
       // Same year as now
       return paidAt.year == now.year;
     }
-    
+
     // Fallback/custom: treat current period as the current month
     return paidAt.year == now.year && paidAt.month == now.month;
   }
@@ -502,7 +526,11 @@ class _CollectionTabState extends State<CollectionTab> {
   DateTime _startOfWeek(DateTime d) {
     // ISO week start: Monday
     final weekday = d.weekday; // Monday = 1
-    final start = DateTime(d.year, d.month, d.day).subtract(Duration(days: weekday - 1));
+    final start = DateTime(
+      d.year,
+      d.month,
+      d.day,
+    ).subtract(Duration(days: weekday - 1));
     return DateTime(start.year, start.month, start.day);
   }
 
@@ -529,7 +557,7 @@ class _CollectionTabState extends State<CollectionTab> {
           due = DueModel.fromFirestore(dueDoc);
         }
       }
-      
+
       if (due == null) return false;
 
       // check for a payment doc with id == userId under the due's subcollection
@@ -560,7 +588,7 @@ class _CollectionTabState extends State<CollectionTab> {
           return true;
         }
       }
-      
+
       return false;
     } catch (_) {
       return false;
@@ -583,20 +611,20 @@ class _CollectionTabState extends State<CollectionTab> {
       dueAmount = 0.0;
     }
     double total = 0.0;
-    
+
     // Get all unique members who should be counted
     final Set<String> allSelected = {};
-    
+
     // Add session-selected members (newly selected in this session)
     allSelected.addAll(_selected.keys.where((k) => _selected[k] == true));
-    
+
     // Add existing paid members (but avoid double-counting session members)
     for (final userId in _existingPaidUserIds) {
       if (!_sessionPaidUserIds.contains(userId)) {
         allSelected.add(userId);
       }
     }
-    
+
     // Calculate total using per-member amounts when available
     for (final userId in allSelected) {
       final amt = _memberAmounts[userId] ?? dueAmount;
@@ -759,12 +787,17 @@ class _CollectionTabState extends State<CollectionTab> {
                   final userId = (m['userId'] ?? '').toString();
                   final name = (m['name'] ?? m['email'] ?? userId).toString();
                   final processing = _processing[userId] == true;
-                  final bool isExistingPaid = _existingPaidUserIds.contains(userId);
-                  final bool isSessionPaid = _sessionPaidUserIds.contains(userId);
+                  final bool isExistingPaid = _existingPaidUserIds.contains(
+                    userId,
+                  );
+                  final bool isSessionPaid = _sessionPaidUserIds.contains(
+                    userId,
+                  );
                   final bool isPaid = isExistingPaid || isSessionPaid;
                   // In edit/delayed mode, allow toggling any member; we'll persist on Save.
                   // In immediate mode, keep previous restriction.
-                  final bool canToggle = widget.createPaymentsImmediately == false
+                  final bool canToggle =
+                      widget.createPaymentsImmediately == false
                       ? true
                       : (!isExistingPaid || isSessionPaid);
 
@@ -774,7 +807,9 @@ class _CollectionTabState extends State<CollectionTab> {
                     memberAmt = _memberAmounts[userId]!;
                   } else if (_selectedDueId != null) {
                     try {
-                      final due = _dues.firstWhere((d) => d.id == _selectedDueId);
+                      final due = _dues.firstWhere(
+                        (d) => d.id == _selectedDueId,
+                      );
                       memberAmt = due.amount;
                     } catch (_) {
                       memberAmt = 0.0;
@@ -786,8 +821,15 @@ class _CollectionTabState extends State<CollectionTab> {
                         ? (_selected[userId] == true)
                         : (isPaid ? true : _selected[userId] == true),
                     enabled: canToggle,
-                    title: Text(name, style: canToggle ? null : TextStyle(color: Colors.grey[600])),
-                    subtitle: Text('${m['role'] ?? ''}${memberAmt > 0 ? ' · ${memberAmt.toStringAsFixed(2)}' : ''}'),
+                    title: Text(
+                      name,
+                      style: canToggle
+                          ? null
+                          : TextStyle(color: Colors.grey[600]),
+                    ),
+                    subtitle: Text(
+                      '${m['role'] ?? ''}${memberAmt > 0 ? ' · ${memberAmt.toStringAsFixed(2)}' : ''}',
+                    ),
                     secondary: processing
                         ? const SizedBox(
                             width: 24,
@@ -795,11 +837,13 @@ class _CollectionTabState extends State<CollectionTab> {
                             child: CircularProgressIndicator(),
                           )
                         : (isPaid
-                            ? Chip(
-                                label: const Text('Paid'),
-                                backgroundColor: isExistingPaid ? Colors.grey.shade300 : Colors.greenAccent.shade100,
-                              )
-                            : null),
+                              ? Chip(
+                                  label: const Text('Paid'),
+                                  backgroundColor: isExistingPaid
+                                      ? Colors.grey.shade300
+                                      : Colors.greenAccent.shade100,
+                                )
+                              : null),
                     onChanged: canToggle
                         ? (v) async {
                             if (widget.createPaymentsImmediately == false) {
@@ -813,7 +857,9 @@ class _CollectionTabState extends State<CollectionTab> {
                                 _recalculateTotalForSelectedMembers();
                               });
                               if (widget.onSelectionChanged != null) {
-                                widget.onSelectionChanged!(_selected.keys.toSet());
+                                widget.onSelectionChanged!(
+                                  _selected.keys.toSet(),
+                                );
                               }
                               if (widget.onAmountChanged != null) {
                                 widget.onAmountChanged!(_totalCollected);
@@ -821,7 +867,8 @@ class _CollectionTabState extends State<CollectionTab> {
                             } else {
                               // Immediate mode logic (create payments instantly)
                               // if already paid (existing) and created this session, allow undo by deleting the session-created doc
-                              final createdDocId = _sessionCreatedDocIds[userId];
+                              final createdDocId =
+                                  _sessionCreatedDocIds[userId];
                               if (isPaid) {
                                 if (createdDocId != null) {
                                   setState(() {
@@ -842,7 +889,9 @@ class _CollectionTabState extends State<CollectionTab> {
                                       _selected.remove(userId);
                                       _recalculateTotalForSelectedMembers();
                                     });
-                                    if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+                                    if (widget.onAmountChanged != null) {
+                                      widget.onAmountChanged!(_totalCollected);
+                                    }
                                   } catch (e) {
                                     SnackBarHelper.showError(
                                       context,
@@ -864,7 +913,9 @@ class _CollectionTabState extends State<CollectionTab> {
                                   _selected.remove(userId);
                                   _recalculateTotalForSelectedMembers();
                                 });
-                                if (widget.onAmountChanged != null) widget.onAmountChanged!(_totalCollected);
+                                if (widget.onAmountChanged != null) {
+                                  widget.onAmountChanged!(_totalCollected);
+                                }
                               }
                             }
                           }

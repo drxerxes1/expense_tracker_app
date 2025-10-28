@@ -209,7 +209,7 @@ class DuesService {
     int totalMembers = 0;
     final approvedUserIds = <String>{};
     for (final o in officersSnap.docs) {
-      final m = o.data() as Map<String, dynamic>;
+      final m = o.data();
       final status = m['status'];
       final isApproved = (status is String && status == 'approved') ||
           (status is int && status == 1); // OfficerStatus.approved.index == 1
