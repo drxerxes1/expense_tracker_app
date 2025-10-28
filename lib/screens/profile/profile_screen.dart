@@ -154,54 +154,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          Consumer<AuthService>(
-            builder: (context, authService, child) {
-              return IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () async {
-                  // Show loading indicator
-                  setState(() => _isLoading = true);
+        // actions: [
+        //   Consumer<AuthService>(
+        //     builder: (context, authService, child) {
+        //       return IconButton(
+        //         icon: const Icon(Icons.refresh),
+        //         onPressed: () async {
+        //           // Show loading indicator
+        //           setState(() => _isLoading = true);
                   
-                  // Refresh user data and officer data
-                  await authService.reloadUserData();
-                  await authService.reloadCurrentOfficerData();
+        //           // Refresh user data and officer data
+        //           await authService.reloadUserData();
+        //           await authService.reloadCurrentOfficerData();
                   
-                  // Reload organizations
-                  await _loadUserOrganizations();
+        //           // Reload organizations
+        //           await _loadUserOrganizations();
                   
-                  // Hide loading indicator
-                  if (mounted) {
-                    setState(() => _isLoading = false);
-                    // ignore: use_build_context_synchronously
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Profile data refreshed'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                },
-                tooltip: 'Refresh Profile Data',
-              );
-            },
-          ),
-          Consumer<AuthService>(
-            builder: (context, authService, child) {
-              return IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const EditProfileScreen(),
-                    ),
-                  );
-                },
-                tooltip: 'Edit Profile',
-              );
-            },
-          ),
-        ],
+        //           // Hide loading indicator
+        //           if (mounted) {
+        //             setState(() => _isLoading = false);
+        //             // ignore: use_build_context_synchronously
+        //             ScaffoldMessenger.of(context).showSnackBar(
+        //               const SnackBar(
+        //                 content: Text('Profile data refreshed'),
+        //                 duration: Duration(seconds: 2),
+        //               ),
+        //             );
+        //           }
+        //         },
+        //         tooltip: 'Refresh Profile Data',
+        //       );
+        //     },
+        //   ),
+        //   Consumer<AuthService>(
+        //     builder: (context, authService, child) {
+        //       return IconButton(
+        //         icon: const Icon(Icons.edit),
+        //         onPressed: () {
+        //           Navigator.of(context).push(
+        //             MaterialPageRoute(
+        //               builder: (_) => const EditProfileScreen(),
+        //             ),
+        //           );
+        //         },
+        //         tooltip: 'Edit Profile',
+        //       );
+        //     },
+        //   ),
+        // ],
       ),
       body: Consumer<AuthService>(
         builder: (context, authService, child) {

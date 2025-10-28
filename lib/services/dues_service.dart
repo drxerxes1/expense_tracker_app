@@ -197,28 +197,83 @@ class DuesService {
 
   // Get payment summary for a due (calculated client-side)
   Future<Map<String, dynamic>> getDueSummary(String orgId, String dueId) async {
-    final paymentsSnap = await _duePayments(orgId, dueId).get();
-    double totalCollected = 0;
-    int paidCount = 0;
-    int unpaidCount = 0;
-    
-    for (final doc in paymentsSnap.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final amount = (data['amount'] ?? 0).toDouble();
-      if (data['paidAt'] != null) {
-        totalCollected += amount;
-        paidCount += 1;
-      } else {
-        unpaidCount += 1;
+    // Fetch the due to determine current period window
+    final dueSnap = await _dueDoc(orgId, dueId).get();
+    final due = DueModel.fromFirestore(dueSnap);
+
+    // Count approved members for the organization
+    final officersSnap = await _db
+        .collection('officers')
+        .where('orgId', isEqualTo: orgId)
+        .get();
+    int totalMembers = 0;
+    final approvedUserIds = <String>{};
+    for (final o in officersSnap.docs) {
+      final m = o.data() as Map<String, dynamic>;
+      final status = m['status'];
+      final isApproved = (status is String && status == 'approved') ||
+          (status is int && status == 1); // OfficerStatus.approved.index == 1
+      if (isApproved) {
+        totalMembers += 1;
+        final uid = (m['userId'] ?? '').toString();
+        if (uid.isNotEmpty) approvedUserIds.add(uid);
       }
     }
-    
+
+    // Read payments for this due and compute current-period paid users
+    final paymentsSnap = await _duePayments(orgId, dueId).get();
+    final paidUserIds = <String>{};
+    double totalCollected = 0.0;
+    for (final p in paymentsSnap.docs) {
+      final payment = DuePaymentModel.fromFirestore(p);
+      final paidAt = payment.paidAt ?? payment.createdAt;
+      if (paidAt == null) continue;
+      if (_isPaymentInCurrentPeriod(paidAt, due)) {
+        paidUserIds.add(payment.userId);
+        totalCollected += payment.amount;
+      }
+    }
+
+    // Only count approved members in paid/unpaid
+    final approvedPaid = paidUserIds.where((id) => approvedUserIds.contains(id)).toSet();
+    final paidCount = approvedPaid.length;
+    final unpaidCount = (totalMembers - paidCount).clamp(0, totalMembers);
+
     return {
       'totalCollected': totalCollected,
       'paidCount': paidCount,
       'unpaidCount': unpaidCount,
-      'totalMembers': paymentsSnap.size,
+      'totalMembers': totalMembers,
       'lastUpdated': DateTime.now(),
     };
+  }
+  
+  bool _isPaymentInCurrentPeriod(DateTime paidAt, DueModel due) {
+    final freq = due.frequency.toLowerCase();
+    final now = DateTime.now();
+    if (freq == 'weekly') {
+      final start = _startOfWeek(now);
+      final end = start.add(const Duration(days: 7));
+      return !paidAt.isBefore(start) && paidAt.isBefore(end);
+    }
+    if (freq == 'monthly') {
+      return paidAt.year == now.year && paidAt.month == now.month;
+    }
+    if (freq == 'quarterly') {
+      final qNow = _getQuarter(now);
+      final qPaid = _getQuarter(paidAt);
+      return paidAt.year == now.year && qNow == qPaid;
+    }
+    if (freq == 'yearly') {
+      return paidAt.year == now.year;
+    }
+    return paidAt.year == now.year && paidAt.month == now.month;
+  }
+  
+  int _getQuarter(DateTime d) => ((d.month - 1) / 3).floor() + 1;
+  DateTime _startOfWeek(DateTime d) {
+    final weekday = d.weekday; // Monday=1
+    final start = DateTime(d.year, d.month, d.day).subtract(Duration(days: weekday - 1));
+    return DateTime(start.year, start.month, start.day);
   }
 }

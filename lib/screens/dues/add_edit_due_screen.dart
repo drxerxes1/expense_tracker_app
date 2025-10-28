@@ -186,7 +186,6 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                           labelText: 'Amount',
                           hintText: '0.00',
                           prefixIcon: const Icon(Icons.attach_money),
-                          prefixText: '₱ ',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),

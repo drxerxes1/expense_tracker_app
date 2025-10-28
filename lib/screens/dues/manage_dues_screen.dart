@@ -317,7 +317,7 @@ class _ManageDuesScreenState extends State<ManageDuesScreen> {
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        'Collected: ₱${totalCollected.toStringAsFixed(2)}',
+                                        'Collected: ${totalCollected.toStringAsFixed(2)}',
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
@@ -344,7 +344,7 @@ class _ManageDuesScreenState extends State<ManageDuesScreen> {
         onPressed: () => _showDueForm(),
         icon: const Icon(Icons.add),
         label: const Text('Add Due'),
-        backgroundColor: TWColors.blue.shade600,
+        backgroundColor: TWColors.slate.shade900,
         foregroundColor: Colors.white,
       ),
     );

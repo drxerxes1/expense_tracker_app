@@ -23,7 +23,7 @@ class TransactionScreen extends StatefulWidget {
   final AppTransaction? transaction;
   final String? initialCollectionDueId;
   final bool startWithCollectionTab;
-  
+
   const TransactionScreen({
     super.key,
     this.transaction,
@@ -83,13 +83,13 @@ class _TransactionScreenState extends State<TransactionScreen>
       final txType = tx?.type;
       final txCatId = (tx?.categoryId ?? '').toLowerCase();
       final txCatName = (tx?.categoryName ?? '').toLowerCase();
-      
+
       final bool detectedCollection =
           _isCollectionOnly ||
           txType == 'collection' ||
           txCatId == 'collections' ||
           txCatName.contains('collect');
-      
+
       int tabLength;
       if (tx == null) {
         tabLength = 3; // All tabs for new transactions
@@ -103,7 +103,7 @@ class _TransactionScreenState extends State<TransactionScreen>
       } else {
         tabLength = 2; // Only expense and fund tabs
       }
-      
+
       _tabController = TabController(
         length: tabLength,
         vsync: this,
@@ -113,7 +113,7 @@ class _TransactionScreenState extends State<TransactionScreen>
 
       // Load data
       await _loadData();
-      
+
       // Trigger rebuild after initialization
       if (mounted) {
         setState(() {});
@@ -128,12 +128,14 @@ class _TransactionScreenState extends State<TransactionScreen>
     _amountController.text = tx.amount.toStringAsFixed(2);
     _noteController.text = tx.note;
     _selectedDate = tx.createdAt;
-    
+
     // Determine transaction type
     final catId = tx.categoryId.toLowerCase();
     final catName = tx.categoryName.toLowerCase();
-    
-    if (catId == 'collections' || catName.contains('collect') || tx.type == 'collection') {
+
+    if (catId == 'collections' ||
+        catName.contains('collect') ||
+        tx.type == 'collection') {
       _isCollectionOnly = true;
       _tabIndex = 2; // Collection tab is at index 2 in original array
     } else if (tx.type == 'fund') {
@@ -141,14 +143,14 @@ class _TransactionScreenState extends State<TransactionScreen>
     } else {
       _tabIndex = 0;
     }
-    
+
     _selectedCategoryId = tx.categoryId;
     _selectedFundId = tx.fundId;
-    
+
     if (widget.initialCollectionDueId != null) {
       _collectionSelectedDueId = widget.initialCollectionDueId;
     }
-    
+
     if (_isCollectionOnly) {
       await _findDueForTransaction(tx.id, tx.orgId);
     }
@@ -158,7 +160,7 @@ class _TransactionScreenState extends State<TransactionScreen>
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
       final orgId = auth.currentOrgId;
-      
+
       if (orgId == null || orgId.isEmpty) {
         debugPrint('No organization ID available');
         return;
@@ -173,21 +175,29 @@ class _TransactionScreenState extends State<TransactionScreen>
         orgId: orgId,
         type: CategoryType.expense,
       );
-      
+
       final fundCategories = await _categoryService.getCategoriesByType(
         orgId: orgId,
         type: CategoryType.fund,
       );
-      
+
       final fundAccounts = await _categoryService.getFundAccounts(orgId);
 
       if (mounted) {
         setState(() {
-          _expenseCategories = expenseCategories.where((c) => !_categoryService.isFundAccount(c.id)).toList();
-          _fundCategories = fundCategories.where((c) => !_categoryService.isFundAccount(c.id) && c.id.toLowerCase() != 'collections').toList();
+          _expenseCategories = expenseCategories
+              .where((c) => !_categoryService.isFundAccount(c.id))
+              .toList();
+          _fundCategories = fundCategories
+              .where(
+                (c) =>
+                    !_categoryService.isFundAccount(c.id) &&
+                    c.id.toLowerCase() != 'collections',
+              )
+              .toList();
           _fundAccounts = fundAccounts;
           _dataLoaded = true;
-          
+
           // Set default selections if not already set
           if (_selectedCategoryId == null) {
             if (_tabIndex == 0 && _expenseCategories.isNotEmpty) {
@@ -196,7 +206,7 @@ class _TransactionScreenState extends State<TransactionScreen>
               _selectedCategoryId = _fundCategories.first.id;
             }
           }
-          
+
           if (_selectedFundId == null && _fundAccounts.isNotEmpty) {
             _selectedFundId = _fundAccounts.first.id;
           }
@@ -215,13 +225,13 @@ class _TransactionScreenState extends State<TransactionScreen>
       final txType = tx?.type;
       final txCatId = (tx?.categoryId ?? '').toLowerCase();
       final txCatName = (tx?.categoryName ?? '').toLowerCase();
-      
+
       final bool detectedCollection =
           _isCollectionOnly ||
           txType == 'collection' ||
           txCatId == 'collections' ||
           txCatName.contains('collect');
-      
+
       List<int> visibleIndices;
       if (tx == null) {
         visibleIndices = [0, 1, 2];
@@ -230,7 +240,7 @@ class _TransactionScreenState extends State<TransactionScreen>
       } else {
         visibleIndices = [0, 1];
       }
-      
+
       // Map the TabController index to the actual tab index
       final actualIndex = visibleIndices[_tabController!.index];
       if (_tabIndex != actualIndex) {
@@ -246,8 +256,7 @@ class _TransactionScreenState extends State<TransactionScreen>
           .doc(orgId)
           .collection('dues')
           .get();
-      
-      
+
       for (final d in duesSnap.docs) {
         final paymentsColl = d.reference.collection('due_payments');
         final q = await paymentsColl
@@ -278,7 +287,7 @@ class _TransactionScreenState extends State<TransactionScreen>
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     // Check if this is an edit operation and ask for reason
     if (widget.transaction != null) {
       final editReason = await showEditReasonDialog(context);
@@ -286,7 +295,7 @@ class _TransactionScreenState extends State<TransactionScreen>
         // User cancelled, don't proceed with save
         return;
       }
-      
+
       // Proceed with save using the provided reason
       await _performSave(editReason);
     } else {
@@ -297,30 +306,32 @@ class _TransactionScreenState extends State<TransactionScreen>
 
   Future<void> _performSave(String editReason) async {
     setState(() => _isLoading = true);
-    
+
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
       final userId = auth.firebaseUser?.uid;
       final orgId = widget.transaction?.orgId ?? auth.currentOrgId;
-      
+
       if (orgId == null || orgId.isEmpty) {
         throw Exception('No organization selected');
       }
 
       final amount = double.tryParse(_amountController.text) ?? 0.0;
-      
+
       // Determine category/fund to use
       String? categoryIdToUse = _selectedCategoryId;
       String? fundId = _selectedFundId;
 
       // Check if this is a collection transaction (either by tab index or by transaction type)
-      final isCollectionTransaction = _tabIndex == 2 || 
-          (widget.transaction != null && (
-            widget.transaction!.categoryId.toLowerCase() == 'collections' ||
-            widget.transaction!.categoryName.toLowerCase().contains('collect') ||
-            widget.transaction!.type == 'collection'
-          ));
-      
+      final isCollectionTransaction =
+          _tabIndex == 2 ||
+          (widget.transaction != null &&
+              (widget.transaction!.categoryId.toLowerCase() == 'collections' ||
+                  widget.transaction!.categoryName.toLowerCase().contains(
+                    'collect',
+                  ) ||
+                  widget.transaction!.type == 'collection'));
+
       if (isCollectionTransaction) {
         categoryIdToUse = 'collections';
         fundId = 'club_funds';
@@ -334,7 +345,9 @@ class _TransactionScreenState extends State<TransactionScreen>
       }
 
       final type = _tabIndex == 0 ? 'expense' : 'fund';
-      final expectedType = _tabIndex == 0 ? CategoryType.expense : CategoryType.fund;
+      final expectedType = _tabIndex == 0
+          ? CategoryType.expense
+          : CategoryType.fund;
 
       if (widget.transaction == null) {
         // Create new transaction
@@ -360,35 +373,49 @@ class _TransactionScreenState extends State<TransactionScreen>
         if (mounted) Navigator.of(context).pop(true);
       } else {
         // Update existing transaction with edit reason
-        await TransactionService().updateTransaction(orgId, widget.transaction!.id, {
-          'amount': amount,
-          'categoryId': categoryIdToUse,
-          'note': _noteController.text.trim(),
-          'updatedBy': userId,
-          'type': type,
-          'fundId': fundId,
-          'createdAt': Timestamp.fromDate(_selectedDate),
-          'reason': editReason, // Include the edit reason
-        });
-        
+        await TransactionService().updateTransaction(
+          orgId,
+          widget.transaction!.id,
+          {
+            'amount': amount,
+            'categoryId': categoryIdToUse,
+            'note': _noteController.text.trim(),
+            'updatedBy': userId,
+            'type': type,
+            'fundId': fundId,
+            'createdAt': Timestamp.fromDate(_selectedDate),
+            'reason': editReason, // Include the edit reason
+          },
+        );
+
+        // Reconcile collection payments when editing a collection transaction
+        if (isCollectionTransaction && _collectionSelectedDueId != null) {
+          await _reconcileCollectionPayments(
+            orgId: orgId,
+            txId: widget.transaction!.id,
+            txDate: _selectedDate,
+          );
+        }
+
         if (mounted) Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
-        SnackBarHelper.showError(
-          context,
-          message: 'Error saving: $e',
-        );
+        SnackBarHelper.showError(context, message: 'Error saving: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _createCollectionPayments(String orgId, String txId, double totalAmount) async {
+  Future<void> _createCollectionPayments(
+    String orgId,
+    String txId,
+    double totalAmount,
+  ) async {
     final duesService = DuesService();
     final now = DateTime.now();
-    
+
     // Get the due amount for individual payments
     double individualAmount = 0.0;
     if (_collectionSelectedDueId != null) {
@@ -409,7 +436,7 @@ class _TransactionScreenState extends State<TransactionScreen>
         individualAmount = totalAmount / _collectionSelectedUserIds.length;
       }
     }
-    
+
     for (final memberId in _collectionSelectedUserIds) {
       try {
         final payment = DuePaymentModel(
@@ -423,7 +450,7 @@ class _TransactionScreenState extends State<TransactionScreen>
           updatedAt: now,
         );
         await duesService.createDuePaymentWithTransaction(
-          orgId: orgId, 
+          orgId: orgId,
           payment: payment,
           transactionId: txId,
         );
@@ -452,6 +479,116 @@ class _TransactionScreenState extends State<TransactionScreen>
     }
   }
 
+  Future<void> _reconcileCollectionPayments({
+    required String orgId,
+    required String txId,
+    required DateTime txDate,
+  }) async {
+    if (_collectionSelectedDueId == null) return;
+    final dueId = _collectionSelectedDueId!;
+    final duesService = DuesService();
+
+    // Fetch existing payments for this transaction or same-day fallback
+    final paymentsColl = FirebaseFirestore.instance
+        .collection('organizations')
+        .doc(orgId)
+        .collection('dues')
+        .doc(dueId)
+        .collection('due_payments');
+
+    final existingByUser = <String, DocumentSnapshot>{};
+    final snap = await paymentsColl.get();
+    for (final d in snap.docs) {
+      final data = d.data() as Map<String, dynamic>?
+          ?? const <String, dynamic>{};
+      final uid = (data['userId'] ?? '').toString();
+      final tid = (data['transactionId'] ?? '').toString();
+      final tsPaid = (data['paidAt'] as Timestamp?)?.toDate() ??
+          (data['createdAt'] as Timestamp?)?.toDate();
+      final sameDay = tsPaid != null &&
+          tsPaid.year == txDate.year &&
+          tsPaid.month == txDate.month &&
+          tsPaid.day == txDate.day;
+      if (tid == txId || sameDay) {
+        existingByUser[uid] = d;
+      }
+    }
+
+    // Compute due amount per member
+    double individualAmount = 0.0;
+    try {
+      final dueDoc = await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(orgId)
+          .collection('dues')
+          .doc(dueId)
+          .get();
+      if (dueDoc.exists) {
+        final due = DueModel.fromFirestore(dueDoc);
+        individualAmount = due.amount;
+      }
+    } catch (_) {}
+
+    // Desired selected set from UI
+    final desired = Set<String>.from(_collectionSelectedUserIds);
+
+    // Create or update payments for selected users
+    for (final uid in desired) {
+      final existingDoc = existingByUser[uid];
+      if (existingDoc == null) {
+        // Create new payment linked to this transaction
+        final now = DateTime.now();
+        try {
+          final payment = DuePaymentModel(
+            id: uid,
+            dueId: dueId,
+            userId: uid,
+            transactionId: txId,
+            amount: individualAmount,
+            paidAt: now,
+            createdAt: now,
+            updatedAt: now,
+          );
+          await duesService.createDuePaymentWithTransaction(
+            orgId: orgId,
+            payment: payment,
+            transactionId: txId,
+          );
+        } catch (_) {
+          // Fallback: auto-id
+          await paymentsColl.add({
+            'dueId': dueId,
+            'userId': uid,
+            'transactionId': txId,
+            'amount': individualAmount,
+            'paidAt': Timestamp.fromDate(DateTime.now()),
+            'createdAt': Timestamp.fromDate(DateTime.now()),
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+        }
+      } else {
+        // Ensure it has this txId
+        if ((existingDoc.data() as Map<String, dynamic>)['transactionId'] !=
+            txId) {
+          await existingDoc.reference.update({
+            'transactionId': txId,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    }
+
+    // Delete payments for users that are no longer selected
+    for (final entry in existingByUser.entries) {
+      final uid = entry.key;
+      if (!desired.contains(uid)) {
+        try {
+          await entry.value.reference.delete();
+        } catch (_) {}
+      }
+    }
+  }
+
   Future<void> _delete() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -472,11 +609,11 @@ class _TransactionScreenState extends State<TransactionScreen>
         ],
       ),
     );
-    
+
     if (ok != true) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
       await TransactionService().deleteTransaction(
@@ -484,14 +621,11 @@ class _TransactionScreenState extends State<TransactionScreen>
         widget.transaction!.id,
         by: auth.firebaseUser?.uid,
       );
-      
+
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        SnackBarHelper.showError(
-          context,
-          message: 'Error deleting: $e',
-        );
+        SnackBarHelper.showError(context, message: 'Error deleting: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -535,12 +669,10 @@ class _TransactionScreenState extends State<TransactionScreen>
     // Build tabs dynamically based on visible indices
     final List<Widget> tabs = [];
     const List<String> tabLabels = ['Expense', 'Fund', 'Collection'];
-    
+
     for (int i = 0; i < visibleIndices.length; i++) {
       final tabIndex = visibleIndices[i];
-      tabs.add(Tab(
-        child: Text(tabLabels[tabIndex]),
-      ));
+      tabs.add(Tab(child: Text(tabLabels[tabIndex])));
     }
 
     return Container(
@@ -574,7 +706,7 @@ class _TransactionScreenState extends State<TransactionScreen>
     }
 
     final categories = _tabIndex == 0 ? _expenseCategories : _fundCategories;
-    
+
     if (categories.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(16.0),
@@ -639,9 +771,7 @@ class _TransactionScreenState extends State<TransactionScreen>
           centerTitle: false,
           backgroundColor: TWColors.slate.shade200,
         ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -649,14 +779,16 @@ class _TransactionScreenState extends State<TransactionScreen>
     final auth = Provider.of<AuthService>(context, listen: false);
     final orgId = widget.transaction?.orgId ?? auth.currentOrgId;
     final isEdit = widget.transaction != null;
-    
+
     // Check if this is a collection transaction
-    final isCollectionTransaction = _tabIndex == 2 || 
-        (widget.transaction != null && (
-          widget.transaction!.categoryId.toLowerCase() == 'collections' ||
-          widget.transaction!.categoryName.toLowerCase().contains('collect') ||
-          widget.transaction!.type == 'collection'
-        ));
+    final isCollectionTransaction =
+        _tabIndex == 2 ||
+        (widget.transaction != null &&
+            (widget.transaction!.categoryId.toLowerCase() == 'collections' ||
+                widget.transaction!.categoryName.toLowerCase().contains(
+                  'collect',
+                ) ||
+                widget.transaction!.type == 'collection'));
 
     return Scaffold(
       appBar: AppBar(
@@ -699,7 +831,7 @@ class _TransactionScreenState extends State<TransactionScreen>
                           },
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Collection Tab
                         if (isCollectionTransaction)
                           orgId != null && orgId.isNotEmpty
@@ -708,8 +840,10 @@ class _TransactionScreenState extends State<TransactionScreen>
                                   createPaymentsImmediately: false,
                                   initialDueId: _collectionSelectedDueId,
                                   currentTransactionId: widget.transaction?.id,
+                                  currentTransactionDate: widget.transaction?.createdAt,
                                   onAmountChanged: (val) =>
-                                      _amountController.text = val.toStringAsFixed(2),
+                                      _amountController.text = val
+                                          .toStringAsFixed(2),
                                   onSelectionChanged: (set) =>
                                       _collectionSelectedUserIds = set,
                                   onSelectedDueChanged: (dueId) =>
@@ -717,9 +851,11 @@ class _TransactionScreenState extends State<TransactionScreen>
                                 )
                               : const Padding(
                                   padding: EdgeInsets.all(16.0),
-                                  child: Text('No organization selected for collection'),
+                                  child: Text(
+                                    'No organization selected for collection',
+                                  ),
                                 ),
-                        
+
                         // Expense/Fund Tabs
                         if (!isCollectionTransaction) ...[
                           if (orgId == null || orgId.isEmpty)
@@ -734,7 +870,7 @@ class _TransactionScreenState extends State<TransactionScreen>
                             const SizedBox(height: 12),
                           ],
                         ],
-                        
+
                         // Date picker
                         Row(
                           children: [
@@ -760,7 +896,7 @@ class _TransactionScreenState extends State<TransactionScreen>
                           ],
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Note field
                         TextFormField(
                           controller: _noteController,
@@ -770,26 +906,25 @@ class _TransactionScreenState extends State<TransactionScreen>
                           ),
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Action buttons
                         if (!isEdit)
                           FilledButton(
                             onPressed: _isLoading ? null : _save,
                             style: ButtonStyle(
-                              padding: MaterialStateProperty.all(
-                                const EdgeInsets.symmetric(vertical: 14),
+                              foregroundColor: MaterialStateProperty.all(
+                                Colors.white,
+                              ),
+                              backgroundColor: MaterialStateProperty.all(
+                                TWColors.slate.shade900,
+                              ),
+                              shape: MaterialStateProperty.all(
+                                RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),  
+                                ),
                               ),
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 18,
-                                    width: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Add Transaction'),
+                            child: const Text('Add Transaction', style: TextStyle(color: Colors.white),),
                           )
                         else
                           Row(
@@ -798,8 +933,16 @@ class _TransactionScreenState extends State<TransactionScreen>
                                 child: FilledButton(
                                   onPressed: _isLoading ? null : _save,
                                   style: ButtonStyle(
-                                    padding: MaterialStateProperty.all(
-                                      const EdgeInsets.symmetric(vertical: 14),
+                                    foregroundColor: MaterialStateProperty.all(
+                                      TWColors.slate.shade900,
+                                    ),
+                                    backgroundColor: MaterialStateProperty.all(
+                                      TWColors.slate.shade900, 
+                                    ),
+                                    shape: MaterialStateProperty.all(
+                                      RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
                                     ),
                                   ),
                                   child: _isLoading
@@ -811,7 +954,10 @@ class _TransactionScreenState extends State<TransactionScreen>
                                             color: Colors.white,
                                           ),
                                         )
-                                      : const Text('Save Changes'),
+                                      : const Text(
+                                          'Save Changes',
+                                          style: TextStyle(color: Colors.white),
+                                        ),
                                 ),
                               ),
                               const SizedBox(width: 12),

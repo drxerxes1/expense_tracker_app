@@ -354,19 +354,27 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: TWColors.green.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: TWColors.green.shade200),
-                  ),
-                  child: Text(
-                    '${approvedMembers.length} Active',
-                    style: GoogleFonts.poppins(
-                      color: TWColors.green.shade700,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: TWColors.green.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: TWColors.green.shade200),
+                      ),
+                      child: Text(
+                        '${approvedMembers.length} Active',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: TWColors.green.shade700,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -429,19 +437,27 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: TWColors.orange.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: TWColors.orange.shade200),
-                  ),
-                  child: Text(
-                    '${pendingMembers.length} Pending',
-                    style: GoogleFonts.poppins(
-                      color: TWColors.orange.shade700,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: TWColors.orange.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: TWColors.orange.shade200),
+                      ),
+                      child: Text(
+                        '${pendingMembers.length} Pending',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: TWColors.orange.shade700,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -547,31 +563,45 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: TWColors.orange.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: TWColors.orange.shade200,
-                  ),
-                ),
-                child: Text(
-                  'PENDING',
-                  style: GoogleFonts.poppins(
-                    color: TWColors.orange.shade700,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: TWColors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: TWColors.orange.shade200,
+                      ),
+                    ),
+                    child: Text(
+                      'PENDING',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: TWColors.orange.shade700,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                officer.role.toString().split('.').last.toUpperCase(),
-                style: GoogleFonts.poppins(
-                  color: TWColors.slate.shade600,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
+                child: Text(
+                  officer.role.toString().split('.').last.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: TWColors.slate.shade600,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -630,31 +660,45 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(officer.status).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _getStatusColor(officer.status).withOpacity(0.3),
-                  ),
-                ),
-                child: Text(
-                  officer.status.toString().split('.').last.toUpperCase(),
-                  style: GoogleFonts.poppins(
-                    color: _getStatusColor(officer.status),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(officer.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _getStatusColor(officer.status).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      officer.status.toString().split('.').last.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: _getStatusColor(officer.status),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                officer.role.toString().split('.').last.toUpperCase(),
-                style: GoogleFonts.poppins(
-                  color: TWColors.slate.shade600,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
+                child: Text(
+                  officer.role.toString().split('.').last.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: TWColors.slate.shade600,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -665,13 +709,16 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Responsive label width for better spacing on small screens
+    final double labelWidth = screenWidth * 0.32;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: labelWidth.clamp(100, 160),
             child: Text(
               '$label:',
               style: GoogleFonts.poppins(
@@ -681,9 +728,13 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
+              softWrap: true,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
                 color: TWColors.slate.shade800,
                 fontSize: 14,
