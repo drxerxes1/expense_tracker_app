@@ -7,9 +7,11 @@ import 'package:org_wallet/models/user_login.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
+import 'package:org_wallet/services/onboarding_service.dart';
 import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/screens/main_dashboard.dart';
 import 'package:org_wallet/screens/auth/pending_membership_screen.dart';
+import 'package:org_wallet/screens/onboarding/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -47,6 +49,18 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
     
+    // Check if this is the first time opening the app
+    final isFirstTime = await OnboardingService.isFirstTimeUser();
+    
+    if (isFirstTime) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      );
+      return;
+    }
+    
+    // Otherwise, proceed with normal auth check
     final authService = Provider.of<AuthService>(context, listen: false);
     final loginBox = Hive.box<UserLogin>('userLogin');
     final savedLogin = loginBox.get('current');
