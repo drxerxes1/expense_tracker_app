@@ -9,6 +9,7 @@ import 'package:org_wallet/screens/splash_screen.dart';
 
 import 'package:org_wallet/theme/app_theme.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,12 +36,14 @@ class OrgWalletApp extends StatelessWidget {
           final mediaQueryData = MediaQuery.of(context);
           return MediaQuery(
             data: mediaQueryData.copyWith(textScaleFactor: 0.8),
-            child: MaterialApp(
-              title: 'Org Wallet',
-              theme: AppTheme.lightTheme,
-              themeMode: ThemeMode.light,
-              debugShowCheckedModeBanner: false,
-              home: const SplashScreen(),
+            child: ShowCaseWidget(
+              builder: (context) => MaterialApp(
+                title: 'Org Wallet',
+                theme: AppTheme.lightTheme,
+                themeMode: ThemeMode.light,
+                debugShowCheckedModeBanner: false,
+                home: const SplashScreen(),
+              ),
             ),
           );
         },

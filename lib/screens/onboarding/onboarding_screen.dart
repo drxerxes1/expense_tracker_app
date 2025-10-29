@@ -37,7 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     OnboardingPage(
       icon: Icons.assessment,
       title: 'Export Reports',
-      description: 'Generate comprehensive reports and export them as PDFs. Analyze your organization\'s financial health at a glance.',
+      description: 'Generate comprehensive reports and export them as CSVs. Analyze your organization\'s financial health at a glance.',
       color: AppTheme.primaryColor,
     ),
   ];
@@ -104,50 +104,82 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Skip button
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Align(
-                alignment: Alignment.topRight,
-                child: TextButton(
-                  onPressed: _skipOnboarding,
-                  child: Text(
-                    'Skip',
-                    style: TextStyle(
-                      color: TWColors.slate.shade600,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final availableHeight = constraints.maxHeight - keyboardHeight;
+            
+            return SingleChildScrollView(
+              physics: keyboardHeight > 0 
+                  ? const AlwaysScrollableScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: availableHeight,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Skip button
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: TextButton(
+                          onPressed: _skipOnboarding,
+                          child: Text(
+                            'Skip',
+                            style: TextStyle(
+                              color: TWColors.slate.shade600,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    // Page view with flexible height
+                    SizedBox(
+                      height: keyboardHeight > 0 
+                          ? (availableHeight * 0.5).clamp(200.0, double.infinity)
+                          : availableHeight * 0.6,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        onPageChanged: _onPageChanged,
+                        itemCount: _pages.length,
+                        itemBuilder: (context, index) {
+                          return _OnboardingPageWidget(page: _pages[index]);
+                        },
+                      ),
+                    ),
+                    // Page indicators
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: _buildPageIndicators(),
+                    ),
+                    // Bottom buttons
+                    Padding(
+                      padding: EdgeInsets.only(
+                        left: 24.0,
+                        right: 24.0,
+                        bottom: keyboardHeight > 0 
+                            ? keyboardHeight + 24.0 
+                            : 24.0,
+                      ),
+                      child: _currentPage == _pages.length - 1
+                          ? _buildGetStartedButton()
+                          : _buildNextButton(),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            // Page view
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                itemCount: _pages.length,
-                itemBuilder: (context, index) {
-                  return _OnboardingPageWidget(page: _pages[index]);
-                },
-              ),
-            ),
-            // Page indicators
-            _buildPageIndicators(),
-            // Bottom buttons
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: _currentPage == _pages.length - 1
-                  ? _buildGetStartedButton()
-                  : _buildNextButton(),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

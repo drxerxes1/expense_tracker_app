@@ -50,6 +50,7 @@ dependencies:
   lucide_icons_flutter:
   flutter_tailwind_colors:
   google_fonts: ^6.1.0
+  showcaseview: ^3.0.0
 
   # Charts & Visualization
   fl_chart: ^0.65.0

@@ -801,7 +801,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
                           Clipboard.setData(ClipboardData(text: value));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('${label} copied to clipboard'),
+                              content: Text('$label copied to clipboard'),
                               duration: const Duration(seconds: 2),
                               backgroundColor: TWColors.green.shade600,
                             ),
