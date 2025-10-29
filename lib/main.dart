@@ -30,12 +30,20 @@ class OrgWalletApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ConnectivityService()..initialize()),
         ChangeNotifierProvider(create: (_) => MembershipValidationService()),
       ],
-      child: MaterialApp(
-        title: 'Org Wallet',
-        theme: AppTheme.lightTheme,
-        themeMode: ThemeMode.light,
-        debugShowCheckedModeBanner: false,
-        home: const SplashScreen(),
+      child: Builder(
+        builder: (context) {
+          final mediaQueryData = MediaQuery.of(context);
+          return MediaQuery(
+            data: mediaQueryData.copyWith(textScaleFactor: 0.8),
+            child: MaterialApp(
+              title: 'Org Wallet',
+              theme: AppTheme.lightTheme,
+              themeMode: ThemeMode.light,
+              debugShowCheckedModeBanner: false,
+              home: const SplashScreen(),
+            ),
+          );
+        },
       ),
     );
   }

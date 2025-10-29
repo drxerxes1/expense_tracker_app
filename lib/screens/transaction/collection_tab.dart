@@ -764,16 +764,32 @@ class _CollectionTabState extends State<CollectionTab> {
                 return const Center(child: CircularProgressIndicator());
               }
               final docs = snap.data?.docs ?? [];
-              // normalize/filter approved
+              // normalize/filter approved (excluding moderators)
               final approved = docs.where((doc) {
                 final m = doc.data() as Map<String, dynamic>;
                 final status = m['status'];
+                final role = m['role'];
+                
+                // Check approval status
+                bool isApproved = false;
                 if (status == null) return false;
-                if (status is String) return status == 'approved';
-                if (status is int) {
-                  return status == OfficerStatus.approved.index;
+                if (status is String) {
+                  isApproved = status == 'approved';
+                } else if (status is int) {
+                  isApproved = status == OfficerStatus.approved.index;
+                } else {
+                  return false;
                 }
-                return false;
+                
+                if (!isApproved) return false;
+                
+                // Exclude moderators
+                final roleString = role is String ? role.toLowerCase() : (role is int 
+                    ? OfficerRole.values[role].toString().split('.').last 
+                    : '');
+                final isModerator = roleString == 'moderator';
+                
+                return !isModerator;
               }).toList();
               if (approved.isEmpty) {
                 return const Center(child: Text('No members'));

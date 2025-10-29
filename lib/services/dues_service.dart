@@ -2,6 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/models/due.dart';
 import 'package:org_wallet/models/due_payment.dart';
+import 'package:org_wallet/models/officer.dart';
 
 class DuesService {
   final FirebaseFirestore _db;
@@ -166,14 +167,35 @@ class DuesService {
     return DueModel.fromFirestore(snap);
   }
 
-  // Create payment placeholders for all organization members
+  // Create payment placeholders for all organization members (excluding moderators)
   Future<void> createPaymentPlaceholders(String orgId, String dueId, double amount) async {
-    // Get organization members
-    final membersSnap = await _db.collection('organizations').doc(orgId).collection('members').get();
+    // Get organization members from officers collection
+    final officersSnap = await _db
+        .collection('officers')
+        .where('orgId', isEqualTo: orgId)
+        .get();
     final batch = _db.batch();
     
-    for (final memberDoc in membersSnap.docs) {
-      final uid = memberDoc.id;
+    for (final officerDoc in officersSnap.docs) {
+      final officerData = officerDoc.data();
+      final status = officerData['status'];
+      final role = officerData['role'];
+      
+      // Check if member is approved
+      final isApproved = (status is String && status == 'approved') ||
+          (status is int && status == OfficerStatus.approved.index);
+      
+      // Exclude moderators
+      final roleString = role is String ? role.toLowerCase() : (role is int 
+          ? OfficerRole.values[role].toString().split('.').last 
+          : '');
+      final isModerator = roleString == 'moderator';
+      
+      if (!isApproved || isModerator) continue;
+      
+      final uid = officerData['userId']?.toString() ?? '';
+      if (uid.isEmpty) continue;
+      
       final paymentRef = _duePayments(orgId, dueId).doc(uid);
       
       // Check if payment already exists
@@ -195,13 +217,13 @@ class DuesService {
     await batch.commit();
   }
 
-  // Get payment summary for a due (calculated client-side)
+  // Get payment summary for a due (calculated client-side, excluding moderators)
   Future<Map<String, dynamic>> getDueSummary(String orgId, String dueId) async {
     // Fetch the due to determine current period window
     final dueSnap = await _dueDoc(orgId, dueId).get();
     final due = DueModel.fromFirestore(dueSnap);
 
-    // Count approved members for the organization
+    // Count approved members for the organization (excluding moderators)
     final officersSnap = await _db
         .collection('officers')
         .where('orgId', isEqualTo: orgId)
@@ -211,9 +233,18 @@ class DuesService {
     for (final o in officersSnap.docs) {
       final m = o.data();
       final status = m['status'];
+      final role = m['role'];
+      
       final isApproved = (status is String && status == 'approved') ||
           (status is int && status == 1); // OfficerStatus.approved.index == 1
-      if (isApproved) {
+      
+      // Exclude moderators
+      final roleString = role is String ? role.toLowerCase() : (role is int 
+          ? OfficerRole.values[role].toString().split('.').last 
+          : '');
+      final isModerator = roleString == 'moderator';
+      
+      if (isApproved && !isModerator) {
         totalMembers += 1;
         final uid = (m['userId'] ?? '').toString();
         if (uid.isNotEmpty) approvedUserIds.add(uid);
