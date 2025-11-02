@@ -89,8 +89,24 @@ class TransactionService {
     DateTimeRange? range,
     CategoryType? type,
   }) {
-    Query query = _org(orgId).orderBy('createdAt', descending: true);
+    // Build query properly: when using orderBy with where on same field,
+    // the where clauses should come first.
+    Query query = _org(orgId);
+    
     if (range != null) {
+      // For "This Month" ranges (where start is the 1st of current month),
+      // always use current time as end date to include new transactions.
+      // For custom ranges with past end dates, use the specified end date.
+      final now = DateTime.now();
+      final isThisMonthRange = range.start.year == now.year &&
+          range.start.month == now.month &&
+          range.start.day == 1;
+      
+      final endDate = (isThisMonthRange && range.end.isBefore(now)) 
+          ? now 
+          : range.end;
+      
+      // Apply date range filters first, then orderBy
       query = query
           .where(
             'createdAt',
@@ -98,62 +114,42 @@ class TransactionService {
           )
           .where(
             'createdAt',
-            isLessThanOrEqualTo: Timestamp.fromDate(range.end),
-          );
+            isLessThanOrEqualTo: Timestamp.fromDate(endDate),
+          )
+          .orderBy('createdAt', descending: true);
+    } else {
+      // If no range, just order by createdAt
+      query = query.orderBy('createdAt', descending: true);
     }
+    
     final categoriesRef = _categories(orgId);
-    // Important: do an initial server-only fetch to avoid showing stale/cache-first
-    // data (for example when local auditTrail/transactions were deleted in the
-    // backend). Emit the server snapshot first, then continue with realtime
-    // snapshots so the UI quickly reflects the authoritative server state.
-    final controller = StreamController<List<AppTransaction>>();
-
-    () async {
-      try {
-        final serverSnap = await query.get(const GetOptions(source: Source.server));
-        final serverTxs = <AppTransaction>[];
-        for (final d in serverSnap.docs) {
+    
+    // Use snapshots() with includeMetadataChanges: false to get real-time updates
+    // for actual document changes. This ensures new transactions appear immediately.
+    return query.snapshots(includeMetadataChanges: false).asyncMap((snap) async {
+      debugPrint('TransactionService.watchTransactions: Received snapshot with ${snap.docs.length} docs (from ${snap.metadata.isFromCache ? "cache" : "server"})');
+      
+      // Process all snapshots regardless of source to get real-time updates
+      final txs = <AppTransaction>[];
+      for (final d in snap.docs) {
+        try {
           final tx = await AppTransaction.fromFirestoreAsync(d, categoriesRef);
+          
           if (type != null) {
             final catSnap = await categoriesRef.doc(tx.categoryId).get();
             if (!catSnap.exists) continue;
             final category = CategoryModel.fromFirestore(catSnap);
             if (category.type != type) continue;
           }
-          serverTxs.add(tx);
+          txs.add(tx);
+        } catch (e) {
+          debugPrint('TransactionService.watchTransactions: Error parsing transaction ${d.id}: $e');
+          // Continue processing other transactions even if one fails
         }
-        controller.add(serverTxs);
-      } catch (e) {
-        // If server fetch fails (offline), ignore — realtime snapshots will still
-        // provide cached data.
-        debugPrint('TransactionService.watchTransactions server fetch error: $e');
       }
-    }();
-
-    final sub = query.snapshots().asyncMap((snap) async {
-      final txs = <AppTransaction>[];
-      for (final d in snap.docs) {
-        final tx = await AppTransaction.fromFirestoreAsync(d, categoriesRef);
-        if (type != null) {
-          final catSnap = await categoriesRef.doc(tx.categoryId).get();
-          if (!catSnap.exists) continue;
-          final category = CategoryModel.fromFirestore(catSnap);
-          if (category.type != type) continue;
-        }
-        txs.add(tx);
-      }
+      debugPrint('TransactionService.watchTransactions: Parsed ${txs.length} transactions');
       return txs;
-    }).listen((txs) {
-      controller.add(txs);
-    }, onError: (e, s) {
-      controller.addError(e, s);
     });
-
-    controller.onCancel = () {
-      sub.cancel();
-    };
-
-    return controller.stream;
   }
 
 

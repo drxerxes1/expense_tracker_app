@@ -86,19 +86,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         throw Exception('No user data available');
       }
 
+      final newName = _nameController.text.trim();
+
       // Update user document
       await firestore
           .collection('users')
           .doc(authService.user!.id)
           .update({
-        'name': _nameController.text.trim(),
+        'name': newName,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
       });
+
+      // Update all officer records for this user to keep name in sync
+      final officersSnapshot = await firestore
+          .collection('officers')
+          .where('userId', isEqualTo: authService.user!.id)
+          .get();
+
+      // Use batch write to update all officer records atomically
+      if (officersSnapshot.docs.isNotEmpty) {
+        final batch = firestore.batch();
+        for (final doc in officersSnapshot.docs) {
+          batch.update(doc.reference, {
+            'name': newName,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+        }
+        await batch.commit();
+      }
 
       // Update local user data
       if (_currentUser != null) {
         _currentUser = _currentUser!.copyWith(
-          name: _nameController.text.trim(),
+          name: newName,
           updatedAt: DateTime.now(),
         );
       }

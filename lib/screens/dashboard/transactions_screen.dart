@@ -166,15 +166,40 @@ class TransactionsScreen extends StatefulWidget {
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
   final Set<String> _tombstonedIds = {};
+  Stream<List<model.AppTransaction>>? _cachedStream;
+  String? _lastOrgId;
+  DateTimeRange? _lastDateRange;
+
+  bool _dateRangesEqual(DateTimeRange? a, DateTimeRange? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.start == b.start && a.end == b.end;
+  }
 
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
+    
+    // Cache the stream to avoid recreating it on every build
+    // Recreate the stream if orgId or dateRange changes
+    final shouldRecreateStream = _cachedStream == null || 
+        _lastOrgId != authService.currentOrgId || 
+        !_dateRangesEqual(_lastDateRange, widget.dateRange);
+    
+    if (shouldRecreateStream) {
+      // Cancel previous stream if it exists
+      // Stream will be automatically cleaned up by StreamBuilder
+      _lastOrgId = authService.currentOrgId;
+      _lastDateRange = widget.dateRange;
+      _cachedStream = _getTransactionsStream(authService.currentOrgId);
+      debugPrint('TransactionsScreen: Recreated stream for orgId: ${authService.currentOrgId}, dateRange: ${widget.dateRange}');
+    }
+    
     return Column(
       children: [
         Expanded(
           child: StreamBuilder<List<model.AppTransaction>>(
-            stream: _getTransactionsStream(authService.currentOrgId),
+            stream: _cachedStream,
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
@@ -478,10 +503,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       onRefresh: () async {
         // Force a complete refresh by recreating the stream
         setState(() {
-          // This will trigger a rebuild and recreate the stream
+          // Clear the cached stream to force recreation
+          _cachedStream = null;
+          _lastOrgId = null;
+          _lastDateRange = null;
         });
         // Add a small delay to show the refresh indicator
-        await Future.delayed(const Duration(milliseconds: 1000));
+        await Future.delayed(const Duration(milliseconds: 300));
       },
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Added bottom padding for FAB
@@ -624,6 +652,12 @@ class TransactionListItem extends StatelessWidget {
     }
     return GestureDetector(
       onTap: () async {
+              // Only allow edit via tap if user has permission
+              // Otherwise members can only long-press to access options
+              if (!authService.canPerformAction('edit_transaction')) {
+                return; // Members can't tap to edit
+              }
+              
               String? dueIdForTx;
               try {
                 final duesSnap = await FirebaseFirestore.instance

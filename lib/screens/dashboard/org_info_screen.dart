@@ -67,48 +67,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
         return;
       }
 
-      // Load officers
-      final officersSnapshot = await FirebaseFirestore.instance
-          .collection('officers')
-          .where('orgId', isEqualTo: authService.currentOrgId)
-          .get();
-
-      if (!mounted) return;
-      
-      // Debug logging
-      debugPrint('Found ${officersSnapshot.docs.length} officer documents');
-      for (final doc in officersSnapshot.docs) {
-        debugPrint('Officer data: ${doc.data()}');
-      }
-      
-      final officers = officersSnapshot.docs
-          .map((doc) {
-            final data = doc.data();
-            // Fix the status parsing issue - handle both string and int formats
-            if (data['status'] is int) {
-              data['status'] = OfficerStatus.values[data['status']].toString().split('.').last;
-            }
-            // Fix the role parsing issue - handle both string and int formats  
-            if (data['role'] is int) {
-              data['role'] = OfficerRole.values[data['role']].toString().split('.').last;
-            }
-            // Fix date parsing issues
-            if (data['joinedAt'] is String) {
-              data['joinedAt'] = Timestamp.fromDate(DateTime.parse(data['joinedAt']));
-            }
-            if (data['createdAt'] is String) {
-              data['createdAt'] = Timestamp.fromDate(DateTime.parse(data['createdAt']));
-            }
-            if (data['updatedAt'] is String) {
-              data['updatedAt'] = Timestamp.fromDate(DateTime.parse(data['updatedAt']));
-            }
-            return Officer.fromMap({'id': doc.id, ...data});
-          })
-          .toList();
-
-      if (!mounted) return;
       setState(() {
-        _officers = officers;
         _isLoading = false;
       });
     } catch (e) {
@@ -119,9 +78,44 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
       });
     }
   }
+  
+  List<Officer> _parseOfficers(QuerySnapshot snapshot) {
+    final officers = snapshot.docs
+        .map((doc) {
+          final data = doc.data() as Map<String, dynamic>?;
+          if (data == null) return null;
+          
+          final dataMap = Map<String, dynamic>.from(data);
+          // Fix the status parsing issue - handle both string and int formats
+          if (dataMap['status'] is int) {
+            dataMap['status'] = OfficerStatus.values[dataMap['status'] as int].toString().split('.').last;
+          }
+          // Fix the role parsing issue - handle both string and int formats  
+          if (dataMap['role'] is int) {
+            dataMap['role'] = OfficerRole.values[dataMap['role'] as int].toString().split('.').last;
+          }
+          // Fix date parsing issues
+          if (dataMap['joinedAt'] is String) {
+            dataMap['joinedAt'] = Timestamp.fromDate(DateTime.parse(dataMap['joinedAt'] as String));
+          }
+          if (dataMap['createdAt'] is String) {
+            dataMap['createdAt'] = Timestamp.fromDate(DateTime.parse(dataMap['createdAt'] as String));
+          }
+          if (dataMap['updatedAt'] is String) {
+            dataMap['updatedAt'] = Timestamp.fromDate(DateTime.parse(dataMap['updatedAt'] as String));
+          }
+          return Officer.fromMap({'id': doc.id, ...dataMap});
+        })
+        .whereType<Officer>()
+        .toList();
+    
+    return officers;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    
     return Scaffold(
       backgroundColor: TWColors.slate.shade50,
       body: SafeArea(
@@ -129,33 +123,59 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
             ? const Center(child: CircularProgressIndicator())
             : _errorMessage != null
                 ? _buildErrorState()
-                : RefreshIndicator(
-                    onRefresh: _loadOrganizationData,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Organization Header
-                          _buildOrganizationHeader(),
-                          const SizedBox(height: 20),
+                : authService.currentOrgId == null
+                    ? Center(
+                        child: Text(
+                          'No organization selected',
+                          style: GoogleFonts.poppins(fontSize: 16),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadOrganizationData,
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('officers')
+                              .where('orgId', isEqualTo: authService.currentOrgId)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              return Center(
+                                child: Text(
+                                  'Error loading members: ${snapshot.error}',
+                                  style: GoogleFonts.poppins(fontSize: 16),
+                                ),
+                              );
+                            }
+                            
+                            _officers = snapshot.hasData ? _parseOfficers(snapshot.data!) : [];
+                            
+                            return SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Organization Header
+                                  _buildOrganizationHeader(),
+                                  const SizedBox(height: 20),
 
-                          // Organization Details
-                          _buildOrganizationDetails(),
-                          const SizedBox(height: 20),
+                                  // Organization Details
+                                  _buildOrganizationDetails(),
+                                  const SizedBox(height: 20),
 
-                          // Members Section
-                          _buildMembersSection(),
-                          const SizedBox(height: 20),
-                          
-                          // Pending Members Section (if any)
-                          _buildPendingMembersSection(),
-                          const SizedBox(height: 100), // Bottom padding for FAB
-                        ],
+                                  // Members Section
+                                  _buildMembersSection(),
+                                  const SizedBox(height: 20),
+                                  
+                                  // Pending Members Section (if any)
+                                  _buildPendingMembersSection(),
+                                  const SizedBox(height: 100), // Bottom padding for FAB
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ),
       ),
     );
   }
@@ -739,17 +759,17 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
                       Icons.calendar_today_outlined,
                     ),
                     const SizedBox(height: 16),
-                    _buildDetailItem(
-                      'Created',
-                      _formatDate(officer.createdAt),
-                      Icons.access_time_outlined,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDetailItem(
-                      'Last Updated',
-                      _formatDate(officer.updatedAt),
-                      Icons.update_outlined,
-                    ),
+                    // _buildDetailItem(
+                    //   'Created',
+                    //   _formatDate(officer.createdAt),
+                    //   Icons.access_time_outlined,
+                    // ),
+                    // const SizedBox(height: 16),
+                    // _buildDetailItem(
+                    //   'Last Updated',
+                    //   _formatDate(officer.updatedAt),
+                    //   Icons.update_outlined,
+                    // ),
                   ],
                 ),
               ),
