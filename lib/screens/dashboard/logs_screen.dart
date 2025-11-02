@@ -33,7 +33,26 @@ class _LogsScreenState extends State<LogsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAuditLogs();
+    // Check access permission on initialization
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAccess();
+    });
+  }
+
+  void _checkAccess() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    // Redirect members who shouldn't have access to logs
+    if (authService.isMember()) {
+      // Navigate back to transactions screen
+      Navigator.of(context).pop();
+      SnackBarHelper.showError(
+        context,
+        message: 'Access denied: Members cannot view logs',
+      );
+    } else {
+      // Only load logs if user has access
+      _loadAuditLogs();
+    }
   }
 
   Future<String> _getUserName(String userId) async {
@@ -378,6 +397,23 @@ class _LogsScreenState extends State<LogsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    // Final access check - redirect if member
+    if (authService.isMember()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pop();
+          SnackBarHelper.showError(
+            context,
+            message: 'Access denied: Members cannot view logs',
+          );
+        }
+      });
+      // Return empty container while redirecting
+      return Container();
+    }
+
     final totalPages = _getTotalPages();
 
     return Scaffold(

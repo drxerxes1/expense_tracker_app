@@ -121,6 +121,15 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _onTabTapped(int index) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    // Prevent members from accessing logs screen (index 2)
+    if (authService.isMember() && index == 2) {
+      // Redirect members to transactions screen
+      setState(() {
+        _currentIndex = 0;
+      });
+      return;
+    }
     setState(() {
       _currentIndex = index;
     });
@@ -787,53 +796,55 @@ class _MainDashboardState extends State<MainDashboard> {
                           ),
                         ),
                 ),
-                Expanded(
-                  child: _tutorialCompleted
-                      ? _buildNavItemContent(
-                          icon: Icons.history,
-                          label: 'Logs',
-                          index: 2,
-                        )
-                      : Showcase(
-                          key: _logsNavKey,
-                          description: 'Review all activity logs here',
-                          overlayOpacity: 0.7,
-                          title: 'Logs',
-                          titleTextStyle: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                          descTextStyle: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                          tooltipBackgroundColor: AppTheme.primaryColor,
-                          textColor: Colors.white,
-                          disposeOnTap: false,
-                          onTargetClick: () async {
-                            setState(() {
-                              _currentIndex = 2;
-                            });
-                            await Future.delayed(const Duration(milliseconds: 300));
-                            ShowCaseWidget.of(context).next();
-                          },
-                          onBarrierClick: () async {
-                            await TutorialService.setTutorialCompleted();
-                            if (mounted) {
-                              setState(() {
-                                _tutorialCompleted = true;
-                              });
-                            }
-                            ShowCaseWidget.of(context).dismiss();
-                          },
-                          child: _buildNavItemContent(
+                // Only show logs tab for non-member roles
+                if (!authService.isMember())
+                  Expanded(
+                    child: _tutorialCompleted
+                        ? _buildNavItemContent(
                             icon: Icons.history,
                             label: 'Logs',
                             index: 2,
+                          )
+                        : Showcase(
+                            key: _logsNavKey,
+                            description: 'Review all activity logs here',
+                            overlayOpacity: 0.7,
+                            title: 'Logs',
+                            titleTextStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            descTextStyle: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.white,
+                            ),
+                            tooltipBackgroundColor: AppTheme.primaryColor,
+                            textColor: Colors.white,
+                            disposeOnTap: false,
+                            onTargetClick: () async {
+                              setState(() {
+                                _currentIndex = 2;
+                              });
+                              await Future.delayed(const Duration(milliseconds: 300));
+                              ShowCaseWidget.of(context).next();
+                            },
+                            onBarrierClick: () async {
+                              await TutorialService.setTutorialCompleted();
+                              if (mounted) {
+                                setState(() {
+                                  _tutorialCompleted = true;
+                                });
+                              }
+                              ShowCaseWidget.of(context).dismiss();
+                            },
+                            child: _buildNavItemContent(
+                              icon: Icons.history,
+                              label: 'Logs',
+                              index: 2,
+                            ),
                           ),
-                        ),
-                ),
+                  ),
                 Expanded(
                   child: _tutorialCompleted
                       ? _buildNavItemContent(
