@@ -31,6 +31,10 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
   Future<void> _loadOrganizations() async {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+      
+      // Refresh user data first to get latest organizations list
+      await authService.reloadUserData();
+      
       if (authService.user?.organizations.isEmpty ?? true) {
         setState(() {
           _isLoading = false;
@@ -166,9 +170,12 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
             ),
           ),
           
-          // Body
+          // Body with pull-to-refresh
           Expanded(
-            child: _buildBody(),
+            child: RefreshIndicator(
+              onRefresh: _loadOrganizations,
+              child: _buildBody(),
+            ),
           ),
         ],
       ),
@@ -177,16 +184,22 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
+      return ListView(
+        children: const [
+          SizedBox(height: 100),
+          Center(child: CircularProgressIndicator()),
+        ],
       );
     }
 
     if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      return ListView(
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
             Icon(
               Icons.error_outline,
               size: 64,
@@ -203,8 +216,10 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
               onPressed: _loadOrganizations,
               child: const Text('Retry'),
             ),
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       );
     }
 
@@ -310,8 +325,10 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.5,
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -356,5 +373,10 @@ class _OrganizationSwitcherModalState extends State<OrganizationSwitcherModal> {
         ),
       ),
     );
+  }
+  
+  @override
+  void dispose() {
+    super.dispose();
   }
 }
