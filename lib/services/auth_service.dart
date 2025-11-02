@@ -148,14 +148,38 @@ class AuthService extends ChangeNotifier {
         try {
           if (snapshot.docs.isNotEmpty) {
             final doc = snapshot.docs.first;
-            _currentOfficer = Officer.fromMap({
+            final newOfficer = Officer.fromMap({
               'id': doc.id,
               ...doc.data(),
             });
+            
+            // Check if status changed to denied
+            if (newOfficer.status == OfficerStatus.denied) {
+              debugPrint('User status changed to denied - signing out');
+              _handleMembershipRevoked('Your membership has been denied');
+              return;
+            }
+            
+            // Check if role changed while in an active session (for safety, logout on role change)
+            final oldOfficer = _currentOfficer;
+            final oldRole = oldOfficer?.role;
+            
+            // If role changed while approved, log out for safety
+            if (oldOfficer != null && 
+                oldOfficer.status == OfficerStatus.approved && 
+                oldRole != null && 
+                oldRole != newOfficer.role) {
+              debugPrint('User role changed from $oldRole to ${newOfficer.role} - signing out for safety');
+              _handleMembershipRevoked('Your role has been changed. Please log in again.');
+              return;
+            }
+            
+            _currentOfficer = newOfficer;
             notifyListeners();
           } else {
-            _currentOfficer = null;
-            notifyListeners();
+            // Officer document was deleted (user was kicked)
+            debugPrint('Officer document deleted (user kicked) - signing out');
+            _handleMembershipRevoked('You have been removed from this organization');
           }
         } catch (e) {
           debugPrint('Error parsing officer data in stream: $e');
@@ -345,14 +369,57 @@ class AuthService extends ChangeNotifier {
 
   Future<void> signOut() async {
     try {
+      // Cancel officer subscription before signing out
+      await _officerSubscription?.cancel();
+      _officerSubscription = null;
+      
       await _auth.signOut();
       // Reset membership validation service
       await MembershipValidationService().reset();
       // Remove login info from Hive
       final loginBox = Hive.box<UserLogin>('userLogin');
       loginBox.delete('current');
+      
+      // Clear current state
+      _user = null;
+      _currentOfficer = null;
+      _currentOrgId = null;
+      _organization = null;
+      notifyListeners();
     } catch (e) {
       debugPrint('Error during sign out: $e');
+    }
+  }
+
+  /// Handle membership revocation (kicked or denied) - automatically sign out
+  Future<void> _handleMembershipRevoked(String reason) async {
+    debugPrint('Membership revoked: $reason');
+    
+    // Cancel officer subscription
+    await _officerSubscription?.cancel();
+    _officerSubscription = null;
+    
+    // Clear officer and organization data
+    _currentOfficer = null;
+    _organization = null;
+    
+    // Sign out the user
+    try {
+      await _auth.signOut();
+      // Reset membership validation service
+      await MembershipValidationService().reset();
+      // Remove login info from Hive
+      final loginBox = Hive.box<UserLogin>('userLogin');
+      loginBox.delete('current');
+      
+      // Clear state
+      _user = null;
+      _currentOrgId = null;
+      notifyListeners();
+      
+      debugPrint('User automatically signed out due to membership revocation');
+    } catch (e) {
+      debugPrint('Error during automatic sign out: $e');
     }
   }
 

@@ -139,6 +139,24 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
 
+    // If user is not logged in (e.g., was automatically signed out), redirect to login
+    if (!authService.isLoggedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+      });
+      // Return a loading screen while redirecting
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     // Check if user has pending membership
     if (authService.isPendingMembership()) {
       return const PendingMembershipScreen();
