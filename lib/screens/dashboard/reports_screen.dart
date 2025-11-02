@@ -471,22 +471,29 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
     // Filter to only include transactions of the specified type
     final filteredTxsByType = filteredTxs.where((tx) => tx.type == transactionType).toList();
     
-    final now = DateTime.now();
-    final currentMonth = now.month;
-    final currentYear = now.year;
-    final currentDay = now.day;
+    // Use the selected month instead of current month
+    final selectedMonth = widget.selectedMonth;
+    final selectedYear = selectedMonth.year;
+    final selectedMonthNum = selectedMonth.month;
     
-    // Group transactions by day for the current month
+    // Get the number of days in the selected month
+    final daysInMonth = DateTime(selectedYear, selectedMonthNum + 1, 0).day;
+    
+    // Check if the selected month is in the past, current, or future
+    final now = DateTime.now();
+    final isCurrentMonth = selectedYear == now.year && selectedMonthNum == now.month;
+    final isPastMonth = selectedYear < now.year || 
+                       (selectedYear == now.year && selectedMonthNum < now.month);
+    final currentDay = isCurrentMonth ? now.day : (isPastMonth ? daysInMonth : 1);
+    
+    // Group transactions by day for the selected month
     final dailyData = <int, double>{};
     for (final tx in filteredTxsByType) {
-      if (tx.createdAt.year == currentYear && tx.createdAt.month == currentMonth) {
+      if (tx.createdAt.year == selectedYear && tx.createdAt.month == selectedMonthNum) {
         final day = tx.createdAt.day;
         dailyData[day] = (dailyData[day] ?? 0) + tx.amount;
       }
     }
-
-    // Get the number of days in the current month
-    final daysInMonth = DateTime(currentYear, currentMonth + 1, 0).day;
     
     if (dailyData.isEmpty) {
       return Card(
@@ -522,14 +529,15 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
     final highestDay = actualDaysWithData.isNotEmpty ? actualDaysWithData.firstWhere((e) => e.value == maxDailyAmount).key : 0;
     
     // Generate forecast data for remaining days of the month
+    // Only show forecast for current month's future days
     final forecastData = <int, double>{};
     final actualData = <int, double>{};
     
     for (int day = 1; day <= daysInMonth; day++) {
       if (day <= currentDay) {
         actualData[day] = dailyData[day] ?? 0;
-      } else {
-        // Forecast for future days using average
+      } else if (isCurrentMonth) {
+        // Only forecast for future days in the current month
         forecastData[day] = avgDailyAmount;
       }
     }
@@ -559,8 +567,8 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
       }
     }
     
-    // Add forecast spots for future days (only if we have actual data to base forecast on)
-    if (actualDaysWithData.isNotEmpty) {
+    // Add forecast spots for future days (only for current month and if we have actual data)
+    if (isCurrentMonth && actualDaysWithData.isNotEmpty) {
       for (int day = currentDay + 1; day <= daysInMonth; day++) {
         forecastSpots.add(FlSpot(day.toDouble(), avgDailyAmount));
       }
