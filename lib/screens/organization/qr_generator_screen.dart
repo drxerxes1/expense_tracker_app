@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
+import 'package:org_wallet/utils/invite_code_encoder.dart';
 
 class QRGeneratorScreen extends StatefulWidget {
   final Organization organization;
@@ -29,13 +30,13 @@ class _QRGeneratorScreenState extends State<QRGeneratorScreen> {
   }
 
   void _generateQRCode() {
-    final qrData = {
-      'orgId': widget.organization.id,
-      'orgName': widget.organization.name,
-      'role': _selectedRole.toString().split('.').last,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-    };
-    _qrData = qrData.toString();
+    // Generate a short, encoded invite code in format "OrgName/Code"
+    final inviteCode = InviteCodeEncoder.encodeInviteCode(
+      orgId: widget.organization.id,
+      orgName: widget.organization.name,
+      role: _selectedRole.toString().split('.').last,
+    );
+    _qrData = inviteCode;
   }
 
   @override

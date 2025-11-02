@@ -9,6 +9,7 @@ import 'package:org_wallet/screens/auth/create_account_screen.dart';
 import 'package:hive/hive.dart';
 import 'package:org_wallet/models/user_login.dart';
 import 'package:org_wallet/utils/snackbar_helper.dart';
+import 'package:org_wallet/utils/invite_code_encoder.dart';
 
 class ScanQRScreen extends StatefulWidget {
   const ScanQRScreen({super.key});
@@ -45,12 +46,11 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
     });
 
     try {
-      // Parse QR data (assuming it's a string representation of a map)
-      // In a real app, you'd want to use proper JSON encoding/decoding
-      final data = _parseQRData(qrData);
+      // Decode the invite code
+      final data = InviteCodeEncoder.decodeInviteCode(qrData.trim());
 
       if (data == null) {
-        _showError('Invalid QR code format');
+        _showError('Invalid invite code. Please scan a valid QR code or enter a valid code.');
         return;
       }
 
@@ -118,6 +118,9 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
 
       await officerDoc.set(officer.toMap());
 
+      // Get organization name for success message
+      final orgName = orgDoc.data()?['name'] ?? 'the organization';
+
       // Update user's organizations list
       await firestore
           .collection('users')
@@ -138,7 +141,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
       }
 
       if (mounted) {
-        _showSuccess(data['orgName']);
+        _showSuccess(orgName);
       }
     } catch (e) {
       _showError('Error processing QR code: $e');
@@ -149,27 +152,7 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
     }
   }
 
-  Map<String, dynamic>? _parseQRData(String qrData) {
-    try {
-      // Remove the curly braces and split by comma
-      final cleanData = qrData.replaceAll('{', '').replaceAll('}', '');
-      final pairs = cleanData.split(',');
-
-      final Map<String, dynamic> data = {};
-      for (final pair in pairs) {
-        final keyValue = pair.split(':');
-        if (keyValue.length == 2) {
-          final key = keyValue[0].trim();
-          final value = keyValue[1].trim();
-          data[key] = value;
-        }
-      }
-
-      return data;
-    } catch (e) {
-      return null;
-    }
-  }
+  // Removed _parseQRData method - now using InviteCodeEncoder.decodeInviteCode()
 
   OfficerRole _parseRole(String roleString) {
     switch (roleString.toLowerCase()) {
