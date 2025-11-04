@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_types_as_parameter_names
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -528,6 +529,31 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
     final maxDailyAmount = actualDaysWithData.isNotEmpty ? actualDaysWithData.map((e) => e.value).reduce((a, b) => a > b ? a : b) : 0.0;
     final highestDay = actualDaysWithData.isNotEmpty ? actualDaysWithData.firstWhere((e) => e.value == maxDailyAmount).key : 0;
     
+    // Calculate standard deviation for confidence intervals
+    double standardDeviation = 0.0;
+    if (actualDaysWithData.length > 1) {
+      final variance = actualDaysWithData.fold<double>(0.0, (sum, entry) {
+        final diff = entry.value - avgDailyAmount;
+        return sum + (diff * diff);
+      }) / actualDaysWithData.length;
+      standardDeviation = variance > 0 ? math.sqrt(variance) : 0.0;
+    }
+    
+    // Calculate bounds using 1.5 standard deviations (approximately 87% confidence interval)
+    // If standard deviation is 0 or very small, use 10% of average as fallback
+    final boundMultiplier = 1.5;
+    double upperBoundOffset;
+    double lowerBoundOffset;
+    
+    if (standardDeviation > 0) {
+      upperBoundOffset = standardDeviation * boundMultiplier;
+      lowerBoundOffset = standardDeviation * boundMultiplier;
+    } else {
+      // Fallback: use 10% of average when there's no variance
+      upperBoundOffset = avgDailyAmount * 0.1;
+      lowerBoundOffset = avgDailyAmount * 0.1;
+    }
+    
     // Generate forecast data for remaining days of the month
     // Only show forecast for current month's future days
     final forecastData = <int, double>{};
@@ -546,6 +572,9 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
     final actualSpots = <FlSpot>[];
     final forecastSpots = <FlSpot>[];
     final trendSpots = <FlSpot>[];
+    final upperBoundSpots = <FlSpot>[];
+    final lowerBoundSpots = <FlSpot>[];
+    final boundAreaSpots = <FlSpot>[]; // For filled area between bounds
     
     // Only add spots for days with actual transactions
     for (final entry in actualDaysWithData) {
@@ -567,10 +596,28 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
       }
     }
     
-    // Add forecast spots for future days (only for current month and if we have actual data)
+    // Add forecast spots and bounds for future days (only for current month and if we have actual data)
     if (isCurrentMonth && actualDaysWithData.isNotEmpty) {
       for (int day = currentDay + 1; day <= daysInMonth; day++) {
         forecastSpots.add(FlSpot(day.toDouble(), avgDailyAmount));
+        
+        // Calculate upper and lower bounds
+        final upperBound = math.max(0.0, avgDailyAmount + upperBoundOffset).toDouble();
+        final lowerBound = math.max(0.0, avgDailyAmount - lowerBoundOffset).toDouble();
+        
+        upperBoundSpots.add(FlSpot(day.toDouble(), upperBound));
+        lowerBoundSpots.add(FlSpot(day.toDouble(), lowerBound));
+      }
+      
+      // Create polygon spots for filled area: upper bounds forward, then lower bounds in reverse
+      // This creates a closed shape that can be filled
+      if (upperBoundSpots.isNotEmpty && lowerBoundSpots.isNotEmpty) {
+        boundAreaSpots.addAll(upperBoundSpots);
+        // Add lower bounds in reverse to close the polygon
+        boundAreaSpots.addAll(lowerBoundSpots.reversed.toList());
+        // Close the polygon by adding the first upper bound spot at the end
+        // This ensures the path connects back to the start
+        boundAreaSpots.add(upperBoundSpots.first);
       }
     }
 
@@ -718,6 +765,27 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                     ),
                   ],
                 ),
+                if (upperBoundSpots.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 16,
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: Colors.blue[400],
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Forecast Bounds',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -784,20 +852,74 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                       tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
                         return touchedBarSpots.map((barSpot) {
-                          // Skip trendline (index 0 if trendline exists) - return empty tooltip
-                          if (trendline != null && barSpot.barIndex == 0) {
+                          final day = barSpot.x.toInt();
+                          final amount = barSpot.y;
+                          
+                          // Calculate bar index offset based on what's shown
+                          int indexOffset = 0;
+                          
+                          // Skip area fill bar (index 0) - it's invisible and just for visual fill
+                          if (boundAreaSpots.isNotEmpty && barSpot.barIndex == 0) {
                             return LineTooltipItem(
                               '',
                               const TextStyle(color: Colors.transparent, fontSize: 0),
                             );
                           }
                           
-                          final day = barSpot.x.toInt();
-                          final amount = barSpot.y;
-                          // Adjust index based on whether trendline exists
-                          final isActual = trendline != null 
-                              ? barSpot.barIndex == 1 
-                              : barSpot.barIndex == 0;
+                          // Adjust offset for area fill bar
+                          if (boundAreaSpots.isNotEmpty) {
+                            indexOffset = 1;
+                          }
+                          
+                          // Handle bounds (now at index 1 and 2 if area fill exists)
+                          if (upperBoundSpots.isNotEmpty && lowerBoundSpots.isNotEmpty) {
+                            final upperIndex = indexOffset;
+                            final lowerIndex = indexOffset + 1;
+                            
+                            if (barSpot.barIndex == upperIndex) {
+                              // Upper bound
+                              return LineTooltipItem(
+                                'Upper Bound\n${_getMonthYearText(widget.selectedMonth).split(' ')[0]} $day\nP${amount.toStringAsFixed(2)}',
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              );
+                            } else if (barSpot.barIndex == lowerIndex) {
+                              // Lower bound
+                              return LineTooltipItem(
+                                'Lower Bound\n${_getMonthYearText(widget.selectedMonth).split(' ')[0]} $day\nP${amount.toStringAsFixed(2)}',
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              );
+                            }
+                          }
+                          
+                          // Adjust offset for bounds
+                          if (upperBoundSpots.isNotEmpty && lowerBoundSpots.isNotEmpty) {
+                            indexOffset += 2;
+                          }
+                          
+                          // Skip trendline - return empty tooltip
+                          if (trendline != null && barSpot.barIndex == indexOffset) {
+                            return LineTooltipItem(
+                              '',
+                              const TextStyle(color: Colors.transparent, fontSize: 0),
+                            );
+                          }
+                          
+                          // Adjust offset for trendline
+                          if (trendline != null) {
+                            indexOffset += 1;
+                          }
+                          
+                          // Handle actual and forecast
+                          final actualIndex = indexOffset;
+                          final isActual = barSpot.barIndex == actualIndex;
                           
                           return LineTooltipItem(
                             '${isActual ? 'Actual' : 'Forecast'}\n${_getMonthYearText(widget.selectedMonth).split(' ')[0]} $day\nP${amount.toStringAsFixed(2)}',
@@ -811,20 +933,17 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                       },
                     ),
                     getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
-                      // Skip indicators for trendline - it's visual only
-                      if (barData.dashArray != null && barData.dashArray!.isNotEmpty) {
-                        // This is likely the trendline or forecast
-                        if (barData.color == Colors.orange) {
-                          // Trendline - return empty indicator
-                          return spotIndexes.map((index) {
-                            return TouchedSpotIndicatorData(
-                              FlLine(color: Colors.transparent, strokeWidth: 0),
-                              FlDotData(show: false),
-                            );
-                          }).toList();
-                        }
+                      // Skip indicators for area fill bar (transparent) and trendline - they're visual only
+                      if (barData.color == Colors.transparent || barData.color == Colors.orange) {
+                        return spotIndexes.map((index) {
+                          return TouchedSpotIndicatorData(
+                            FlLine(color: Colors.transparent, strokeWidth: 0),
+                            FlDotData(show: false),
+                          );
+                        }).toList();
                       }
                       
+                      // Show indicators for bounds, actual, and forecast
                       return spotIndexes.map((index) {
                         return TouchedSpotIndicatorData(
                           FlLine(
@@ -847,7 +966,55 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                     },
                   ),
                   lineBarsData: [
-                    // Trendline - show first so it appears behind actual data
+                    // Filled area between bounds - create using polygon approach
+                    // Use a closed polygon that fl_chart can fill
+                    if (boundAreaSpots.isNotEmpty)
+                      LineChartBarData(
+                        spots: boundAreaSpots,
+                        isCurved: false,
+                        color: Colors.transparent, // Invisible line - we only want the fill
+                        barWidth: 0,
+                        preventCurveOverShooting: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: Colors.blue[100]!.withOpacity(0.3),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: const [0.0, 1.0],
+                            colors: [
+                              Colors.blue[200]!.withOpacity(0.4),
+                              Colors.blue[100]!.withOpacity(0.15),
+                            ],
+                          ),
+                        ),
+                      ),
+                    // Upper bound - show as dashed line on top of fill
+                    if (upperBoundSpots.isNotEmpty)
+                      LineChartBarData(
+                        spots: upperBoundSpots,
+                        isCurved: false,
+                        color: Colors.blue[400]!,
+                        barWidth: 1.5,
+                        dashArray: [4, 4],
+                        preventCurveOverShooting: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    // Lower bound - show as dashed line on top of fill
+                    if (lowerBoundSpots.isNotEmpty)
+                      LineChartBarData(
+                        spots: lowerBoundSpots,
+                        isCurved: false,
+                        color: Colors.blue[400]!,
+                        barWidth: 1.5,
+                        dashArray: [4, 4],
+                        preventCurveOverShooting: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    // Trendline - show so it appears behind actual data
                     if (trendSpots.isNotEmpty)
                       LineChartBarData(
                         spots: trendSpots,
