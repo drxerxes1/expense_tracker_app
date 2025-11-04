@@ -35,6 +35,7 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
   bool _isLoading = true;
   bool _isDisposed = false;
   late TabController _tabController;
+  String _selectedFundFilter = 'all'; // 'all', 'school_funds', 'club_funds'
 
   @override
   void initState() {
@@ -232,6 +233,77 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
   }
 
   Widget _buildCategoryChart(String transactionType) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Fund Type Filter Dropdown
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Text(
+                  'Fund Type:',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedFundFilter,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: TWColors.slate.shade900, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text('All'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'school_funds',
+                        child: Text('School Funds'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'club_funds',
+                        child: Text('Club Funds'),
+                      ),
+                    ],
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          _selectedFundFilter = newValue;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Category Chart
+        _buildCategoryChartContent(transactionType),
+      ],
+    );
+  }
+
+  Widget _buildCategoryChartContent(String transactionType) {
     final filteredTxs = _getFilteredTransactions();
     // Filter to only include transactions of the specified type
     final filteredTxsByType = filteredTxs.where((tx) => tx.type == transactionType).toList();
@@ -1703,8 +1775,12 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
   }
 
   List<AppTransaction> _getFilteredTransactions() {
-    // Since we're now filtering at the database level, just return all transactions
-    return _transactions;
+    // Filter by fund type if a specific filter is selected
+    if (_selectedFundFilter == 'all') {
+      return _transactions;
+    } else {
+      return _transactions.where((tx) => tx.fundId == _selectedFundFilter).toList();
+    }
   }
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color, [String? subtitle]) {
