@@ -547,6 +547,55 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
     }).toList();
   }
 
+  int _getHierarchyPriority(String role) {
+    // Hierarchy: Moderator -> President -> Officers (Treasurer, Secretary, Auditor) -> Member
+    switch (role.toLowerCase()) {
+      case 'moderator':
+        return 1;
+      case 'president':
+        return 2;
+      case 'treasurer':
+        return 3;
+      case 'secretary':
+        return 4;
+      case 'auditor':
+        return 5;
+      case 'member':
+        return 6;
+      default:
+        return 7; // Unknown roles go last
+    }
+  }
+
+  List<QueryDocumentSnapshot> _sortMembersByHierarchy(List<QueryDocumentSnapshot> docs) {
+    final sortedDocs = List<QueryDocumentSnapshot>.from(docs);
+    sortedDocs.sort((a, b) {
+      final dataA = a.data() as Map<String, dynamic>;
+      final dataB = b.data() as Map<String, dynamic>;
+      
+      final roleA = (dataA['role'] ?? 'member').toString().toLowerCase();
+      final roleB = (dataB['role'] ?? 'member').toString().toLowerCase();
+      
+      // Handle enum roles (e.g., "OfficerRole.president")
+      final cleanRoleA = roleA.contains('.') ? roleA.split('.').last : roleA;
+      final cleanRoleB = roleB.contains('.') ? roleB.split('.').last : roleB;
+      
+      final priorityA = _getHierarchyPriority(cleanRoleA);
+      final priorityB = _getHierarchyPriority(cleanRoleB);
+      
+      // If same priority, sort alphabetically by name
+      if (priorityA == priorityB) {
+        final nameA = (dataA['name'] ?? dataA['email'] ?? '').toString().toLowerCase();
+        final nameB = (dataB['name'] ?? dataB['email'] ?? '').toString().toLowerCase();
+        return nameA.compareTo(nameB);
+      }
+      
+      return priorityA.compareTo(priorityB);
+    });
+    
+    return sortedDocs;
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
@@ -692,8 +741,9 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                 
           final docs = snap.data?.docs ?? [];
                 final filteredDocs = _filterMembers(docs);
+                final sortedDocs = _sortMembersByHierarchy(filteredDocs);
                 
-                if (filteredDocs.isEmpty) {
+                if (sortedDocs.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -718,9 +768,9 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
                 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: filteredDocs.length,
+                  itemCount: sortedDocs.length,
                   itemBuilder: (context, index) {
-                    final doc = filteredDocs[index];
+                    final doc = sortedDocs[index];
                     final data = doc.data() as Map<String, dynamic>;
                     final status = _formatStatus(data['status']);
                     final role = _formatRole(data['role'] ?? 'member');

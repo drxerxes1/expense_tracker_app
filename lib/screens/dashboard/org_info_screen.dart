@@ -463,6 +463,7 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
                     color: TWColors.slate.shade800,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Flexible(
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -996,24 +997,6 @@ class _OrgInfoScreenState extends State<OrgInfoScreen> {
               letterSpacing: 0.3,
             ),
           ),
-          if (isPending) ...[
-            const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: TWColors.orange.shade100,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                'PENDING',
-                style: GoogleFonts.poppins(
-                  color: TWColors.orange.shade700,
-                  fontSize: 7,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
