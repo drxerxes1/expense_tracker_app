@@ -43,6 +43,7 @@ class _MainDashboardState extends State<MainDashboard> {
   bool _isReportsLoading = false;
   bool _tutorialStarted = false;
   bool _tutorialCompleted = true; // Default to true to prevent Showcase widgets initially
+  bool _isQuarterlyView = false; // New state variable for quarterly view
 
   // GlobalKeys for tutorial targets
   final GlobalKey _transactionsNavKey = GlobalKey();
@@ -104,6 +105,7 @@ class _MainDashboardState extends State<MainDashboard> {
     TransactionsScreen(key: ValueKey(_transactionScreenKey), dateRange: _selectedDateRange),
     ReportsScreen(
       selectedMonth: _selectedMonth,
+      isQuarterlyView: _isQuarterlyView,
       isLoading: _isReportsLoading,
       onLoadingComplete: () {
         setState(() {
@@ -996,11 +998,27 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   String _getMonthYearText() {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}';
+    if (_isQuarterlyView) {
+      // Determine which quarter based on the selected month
+      final month = _selectedMonth.month;
+      int quarter;
+      if (month >= 1 && month <= 3) {
+        quarter = 1;
+      } else if (month >= 4 && month <= 6) {
+        quarter = 2;
+      } else if (month >= 7 && month <= 9) {
+        quarter = 3;
+      } else {
+        quarter = 4;
+      }
+      return 'Q$quarter ${_selectedMonth.year}';
+    } else {
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      return '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}';
+    }
   }
 
   void _showMonthYearPicker() {
@@ -1010,9 +1028,11 @@ class _MainDashboardState extends State<MainDashboard> {
       builder: (BuildContext context) {
         return _MonthYearPickerDialog(
           selectedMonth: _selectedMonth,
-          onMonthSelected: (DateTime newMonth) {
+          isQuarterlyView: _isQuarterlyView,
+          onMonthSelected: (DateTime newMonth, bool isQuarterly) {
             setState(() {
               _selectedMonth = newMonth;
+              _isQuarterlyView = isQuarterly;
               _isReportsLoading = true;
             });
           },
@@ -1347,10 +1367,12 @@ class _MainDashboardState extends State<MainDashboard> {
 
 class _MonthYearPickerDialog extends StatefulWidget {
   final DateTime selectedMonth;
-  final Function(DateTime) onMonthSelected;
+  final bool isQuarterlyView;
+  final Function(DateTime, bool) onMonthSelected;
 
   const _MonthYearPickerDialog({
     required this.selectedMonth,
+    this.isQuarterlyView = false,
     required this.onMonthSelected,
   });
 
@@ -1361,12 +1383,14 @@ class _MonthYearPickerDialog extends StatefulWidget {
 class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
   late DateTime _currentYear;
   late DateTime _selectedMonth;
+  late bool _isQuarterlyView;
 
   @override
   void initState() {
     super.initState();
     _currentYear = DateTime(widget.selectedMonth.year);
     _selectedMonth = widget.selectedMonth;
+    _isQuarterlyView = widget.isQuarterlyView;
   }
 
   void _previousYear() {
@@ -1381,20 +1405,53 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
     });
   }
 
+  void _toggleView() {
+    setState(() {
+      _isQuarterlyView = !_isQuarterlyView;
+    });
+  }
+
   void _selectMonth(int month) {
     setState(() {
       _selectedMonth = DateTime(_currentYear.year, month);
     });
-    widget.onMonthSelected(_selectedMonth);
+    widget.onMonthSelected(_selectedMonth, false);
+    Navigator.of(context).pop();
+  }
+
+  void _selectQuarter(int quarter) {
+    // Calculate the first month of the selected quarter
+    // Q1 = Jan (1), Q2 = Apr (4), Q3 = Jul (7), Q4 = Oct (10)
+    final quarterStartMonth = (quarter - 1) * 3 + 1;
+    setState(() {
+      _selectedMonth = DateTime(_currentYear.year, quarterStartMonth);
+    });
+    widget.onMonthSelected(_selectedMonth, true);
     Navigator.of(context).pop();
   }
 
   String _getMonthYearText() {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}';
+    if (_isQuarterlyView) {
+      // Determine which quarter based on the selected month
+      final month = _selectedMonth.month;
+      int quarter;
+      if (month >= 1 && month <= 3) {
+        quarter = 1;
+      } else if (month >= 4 && month <= 6) {
+        quarter = 2;
+      } else if (month >= 7 && month <= 9) {
+        quarter = 3;
+      } else {
+        quarter = 4;
+      }
+      return 'Q$quarter ${_selectedMonth.year}';
+    } else {
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      return '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}';
+    }
   }
 
   @override
@@ -1439,6 +1496,66 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
             ),
             const SizedBox(height: 24),
             
+            // Toggle between Month and Quarter view
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (_isQuarterlyView) _toggleView();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: !_isQuarterlyView 
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Month',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: !_isQuarterlyView 
+                              ? Colors.white
+                              : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      if (!_isQuarterlyView) _toggleView();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _isQuarterlyView 
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Quarter',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: _isQuarterlyView 
+                              ? Colors.white
+                              : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
             // Year navigation
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1463,60 +1580,136 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
             ),
             const SizedBox(height: 16),
             
-            // Month grid
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1.5,
-              ),
-              itemCount: 12,
-              itemBuilder: (context, index) {
-                final month = index + 1;
-                final isSelected = _currentYear.year == _selectedMonth.year && 
-                                 month == _selectedMonth.month;
-                final isCurrentMonth = _currentYear.year == DateTime.now().year && 
-                                     month == DateTime.now().month;
-                
-                return GestureDetector(
-                  onTap: () => _selectMonth(month),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isSelected 
-                          ? Theme.of(context).colorScheme.primary
-                          : isCurrentMonth
-                              ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                              : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isSelected 
-                            ? Theme.of(context).colorScheme.primary
-                            : isCurrentMonth
-                                ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
-                                : Colors.grey[300]!,
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        months[index],
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            // Month or Quarter grid
+            _isQuarterlyView 
+              ? GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 2.5,
+                  ),
+                  itemCount: 4,
+                  itemBuilder: (context, index) {
+                    final quarter = index + 1;
+                    // Determine if this quarter is selected based on the selected month
+                    final selectedMonth = _selectedMonth.month;
+                    bool isSelected = false;
+                    if (quarter == 1 && selectedMonth >= 1 && selectedMonth <= 3) {
+                      isSelected = true;
+                    } else if (quarter == 2 && selectedMonth >= 4 && selectedMonth <= 6) {
+                      isSelected = true;
+                    } else if (quarter == 3 && selectedMonth >= 7 && selectedMonth <= 9) {
+                      isSelected = true;
+                    } else if (quarter == 4 && selectedMonth >= 10 && selectedMonth <= 12) {
+                      isSelected = true;
+                    }
+                    
+                    // Determine if this is the current quarter
+                    final now = DateTime.now();
+                    final currentMonth = now.month;
+                    bool isCurrentQuarter = false;
+                    if (quarter == 1 && currentMonth >= 1 && currentMonth <= 3) {
+                      isCurrentQuarter = _currentYear.year == now.year;
+                    } else if (quarter == 2 && currentMonth >= 4 && currentMonth <= 6) {
+                      isCurrentQuarter = _currentYear.year == now.year;
+                    } else if (quarter == 3 && currentMonth >= 7 && currentMonth <= 9) {
+                      isCurrentQuarter = _currentYear.year == now.year;
+                    } else if (quarter == 4 && currentMonth >= 10 && currentMonth <= 12) {
+                      isCurrentQuarter = _currentYear.year == now.year;
+                    }
+                    
+                    return GestureDetector(
+                      onTap: () => _selectQuarter(quarter),
+                      child: Container(
+                        decoration: BoxDecoration(
                           color: isSelected 
-                              ? Colors.white
-                              : isCurrentMonth
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.grey[700],
+                              ? Theme.of(context).colorScheme.primary
+                              : isCurrentQuarter
+                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                                  : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected 
+                                ? Theme.of(context).colorScheme.primary
+                                : isCurrentQuarter
+                                    ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                                    : Colors.grey[300]!,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Q$quarter',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected 
+                                  ? Colors.white
+                                  : isCurrentQuarter
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.grey[700],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    );
+                  },
+                )
+              : GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 1.5,
                   ),
-                );
-              },
-            ),
+                  itemCount: 12,
+                  itemBuilder: (context, index) {
+                    final month = index + 1;
+                    final isSelected = _currentYear.year == _selectedMonth.year && 
+                                     month == _selectedMonth.month;
+                    final isCurrentMonth = _currentYear.year == DateTime.now().year && 
+                                         month == DateTime.now().month;
+                    
+                    return GestureDetector(
+                      onTap: () => _selectMonth(month),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected 
+                              ? Theme.of(context).colorScheme.primary
+                              : isCurrentMonth
+                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                                  : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected 
+                                ? Theme.of(context).colorScheme.primary
+                                : isCurrentMonth
+                                    ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                                    : Colors.grey[300]!,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            months[index],
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected 
+                                  ? Colors.white
+                                  : isCurrentMonth
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
             const SizedBox(height: 16),
             
             // Close button

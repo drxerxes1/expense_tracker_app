@@ -14,12 +14,14 @@ import 'package:org_wallet/utils/snackbar_helper.dart';
 
 class ReportsScreen extends StatefulWidget {
   final DateTime selectedMonth;
+  final bool isQuarterlyView;
   final bool isLoading;
   final VoidCallback onLoadingComplete;
   
   const ReportsScreen({
     super.key,
     required this.selectedMonth,
+    this.isQuarterlyView = false,
     required this.isLoading,
     required this.onLoadingComplete,
   });
@@ -112,10 +114,32 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
   }
 
   DateTimeRange? _getDateRangeForPeriod() {
-    // Use the selected month for filtering
-    final start = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
-    final end = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
-    return DateTimeRange(start: start, end: end);
+    if (widget.isQuarterlyView) {
+      // Calculate quarter based on the selected month (which represents the first month of the quarter)
+      final selectedMonth = widget.selectedMonth.month;
+      int quarterStartMonth;
+      
+      // Determine which quarter based on the selected month
+      if (selectedMonth >= 1 && selectedMonth <= 3) {
+        quarterStartMonth = 1; // Q1: Jan, Feb, Mar
+      } else if (selectedMonth >= 4 && selectedMonth <= 6) {
+        quarterStartMonth = 4; // Q2: Apr, May, Jun
+      } else if (selectedMonth >= 7 && selectedMonth <= 9) {
+        quarterStartMonth = 7; // Q3: Jul, Aug, Sep
+      } else {
+        quarterStartMonth = 10; // Q4: Oct, Nov, Dec
+      }
+      
+      final start = DateTime(widget.selectedMonth.year, quarterStartMonth, 1);
+      // End of the quarter (last day of the 3rd month)
+      final end = DateTime(widget.selectedMonth.year, quarterStartMonth + 3, 0);
+      return DateTimeRange(start: start, end: end);
+    } else {
+      // Use the selected month for filtering
+      final start = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
+      final end = DateTime(widget.selectedMonth.year, widget.selectedMonth.month + 1, 0);
+      return DateTimeRange(start: start, end: end);
+    }
   }
 
   String _getMonthYearText(DateTime selectedMonth) {
@@ -472,7 +496,12 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
     // Filter to only include transactions of the specified type
     final filteredTxsByType = filteredTxs.where((tx) => tx.type == transactionType).toList();
     
-    // Use the selected month instead of current month
+    // Check if we're in quarterly view
+    if (widget.isQuarterlyView) {
+      return _buildQuarterlyForecast(transactionType, filteredTxsByType);
+    }
+    
+    // Use the selected month instead of current month (monthly view)
     final selectedMonth = widget.selectedMonth;
     final selectedYear = selectedMonth.year;
     final selectedMonthNum = selectedMonth.month;
@@ -1059,6 +1088,608 @@ class _ReportsScreenState extends State<ReportsScreen> with TickerProviderStateM
                         dotData: const FlDotData(
                           show: false, // Hide forecast dots to reduce clutter
                         ),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuarterlyForecast(String transactionType, List<AppTransaction> filteredTxsByType) {
+    // Get the date range for the quarter
+    final dateRange = _getDateRangeForPeriod();
+    if (dateRange == null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${transactionType == 'expense' ? 'Expense' : 'Fund'} Forecast',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text('No date range available'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Calculate total days in the quarter
+    final daysInQuarter = dateRange.end.difference(dateRange.start).inDays + 1;
+    
+    // Check if we're in the current quarter
+    final now = DateTime.now();
+    final isCurrentQuarter = dateRange.start.isBefore(now) && dateRange.end.isAfter(now);
+    final currentDayInQuarter = isCurrentQuarter 
+        ? now.difference(dateRange.start).inDays + 1 
+        : daysInQuarter;
+    
+    // Group transactions by day within the quarter
+    // Key: day number within quarter (1 to daysInQuarter)
+    final dailyData = <int, double>{};
+    for (final tx in filteredTxsByType) {
+      if (tx.createdAt.isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
+          tx.createdAt.isBefore(dateRange.end.add(const Duration(days: 1)))) {
+        final dayInQuarter = tx.createdAt.difference(dateRange.start).inDays + 1;
+        if (dayInQuarter >= 1 && dayInQuarter <= daysInQuarter) {
+          dailyData[dayInQuarter] = (dailyData[dayInQuarter] ?? 0) + tx.amount;
+        }
+      }
+    }
+    
+    if (dailyData.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${transactionType == 'expense' ? 'Expense' : 'Fund'} Forecast',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Text('No $transactionType data available for forecasting'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Calculate statistics for actual data (by day)
+    final actualDaysWithData = dailyData.entries.where((entry) => entry.value > 0).toList();
+    final totalActualAmount = actualDaysWithData.fold<double>(0, (sum, entry) => sum + entry.value);
+    final avgDailyAmount = actualDaysWithData.isNotEmpty ? totalActualAmount / actualDaysWithData.length : 0.0;
+    final maxDailyAmount = actualDaysWithData.isNotEmpty 
+        ? actualDaysWithData.map((e) => e.value).reduce((a, b) => a > b ? a : b) 
+        : 0.0;
+    final highestDay = actualDaysWithData.isNotEmpty 
+        ? actualDaysWithData.firstWhere((e) => e.value == maxDailyAmount).key 
+        : 0;
+    
+    // Calculate standard deviation for confidence intervals
+    double standardDeviation = 0.0;
+    if (actualDaysWithData.length > 1) {
+      final variance = actualDaysWithData.fold<double>(0.0, (sum, entry) {
+        final diff = entry.value - avgDailyAmount;
+        return sum + (diff * diff);
+      }) / actualDaysWithData.length;
+      standardDeviation = variance > 0 ? math.sqrt(variance) : 0.0;
+    }
+    
+    // Calculate bounds using 1.5 standard deviations
+    final boundMultiplier = 1.5;
+    double upperBoundOffset;
+    double lowerBoundOffset;
+    
+    if (standardDeviation > 0) {
+      upperBoundOffset = standardDeviation * boundMultiplier;
+      lowerBoundOffset = standardDeviation * boundMultiplier;
+    } else {
+      upperBoundOffset = avgDailyAmount * 0.1;
+      lowerBoundOffset = avgDailyAmount * 0.1;
+    }
+
+    // Create chart data - daily spots (x: day in quarter 1-daysInQuarter, y: amount)
+    final actualSpots = <FlSpot>[];
+    final forecastSpots = <FlSpot>[];
+    final trendSpots = <FlSpot>[];
+    final upperBoundSpots = <FlSpot>[];
+    final lowerBoundSpots = <FlSpot>[];
+    final boundAreaSpots = <FlSpot>[];
+    
+    // Add spots for days with actual data
+    for (final entry in actualDaysWithData) {
+      actualSpots.add(FlSpot(entry.key.toDouble(), entry.value));
+    }
+    
+    // Calculate trendline if we have enough data points
+    final trendline = actualDaysWithData.length >= 3 
+        ? _calculateTrendline(actualDaysWithData) 
+        : null;
+    
+    // Add trendline spots for all actual days
+    if (trendline != null) {
+      for (int day = 1; day <= currentDayInQuarter; day++) {
+        final trendValue = trendline.slope * day + trendline.intercept;
+        if (trendValue >= 0) {
+          trendSpots.add(FlSpot(day.toDouble(), trendValue));
+        }
+      }
+    }
+    
+    // Add forecast spots for future days in the current quarter
+    if (isCurrentQuarter && actualDaysWithData.isNotEmpty && currentDayInQuarter < daysInQuarter) {
+      for (int day = currentDayInQuarter + 1; day <= daysInQuarter; day++) {
+        forecastSpots.add(FlSpot(day.toDouble(), avgDailyAmount));
+        
+        final upperBound = math.max(0.0, avgDailyAmount + upperBoundOffset).toDouble();
+        final lowerBound = math.max(0.0, avgDailyAmount - lowerBoundOffset).toDouble();
+        
+        upperBoundSpots.add(FlSpot(day.toDouble(), upperBound));
+        lowerBoundSpots.add(FlSpot(day.toDouble(), lowerBound));
+      }
+      
+      // Create polygon spots for filled area
+      if (upperBoundSpots.isNotEmpty && lowerBoundSpots.isNotEmpty) {
+        boundAreaSpots.addAll(upperBoundSpots);
+        boundAreaSpots.addAll(lowerBoundSpots.reversed.toList());
+        boundAreaSpots.add(upperBoundSpots.first);
+      }
+    }
+
+    // Helper function to get date label for a day in the quarter
+    String getDateLabel(int dayInQuarter) {
+      final date = dateRange.start.add(Duration(days: dayInQuarter - 1));
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${monthNames[date.month - 1]} ${date.day}';
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${transactionType == 'expense' ? 'Expense' : 'Fund'} Forecast (Quarterly)',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Statistics Summary
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: TWColors.slate.shade900.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: TWColors.slate.shade900.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          'Total ${transactionType == 'expense' ? 'Spent' : 'Earned'}',
+                          'P${totalActualAmount.toStringAsFixed(2)}',
+                          Icons.account_balance_wallet,
+                          TWColors.slate.shade900,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Days Active',
+                          '${actualDaysWithData.length}',
+                          Icons.calendar_today,
+                          Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          'Daily Average',
+                          'P${avgDailyAmount.toStringAsFixed(2)}',
+                          Icons.trending_up,
+                          Colors.green,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          'Highest Day',
+                          'P${maxDailyAmount.toStringAsFixed(2)}',
+                          Icons.keyboard_arrow_up,
+                          Colors.orange,
+                          getDateLabel(highestDay),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Legend
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: TWColors.slate.shade900,
+                        borderRadius: BorderRadius.circular(1.5),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Actual Data',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                if (trendline != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 16,
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Trendline',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        borderRadius: BorderRadius.circular(1),
+                        border: Border.all(color: Colors.grey[400]!, width: 1),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Forecast',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                if (upperBoundSpots.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 16,
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: Colors.blue[400],
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Forecast Bounds',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            SizedBox(
+              height: 300,
+              child: LineChart(
+                LineChartData(
+                                      gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: _calculateYAxisInterval(totalActualAmount, maxDailyAmount),
+                    verticalInterval: daysInQuarter > 60 ? 15 : (daysInQuarter > 30 ? 10 : 5), // Adaptive grid lines
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey[200]!,
+                        strokeWidth: 0.5,
+                      );
+                    },
+                  ),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        interval: _calculateYAxisInterval(totalActualAmount, maxDailyAmount),
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            'P${value.toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        interval: daysInQuarter > 60 ? 15 : (daysInQuarter > 30 ? 10 : 5), // Adaptive interval based on quarter length
+                        getTitlesWidget: (value, meta) {
+                          final day = value.toInt();
+                          if (day >= 1 && day <= daysInQuarter) {
+                            return Text(
+                              getDateLabel(day),
+                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(color: Colors.grey[300]!, width: 0.5),
+                  ),
+                  lineTouchData: LineTouchData(
+                    enabled: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      tooltipBgColor: Colors.black87,
+                      tooltipRoundedRadius: 8,
+                      tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                        return touchedBarSpots.map((barSpot) {
+                          final day = barSpot.x.toInt();
+                          final amount = barSpot.y;
+                          
+                          // Skip area fill bar
+                          if (boundAreaSpots.isNotEmpty && barSpot.barIndex == 0) {
+                            return LineTooltipItem(
+                              '',
+                              const TextStyle(color: Colors.transparent, fontSize: 0),
+                            );
+                          }
+                          
+                          int indexOffset = boundAreaSpots.isNotEmpty ? 1 : 0;
+                          
+                          // Handle bounds
+                          if (upperBoundSpots.isNotEmpty && lowerBoundSpots.isNotEmpty) {
+                            final upperIndex = indexOffset;
+                            final lowerIndex = indexOffset + 1;
+                            
+                            if (barSpot.barIndex == upperIndex) {
+                              return LineTooltipItem(
+                                'Upper Bound\n${getDateLabel(day)}\nP${amount.toStringAsFixed(2)}',
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              );
+                            } else if (barSpot.barIndex == lowerIndex) {
+                              return LineTooltipItem(
+                                'Lower Bound\n${getDateLabel(day)}\nP${amount.toStringAsFixed(2)}',
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              );
+                            }
+                          }
+                          
+                          if (upperBoundSpots.isNotEmpty && lowerBoundSpots.isNotEmpty) {
+                            indexOffset += 2;
+                          }
+                          
+                          // Skip trendline
+                          if (trendline != null && barSpot.barIndex == indexOffset) {
+                            return LineTooltipItem(
+                              '',
+                              const TextStyle(color: Colors.transparent, fontSize: 0),
+                            );
+                          }
+                          
+                          if (trendline != null) {
+                            indexOffset += 1;
+                          }
+                          
+                          // Handle actual and forecast
+                          final actualIndex = indexOffset;
+                          final isActual = barSpot.barIndex == actualIndex;
+                          
+                          return LineTooltipItem(
+                            '${isActual ? 'Actual' : 'Forecast'}\n${getDateLabel(day)}\nP${amount.toStringAsFixed(2)}',
+                            const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        }).toList();
+                      },
+                    ),
+                    getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+                      if (barData.color == Colors.transparent || barData.color == Colors.orange) {
+                        return spotIndexes.map((index) {
+                          return TouchedSpotIndicatorData(
+                            FlLine(color: Colors.transparent, strokeWidth: 0),
+                            FlDotData(show: false),
+                          );
+                        }).toList();
+                      }
+                      
+                      return spotIndexes.map((index) {
+                        return TouchedSpotIndicatorData(
+                          FlLine(
+                            color: barData.color ?? TWColors.slate.shade900,
+                            strokeWidth: 2,
+                            dashArray: [5, 5],
+                          ),
+                          FlDotData(
+                            getDotPainter: (spot, percent, barData, index) {
+                              return FlDotCirclePainter(
+                                radius: 6,
+                                color: barData.color ?? TWColors.slate.shade900,
+                                strokeWidth: 2,
+                                strokeColor: Colors.white,
+                              );
+                            },
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                  lineBarsData: [
+                    // Filled area between bounds
+                    if (boundAreaSpots.isNotEmpty)
+                      LineChartBarData(
+                        spots: boundAreaSpots,
+                        isCurved: false,
+                        color: Colors.transparent,
+                        barWidth: 0,
+                        preventCurveOverShooting: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: Colors.blue[100]!.withOpacity(0.3),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: const [0.0, 1.0],
+                            colors: [
+                              Colors.blue[200]!.withOpacity(0.4),
+                              Colors.blue[100]!.withOpacity(0.15),
+                            ],
+                          ),
+                        ),
+                      ),
+                    // Upper bound
+                    if (upperBoundSpots.isNotEmpty)
+                      LineChartBarData(
+                        spots: upperBoundSpots,
+                        isCurved: false,
+                        color: Colors.blue[400]!,
+                        barWidth: 1.5,
+                        dashArray: [4, 4],
+                        preventCurveOverShooting: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    // Lower bound
+                    if (lowerBoundSpots.isNotEmpty)
+                      LineChartBarData(
+                        spots: lowerBoundSpots,
+                        isCurved: false,
+                        color: Colors.blue[400]!,
+                        barWidth: 1.5,
+                        dashArray: [4, 4],
+                        preventCurveOverShooting: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    // Trendline
+                    if (trendSpots.isNotEmpty)
+                      LineChartBarData(
+                        spots: trendSpots,
+                        isCurved: false,
+                        color: Colors.orange,
+                        barWidth: 2,
+                        dashArray: [8, 4],
+                        preventCurveOverShooting: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    // Actual data line
+                    LineChartBarData(
+                      spots: actualSpots,
+                      isCurved: false,
+                      color: TWColors.slate.shade900,
+                      barWidth: 3,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 4,
+                            color: TWColors.slate.shade900,
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: TWColors.slate.shade900.withOpacity(0.1),
+                      ),
+                    ),
+                    // Forecast data line
+                    if (actualDaysWithData.isNotEmpty)
+                      LineChartBarData(
+                        spots: forecastSpots,
+                        isCurved: false,
+                        color: Colors.grey[400]!.withOpacity(0.6),
+                        barWidth: 2,
+                        dashArray: [5, 5],
+                        dotData: const FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),
                       ),
                   ],
