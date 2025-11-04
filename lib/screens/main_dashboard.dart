@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/services/tutorial_service.dart';
 import 'package:org_wallet/models/officer.dart';
@@ -44,6 +45,7 @@ class _MainDashboardState extends State<MainDashboard> {
   bool _tutorialStarted = false;
   bool _tutorialCompleted = true; // Default to true to prevent Showcase widgets initially
   bool _isQuarterlyView = false; // New state variable for quarterly view
+  int _pendingCount = 0; // Track pending members count
 
   // GlobalKeys for tutorial targets
   final GlobalKey _transactionsNavKey = GlobalKey();
@@ -173,14 +175,67 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildDashboard(AuthService authService) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
+    return StreamBuilder<QuerySnapshot>(
+      stream: authService.currentOrgId != null
+          ? FirebaseFirestore.instance
+              .collection('officers')
+              .where('orgId', isEqualTo: authService.currentOrgId)
+              .snapshots()
+          : null,
+      builder: (context, snapshot) {
+        // Calculate pending count directly from snapshot - this updates in real-time
+        int pendingCount = 0;
+        if (snapshot.hasData) {
+          pendingCount = snapshot.data!.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final status = data['status'];
+            // Handle both int (enum index) and string formats
+            if (status is int) {
+              return status == 0; // OfficerStatus.pending = 0
+            } else if (status is String) {
+              return status.toLowerCase() == 'pending';
+            }
+            return false;
+          }).length;
+          
+          // Update state variable synchronously for use in other parts of the widget
+          if (_pendingCount != pendingCount) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _pendingCount = pendingCount;
+                });
+              }
+            });
+          }
+        }
+        
+        return Scaffold(
+          appBar: AppBar(
+            leading: Builder(
+              builder: (context) => Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.menu, color: Colors.black),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                  if (pendingCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
         centerTitle: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,11 +508,12 @@ class _MainDashboardState extends State<MainDashboard> {
                           
                           // Manage Members - Only President/Moderator
                           if (authService.canAccessDrawerItem('manage_members'))
-                            _buildMenuItem(
+                            _buildMenuItemWithBadge(
                               icon: Icons.people,
                               title: 'Manage Members',
                               // subtitle: 'Add, remove, and manage members',
                               onTap: () => _handleMenuSelection('manage_members', context),
+                              badgeCount: pendingCount,
                             ),
                           
                           const SizedBox(height: 16),
@@ -957,6 +1013,8 @@ class _MainDashboardState extends State<MainDashboard> {
               ),
             )
           : null,
+        );
+      },
     );
   }
 
@@ -1290,6 +1348,114 @@ class _MainDashboardState extends State<MainDashboard> {
                 //   color: TWColors.slate.shade400,
                 //   size: 20,
                 // ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper method to build menu items with badge
+  Widget _buildMenuItemWithBadge({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required int badgeCount,
+    bool isDestructive = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.transparent,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isDestructive 
+                            ? Colors.red.shade50
+                            : TWColors.slate.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: isDestructive 
+                            ? Colors.red.shade600
+                            : TWColors.slate.shade600,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isDestructive 
+                                  ? Colors.red.shade700
+                                  : TWColors.slate.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // Badge positioned at top-right corner of the menu item
+                if (badgeCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: badgeCount > 99
+                          ? const EdgeInsets.symmetric(horizontal: 5, vertical: 2)
+                          : badgeCount > 9
+                              ? const EdgeInsets.symmetric(horizontal: 5, vertical: 2)
+                              : const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Center(
+                        child: Text(
+                          badgeCount > 99 ? '99+' : badgeCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
