@@ -86,6 +86,8 @@ class AppTransaction {
           categoryName = 'School Funds';
         } else if (categoryId == 'club_funds') {
           categoryName = 'Club Funds';
+        } else if (categoryId == 'collections') {
+          categoryName = 'Collections';
         } else {
           categoryName = 'Unknown';
         }

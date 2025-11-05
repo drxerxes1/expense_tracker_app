@@ -267,6 +267,15 @@ class CategoryService {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       ),
+      CategoryModel(
+        id: 'collections',
+        name: 'Collections',
+        type: CategoryType.fund,
+        icon: 'account_balance_wallet',
+        color: '#F59E0B',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
     ];
 
     final batch = _db.batch();
@@ -283,7 +292,7 @@ class CategoryService {
   bool isDefaultCategory(String categoryId) {
     const defaultCategoryIds = {
       'food', 'transport', 'supplies', 'utilities', 'miscellaneous',
-      'donation', 'event_income', 'membership_fee', 'grant'
+      'donation', 'event_income', 'membership_fee', 'grant', 'collections'
     };
     return defaultCategoryIds.contains(categoryId);
   }
@@ -292,7 +301,7 @@ class CategoryService {
   Set<String> getDefaultCategoryIds() {
     return {
       'food', 'transport', 'supplies', 'utilities', 'miscellaneous',
-      'donation', 'event_income', 'membership_fee', 'grant'
+      'donation', 'event_income', 'membership_fee', 'grant', 'collections'
     };
   }
 
@@ -310,7 +319,7 @@ class CategoryService {
       final existingIds = existingCategories.map((c) => c.id).toSet();
       final defaultCategoryIds = {
         'food', 'transport', 'supplies', 'utilities', 'miscellaneous',
-        'donation', 'event_income', 'membership_fee', 'grant'
+        'donation', 'event_income', 'membership_fee', 'grant', 'collections'
       };
       
       final missingIds = defaultCategoryIds.difference(existingIds);
@@ -418,6 +427,17 @@ class CategoryService {
                 type: CategoryType.fund,
                 icon: 'investment',
                 color: '#EAB308',
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              );
+              break;
+            case 'collections':
+              defaultCategory = CategoryModel(
+                id: 'collections',
+                name: 'Collections',
+                type: CategoryType.fund,
+                icon: 'account_balance_wallet',
+                color: '#F59E0B',
                 createdAt: DateTime.now(),
                 updatedAt: DateTime.now(),
               );

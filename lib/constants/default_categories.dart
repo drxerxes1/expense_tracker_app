@@ -118,4 +118,13 @@ List<CategoryModel> defaultFundCategories = [
     createdAt: DateTime.now(),
     updatedAt: DateTime.now(),
   ),
+  CategoryModel(
+    id: 'collections',
+    name: 'Collections',
+    type: CategoryType.fund,
+    icon: 'account_balance_wallet',
+    color: '#F59E0B',
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+  ),
 ];

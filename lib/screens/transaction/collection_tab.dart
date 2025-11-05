@@ -615,13 +615,19 @@ class _CollectionTabState extends State<CollectionTab> {
     // Get all unique members who should be counted
     final Set<String> allSelected = {};
 
-    // Add session-selected members (newly selected in this session)
-    allSelected.addAll(_selected.keys.where((k) => _selected[k] == true));
+    if (widget.createPaymentsImmediately == false) {
+      // Edit/delayed mode: ONLY count what's currently selected (user can uncheck existing paid members)
+      allSelected.addAll(_selected.keys.where((k) => _selected[k] == true));
+    } else {
+      // Immediate mode: count both newly selected and existing paid members
+      // Add session-selected members (newly selected in this session)
+      allSelected.addAll(_selected.keys.where((k) => _selected[k] == true));
 
-    // Add existing paid members (but avoid double-counting session members)
-    for (final userId in _existingPaidUserIds) {
-      if (!_sessionPaidUserIds.contains(userId)) {
-        allSelected.add(userId);
+      // Add existing paid members (but avoid double-counting session members)
+      for (final userId in _existingPaidUserIds) {
+        if (!_sessionPaidUserIds.contains(userId)) {
+          allSelected.add(userId);
+        }
       }
     }
 
@@ -810,12 +816,23 @@ class _CollectionTabState extends State<CollectionTab> {
                     userId,
                   );
                   final bool isPaid = isExistingPaid || isSessionPaid;
-                  // In edit/delayed mode, allow toggling any member; we'll persist on Save.
-                  // In immediate mode, keep previous restriction.
-                  final bool canToggle =
-                      widget.createPaymentsImmediately == false
-                      ? true
-                      : (!isExistingPaid || isSessionPaid);
+                  
+                  // Determine if we're in Add mode (no current transaction) or Edit mode
+                  final bool isAddMode = widget.currentTransactionId == null || 
+                                         widget.currentTransactionId!.isEmpty;
+                  
+                  // In Add mode: disable tiles for users who have already paid
+                  // In Edit mode: allow toggling any member regardless of payment status
+                  final bool canToggle;
+                  if (isAddMode) {
+                    // Add mode: disable if user has already paid (existing payment, not session-created)
+                    canToggle = !isExistingPaid;
+                  } else {
+                    // Edit mode: allow toggling any member; we'll persist on Save
+                    canToggle = widget.createPaymentsImmediately == false
+                        ? true
+                        : (!isExistingPaid || isSessionPaid);
+                  }
 
                   // compute member amount to display
                   double memberAmt = 0.0;
@@ -845,6 +862,9 @@ class _CollectionTabState extends State<CollectionTab> {
                     ),
                     subtitle: Text(
                       '${m['role'] ?? ''}${memberAmt > 0 ? ' · ${memberAmt.toStringAsFixed(2)}' : ''}',
+                      style: canToggle
+                          ? null
+                          : TextStyle(color: Colors.grey[500]),
                     ),
                     secondary: processing
                         ? const SizedBox(
