@@ -196,7 +196,7 @@ class _ManageDuesScreenState extends State<ManageDuesScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'PHP ${due.amount.toStringAsFixed(2)} • ${due.frequency.toUpperCase()}',
+                                  'PHP ${due.amount.toStringAsFixed(2)} • ${due.frequency.toUpperCase()} • ${due.totalDuesCount} payment${due.totalDuesCount > 1 ? "s" : ""}',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey[600],
@@ -204,7 +204,7 @@ class _ManageDuesScreenState extends State<ManageDuesScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Due: ${due.dueDate.toLocal().toString().split(' ')[0]}',
+                                  'Period: ${(due.startDate ?? due.dueDate).toLocal().toString().split(' ')[0]} - ${(due.endDate ?? due.dueDate).toLocal().toString().split(' ')[0]}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[500],
@@ -265,70 +265,40 @@ class _ManageDuesScreenState extends State<ManageDuesScreen> {
                           }
                           
                           final summary = summarySnap.data ?? {};
-                          final paidCount = summary['paidCount'] ?? 0;
-                          final unpaidCount = summary['unpaidCount'] ?? 0;
-                          final totalMembers = summary['totalMembers'] ?? 0;
                           final totalCollected = summary['totalCollected'] ?? 0.0;
                           
-                          return Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      'Paid',
-                                      '$paidCount/$totalMembers',
-                                      Colors.green,
-                                      Icons.check_circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      'Unpaid',
-                                      '$unpaidCount/$totalMembers',
-                                      Colors.orange,
-                                      Icons.pending,
-                                    ),
-                                  ),
-                                ],
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.green.shade200,
                               ),
-                              if (totalCollected > 0) ...[
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.green.shade200,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.account_balance_wallet,
+                                  size: 20,
+                                  color: Colors.green.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Collected: PHP ${totalCollected.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.green.shade700,
                                     ),
-                                  ),
-                                  child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                                      Icon(
-                                        Icons.account_balance_wallet,
-                                        size: 16,
-                                        color: Colors.green.shade700,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Collected: ${totalCollected.toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.green.shade700,
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ],
-                            ],
+                            ),
                           );
                       },
                     ),
@@ -350,43 +320,4 @@ class _ManageDuesScreenState extends State<ManageDuesScreen> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, MaterialColor color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color.shade700),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: color.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: color.shade700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

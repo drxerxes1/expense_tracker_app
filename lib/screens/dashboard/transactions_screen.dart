@@ -6,6 +6,7 @@ import 'package:org_wallet/services/auth_service.dart';
 import 'package:org_wallet/models/transaction.dart' as model;
 import 'package:org_wallet/services/transaction_service.dart';
 import 'package:org_wallet/screens/transaction/manage_transaction_screen.dart';
+import 'package:org_wallet/screens/dues/due_transaction_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -657,37 +658,53 @@ class TransactionListItem extends StatelessWidget {
               if (!authService.canPerformAction('edit_transaction')) {
                 return; // Members can't tap to edit
               }
-              
-              String? dueIdForTx;
-              try {
-                final duesSnap = await FirebaseFirestore.instance
-                    .collection('organizations')
-                    .doc(transaction.orgId)
-                    .collection('dues')
-                    .get();
-                for (final d in duesSnap.docs) {
-                  final q = await d.reference
-                      .collection('due_payments')
-                      .where('transactionId', isEqualTo: transaction.id)
-                      .limit(1)
-                      .get();
-                  if (q.docs.isNotEmpty) {
-                    dueIdForTx = d.id;
-                    break;
-                  }
-                }
-              } catch (_) {}
 
-              final changed = await Navigator.of(context).push<bool?>(
-                MaterialPageRoute(
-                  builder: (_) => TransactionScreen(
-                    transaction: transaction,
-                    initialCollectionDueId: dueIdForTx,
+              // Navigate to Due Transaction screen for collection transactions
+              if (isCollection) {
+                // Identify the dueId used for this transaction (by looking up a linked payment)
+                String? dueIdForTx;
+                try {
+                  final duesSnap = await FirebaseFirestore.instance
+                      .collection('organizations')
+                      .doc(transaction.orgId)
+                      .collection('dues')
+                      .get();
+                  for (final d in duesSnap.docs) {
+                    final q = await d.reference
+                        .collection('due_payments')
+                        .where('transactionId', isEqualTo: transaction.id)
+                        .limit(1)
+                        .get();
+                    if (q.docs.isNotEmpty) {
+                      dueIdForTx = d.id;
+                      break;
+                    }
+                  }
+                } catch (_) {}
+
+                final changed = await Navigator.of(context).push<bool?> (
+                  MaterialPageRoute(
+                    builder: (_) => DueTransactionScreen(
+                      initialTransactionId: transaction.id,
+                      initialDueId: dueIdForTx,
+                      initialTransactionDate: transaction.createdAt,
+                    ),
                   ),
-                ),
-              );
-              if (changed == true) {
-                if (onEdited != null) onEdited!();
+                );
+                if (changed == true) {
+                  if (onEdited != null) onEdited!();
+                }
+              } else {
+                final changed = await Navigator.of(context).push<bool?>(
+                  MaterialPageRoute(
+                    builder: (_) => TransactionScreen(
+                      transaction: transaction,
+                    ),
+                  ),
+                );
+                if (changed == true) {
+                  if (onEdited != null) onEdited!();
+                }
               }
             },
       onLongPress: () async {
@@ -704,39 +721,52 @@ class TransactionListItem extends StatelessWidget {
                       title: const Text('Edit'),
                       onTap: () async {
                         Navigator.of(ctx).pop();
-                        String? dueIdForTx;
-                        try {
-                          final duesSnap = await FirebaseFirestore.instance
-                              .collection('organizations')
-                              .doc(transaction.orgId)
-                              .collection('dues')
-                              .get();
-                          for (final d in duesSnap.docs) {
-                            final q = await d.reference
-                                .collection('due_payments')
-                                .where(
-                                  'transactionId',
-                                  isEqualTo: transaction.id,
-                                )
-                                .limit(1)
-                                .get();
-                            if (q.docs.isNotEmpty) {
-                              dueIdForTx = d.id;
-                              break;
-                            }
-                          }
-                        } catch (_) {}
 
-                        final changed = await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => TransactionScreen(
-                              transaction: transaction,
-                              initialCollectionDueId: dueIdForTx,
+                        // Navigate to Due Transaction screen for collection transactions
+                        if (isCollection) {
+                          String? dueIdForTx;
+                          try {
+                            final duesSnap = await FirebaseFirestore.instance
+                                .collection('organizations')
+                                .doc(transaction.orgId)
+                                .collection('dues')
+                                .get();
+                            for (final d in duesSnap.docs) {
+                              final q = await d.reference
+                                  .collection('due_payments')
+                                  .where('transactionId', isEqualTo: transaction.id)
+                                  .limit(1)
+                                  .get();
+                              if (q.docs.isNotEmpty) {
+                                dueIdForTx = d.id;
+                                break;
+                              }
+                            }
+                          } catch (_) {}
+
+                          final changed = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => DueTransactionScreen(
+                                initialTransactionId: transaction.id,
+                                initialDueId: dueIdForTx,
+                                initialTransactionDate: transaction.createdAt,
+                              ),
                             ),
-                          ),
-                        );
-                        if (changed == true) {
-                          if (onEdited != null) onEdited!();
+                          );
+                          if (changed == true) {
+                            if (onEdited != null) onEdited!();
+                          }
+                        } else {
+                          final changed = await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => TransactionScreen(
+                                transaction: transaction,
+                              ),
+                            ),
+                          );
+                          if (changed == true) {
+                            if (onEdited != null) onEdited!();
+                          }
                         }
                       },
                     ),

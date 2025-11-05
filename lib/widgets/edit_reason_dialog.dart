@@ -20,6 +20,8 @@ class _EditReasonDialogState extends State<EditReasonDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    
     return AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -31,47 +33,61 @@ class _EditReasonDialogState extends State<EditReasonDialog> {
           fontWeight: FontWeight.w600,
         ),
       ),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Please provide a reason for editing this transaction:',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _reasonController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'Reason for Edit',
-                hintText: 'Enter the reason for this edit...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+      contentPadding: EdgeInsets.fromLTRB(
+        24.0,
+        20.0,
+        24.0,
+        keyboardHeight > 0 ? 8.0 : 24.0,
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Please provide a reason for editing this transaction:',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: TWColors.blue.shade600,
-                    width: 2,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _reasonController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Reason for Edit',
+                  hintText: 'Enter the reason for this edit...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: TWColors.blue.shade600,
+                      width: 2,
+                    ),
                   ),
                 ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Reason is required';
+                  }
+                  return null;
+                },
+                autofocus: true,
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Reason is required';
-                }
-                return null;
-              },
-              autofocus: true,
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+      actionsPadding: EdgeInsets.fromLTRB(
+        24.0,
+        8.0,
+        24.0,
+        keyboardHeight > 0 ? 8.0 : 24.0,
       ),
       actions: [
         TextButton(
@@ -107,5 +123,9 @@ Future<String?> showEditReasonDialog(BuildContext context) {
     context: context,
     barrierDismissible: false,
     builder: (context) => const EditReasonDialog(),
-  );
+  ).then((value) {
+    // Dismiss keyboard when dialog closes
+    FocusScope.of(context).unfocus();
+    return value;
+  });
 }

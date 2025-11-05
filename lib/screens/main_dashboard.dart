@@ -17,6 +17,7 @@ import 'package:org_wallet/screens/auth/login_screen.dart';
 import 'package:org_wallet/screens/organization/qr_generator_screen.dart';
 import 'package:org_wallet/screens/organization/scan_qr_screen.dart';
 import 'package:org_wallet/screens/dues/manage_dues_screen.dart';
+import 'package:org_wallet/screens/dues/due_transaction_screen.dart';
 import 'package:org_wallet/screens/organization/manage_members_screen.dart';
 import 'package:org_wallet/screens/organization/edit_organization_screen.dart';
 import 'package:org_wallet/screens/organization/manage_categories_screen.dart';
@@ -993,9 +994,78 @@ class _MainDashboardState extends State<MainDashboard> {
               ),
               child: FloatingActionButton(
                 onPressed: () async {
-                  final result = await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TransactionScreen()),
+                  // Show modal to select transaction type
+                  final transactionType = await showDialog<String>(
+                    context: context,
+                    builder: (context) => Dialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Select Transaction Type',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[900],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Choose what type of transaction you want to add',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            _buildTransactionTypeOption(
+                              context,
+                              title: 'Expense / Fund',
+                              description: 'Record an expense or add funds',
+                              icon: Icons.account_balance_wallet,
+                              color: Colors.blue,
+                              value: 'expense_fund',
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTransactionTypeOption(
+                              context,
+                              title: 'Collection (Dues)',
+                              description: 'Record member dues payments',
+                              icon: Icons.payments,
+                              color: Colors.green,
+                              value: 'collection',
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Cancel'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   );
+                  
+                  if (transactionType == null) return;
+                  
+                  dynamic result;
+                  if (transactionType == 'expense_fund') {
+                    result = await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TransactionScreen()),
+                    );
+                  } else if (transactionType == 'collection') {
+                    result = await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const DueTransactionScreen()),
+                    );
+                  }
+                  
                   // If a transaction was added/updated, refresh the transactions screen
                   if (result == true) {
                     setState(() {
@@ -1278,6 +1348,76 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   // Helper method to build menu items
+  Widget _buildTransactionTypeOption(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+    required String value,
+  }) {
+    return InkWell(
+      onTap: () => Navigator.of(context).pop(value),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: color.withOpacity(0.3),
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                size: 32,
+                color: color,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: color.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 20,
+              color: color.withOpacity(0.7),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMenuItem({
     required IconData icon,
     required String title,

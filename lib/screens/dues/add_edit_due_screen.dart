@@ -24,12 +24,14 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
   late TextEditingController _amountCtrl;
-  DateTime _dueDate = DateTime.now();
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now().add(const Duration(days: 30)); // Default 1 month ahead
   String _frequency = 'monthly';
   bool _saving = false;
+  int _totalDuesCount = 1;
 
-  // payment status map userId -> paid (read-only for display)
-  final Map<String, bool> _paid = {};
+  // payment count map userId -> number of payments made
+  final Map<String, int> _paymentCounts = {};
 
   @override
   void initState() {
@@ -41,21 +43,56 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
       text: widget.existing != null ? widget.existing!.amount.toString() : '',
     );
     if (widget.existing != null) {
-      _dueDate = widget.existing!.dueDate;
+      _startDate = widget.existing!.startDate ?? widget.existing!.dueDate;
+      _endDate = widget.existing!.endDate ?? widget.existing!.dueDate.add(const Duration(days: 30));
       _frequency = widget.existing!.frequency;
-      // Load paid status for all members for this due
-      _loadPaidMembers();
+      _totalDuesCount = widget.existing!.totalDuesCount;
+      // Load payment counts for all members for this due
+      _loadPaymentCounts();
+    } else {
+      // Calculate initial dues count
+      _totalDuesCount = _calculateDuesCount(_startDate, _endDate, _frequency);
+    }
+  }
+  
+  /// Calculate the number of dues between start and end dates based on frequency
+  int _calculateDuesCount(DateTime start, DateTime end, String frequency) {
+    if (end.isBefore(start)) return 0;
+    
+    switch (frequency.toLowerCase()) {
+      case 'weekly':
+        return ((end.difference(start).inDays) / 7).ceil();
+      case 'monthly':
+        int months = (end.year - start.year) * 12 + (end.month - start.month);
+        return months > 0 ? months : 1;
+      case 'quarterly':
+        int months = (end.year - start.year) * 12 + (end.month - start.month);
+        return (months / 3).ceil();
+      case 'yearly':
+        int years = end.year - start.year;
+        return years > 0 ? years : 1;
+      default:
+        return 1;
     }
   }
 
-  Future<void> _loadPaidMembers() async {
+  Future<void> _loadPaymentCounts() async {
     final dueId = widget.existing?.id;
     if (dueId == null) return;
     final payments = await _duesService.listDuePayments(widget.orgId, dueId);
-    setState(() {
-      for (final p in payments) {
-        _paid[p.userId] = true;
+    
+    // Count only actual payments (those with paidAt set)
+    final counts = <String, int>{};
+    for (final p in payments) {
+      // Only count if payment has been actually made (paidAt is not null)
+      if (p.paidAt != null) {
+        counts[p.userId] = (counts[p.userId] ?? 0) + 1;
       }
+    }
+    
+    setState(() {
+      _paymentCounts.clear();
+      _paymentCounts.addAll(counts);
     });
   }
 
@@ -72,7 +109,10 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
           name: name,
           amount: amount,
           frequency: _frequency,
-          dueDate: _dueDate,
+          dueDate: _startDate, // Use startDate as dueDate for backward compatibility
+          startDate: _startDate,
+          endDate: _endDate,
+          totalDuesCount: _totalDuesCount,
           createdBy: auth.user?.id ?? '',
         );
         final createdDue = await _duesService.createDueWithId(due: due);
@@ -94,7 +134,10 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
             'name': name,
             'amount': amount,
             'frequency': _frequency,
-            'dueDate': Timestamp.fromDate(_dueDate),
+            'dueDate': Timestamp.fromDate(_startDate),
+            'startDate': Timestamp.fromDate(_startDate),
+            'endDate': Timestamp.fromDate(_endDate),
+            'totalDuesCount': _totalDuesCount,
           },
         );
         SnackBarHelper.showSuccess(
@@ -205,13 +248,13 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                       ),
                       const SizedBox(height: 16),
                       
-                      // Due Date Field
+                      // Start Date Field
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           border: Border.all(color: TWColors.slate.shade300),
                           borderRadius: BorderRadius.circular(8),
-                          color: TWColors.slate.shade50,
+                          color: widget.existing != null ? TWColors.slate.shade100 : TWColors.slate.shade50,
                         ),
                         child: Row(
                           children: [
@@ -222,14 +265,74 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Due Date',
+                                    'Start Date',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: TWColors.slate.shade600,
                                     ),
                                   ),
                                   Text(
-                                    _dueDate.toLocal().toString().split(' ')[0],
+                                    _startDate.toLocal().toString().split(' ')[0],
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: widget.existing != null ? TWColors.slate.shade500 : Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (widget.existing == null)
+                              TextButton.icon(
+                                onPressed: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: _startDate,
+                                    firstDate: DateTime(2000),
+                                    lastDate: _endDate,
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      _startDate = picked;
+                                      _totalDuesCount = _calculateDuesCount(_startDate, _endDate, _frequency);
+                                    });
+                                  }
+                                },
+                                icon: const Icon(Icons.edit, size: 16),
+                                label: const Text('Change'),
+                              )
+                            else
+                              Icon(Icons.lock_outline, size: 16, color: TWColors.slate.shade400),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // End Date Field
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: TWColors.slate.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                          color: TWColors.slate.shade50,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.event, color: TWColors.slate.shade600),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'End Date',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: TWColors.slate.shade600,
+                                    ),
+                                  ),
+                                  Text(
+                                    _endDate.toLocal().toString().split(' ')[0],
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
@@ -242,11 +345,16 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                               onPressed: () async {
                                 final picked = await showDatePicker(
                                   context: context,
-                                  initialDate: _dueDate,
-                                  firstDate: DateTime(2000),
+                                  initialDate: _endDate,
+                                  firstDate: _startDate,
                                   lastDate: DateTime(2100),
                                 );
-                                if (picked != null) setState(() => _dueDate = picked);
+                                if (picked != null) {
+                                  setState(() {
+                                    _endDate = picked;
+                                    _totalDuesCount = _calculateDuesCount(_startDate, _endDate, _frequency);
+                                  });
+                                }
                               },
                               icon: const Icon(Icons.edit, size: 16),
                               label: const Text('Change'),
@@ -266,7 +374,7 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           filled: true,
-                          fillColor: TWColors.slate.shade50,
+                          fillColor: widget.existing != null ? TWColors.slate.shade100 : TWColors.slate.shade50,
                         ),
                         items: const [
                           DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
@@ -274,7 +382,80 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                           DropdownMenuItem(value: 'quarterly', child: Text('Quarterly')),
                           DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
                         ],
-                        onChanged: (v) => setState(() => _frequency = v ?? _frequency),
+                        onChanged: widget.existing != null ? null : (v) {
+                          setState(() {
+                            _frequency = v ?? _frequency;
+                            _totalDuesCount = _calculateDuesCount(_startDate, _endDate, _frequency);
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Info message when editing
+                      if (widget.existing != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: TWColors.amber.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: TWColors.amber.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, color: TWColors.amber.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Start date and frequency cannot be changed after creation',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: TWColors.amber.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (widget.existing != null)
+                        const SizedBox(height: 16),
+                      
+                      // Computed Dues Count Display
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: TWColors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: TWColors.blue.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: TWColors.blue.shade700),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Total Payment Periods',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: TWColors.blue.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'This due will have $_totalDuesCount payment${_totalDuesCount > 1 ? "s" : ""}.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: TWColors.blue.shade900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 24),
                       
@@ -284,7 +465,7 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                         child: FilledButton(
                           onPressed: _saving ? null : _save,
                           style: FilledButton.styleFrom(
-                            backgroundColor: TWColors.blue.shade600,
+                            backgroundColor: TWColors.slate.shade900,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -343,7 +524,7 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'View member payment status for this due',
+                        'View member payment progress for this due',
                         style: TextStyle(
                           fontSize: 14,
                           color: TWColors.slate.shade600,
@@ -424,7 +605,10 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                 final userId = (m['userId'] ?? '').toString();
                                 final name = (m['name'] ?? m['email'] ?? userId).toString();
                                 final role = (m['role'] ?? '').toString();
-                                final paid = _paid[userId] == true;
+                                final paidCount = _paymentCounts[userId] ?? 0;
+                                final totalCount = _totalDuesCount;
+                                final isFullyPaid = paidCount >= totalCount;
+                                final progress = totalCount > 0 ? paidCount / totalCount : 0.0;
                                 
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 8),
@@ -432,21 +616,22 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     side: BorderSide(
-                                      color: paid ? Colors.green.shade200 : Colors.grey.shade200,
+                                      color: isFullyPaid ? Colors.green.shade300 : Colors.grey.shade200,
+                                      width: isFullyPaid ? 2 : 1,
                                     ),
                                   ),
                                   child: ListTile(
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16,
-                                      vertical: 8,
+                                      vertical: 12,
                                     ),
                                     leading: CircleAvatar(
-                                      backgroundColor: paid 
+                                      backgroundColor: isFullyPaid 
                                           ? Colors.green.shade100 
                                           : Colors.grey.shade200,
                                       child: Icon(
-                                        paid ? Icons.check : Icons.person,
-                                        color: paid 
+                                        isFullyPaid ? Icons.check_circle : Icons.person,
+                                        color: isFullyPaid 
                                             ? Colors.green.shade700 
                                             : Colors.grey.shade600,
                                       ),
@@ -455,58 +640,51 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                                       name,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
-                                        color: paid ? Colors.green.shade800 : null,
+                                        color: isFullyPaid ? Colors.green.shade800 : Colors.black,
                                       ),
                                     ),
-                                    subtitle: role.isNotEmpty 
-                                        ? Text(
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if (role.isNotEmpty) ...[
+                                          Text(
                                             role,
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey[600],
                                             ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                        ],
+                                        Text(
+                                          'Progress: $paidCount / $totalCount payments',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: isFullyPaid 
+                                                ? Colors.green.shade600 
+                                                : Colors.grey[700],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        LinearProgressIndicator(
+                                          value: progress,
+                                          backgroundColor: Colors.grey.shade200,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            isFullyPaid 
+                                                ? Colors.green.shade500 
+                                                : Colors.blue.shade500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    trailing: isFullyPaid
+                                        ? Icon(
+                                            Icons.check_circle,
+                                            color: Colors.green.shade700,
+                                            size: 28,
                                           )
                                         : null,
-                                    trailing: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: paid 
-                                            ? Colors.green.shade100 
-                                            : Colors.orange.shade100,
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color: paid 
-                                              ? Colors.green.shade300 
-                                              : Colors.orange.shade300,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            paid ? Icons.check_circle : Icons.pending,
-                                            size: 16,
-                                            color: paid 
-                                                ? Colors.green.shade700 
-                                                : Colors.orange.shade700,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            paid ? 'Paid' : 'Unpaid',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: paid 
-                                                  ? Colors.green.shade700 
-                                                  : Colors.orange.shade700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                   ),
                                 );
                               },

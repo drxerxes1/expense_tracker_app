@@ -257,7 +257,8 @@ class DuesService {
     double totalCollected = 0.0;
     for (final p in paymentsSnap.docs) {
       final payment = DuePaymentModel.fromFirestore(p);
-      final paidAt = payment.paidAt ?? payment.createdAt;
+      // Only count payments that have actually been paid (paidAt is not null)
+      final paidAt = payment.paidAt;
       if (paidAt == null) continue;
       if (_isPaymentInCurrentPeriod(paidAt, due)) {
         paidUserIds.add(payment.userId);

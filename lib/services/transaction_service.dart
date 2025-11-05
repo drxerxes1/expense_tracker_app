@@ -282,7 +282,40 @@ class TransactionService {
       categoryName = catData?['name'] ?? currentData['categoryId'];
     }
     
+    // Delete the transaction document
     await docRef.delete();
+
+    // Also cascade delete any due payments linked to this transaction
+    // by matching transactionId in all dues' due_payments
+    try {
+      final duesSnap = await _db
+          .collection('organizations')
+          .doc(orgId)
+          .collection('dues')
+          .get();
+      final batch = _db.batch();
+      int ops = 0;
+      for (final d in duesSnap.docs) {
+        final paymentsSnap = await d.reference
+            .collection('due_payments')
+            .where('transactionId', isEqualTo: txId)
+            .get();
+        for (final p in paymentsSnap.docs) {
+          batch.delete(p.reference);
+          ops++;
+          // Firestore batched writes support up to 500 ops; commit in chunks
+          if (ops >= 450) { // leave headroom
+            await batch.commit();
+            ops = 0;
+          }
+        }
+      }
+      if (ops > 0) {
+        await batch.commit();
+      }
+    } catch (e) {
+      debugPrint('Failed to cascade delete due payments for transaction $txId: $e');
+    }
     try {
       final auditRef = _db.collection('auditTrail').doc();
       await auditRef.set({
