@@ -66,7 +66,7 @@ class _EditReasonDialogState extends State<EditReasonDialog> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(
-                      color: TWColors.blue.shade600,
+                      color: TWColors.slate.shade900,
                       width: 2,
                     ),
                   ),
@@ -104,7 +104,7 @@ class _EditReasonDialogState extends State<EditReasonDialog> {
             }
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: TWColors.blue.shade600,
+            backgroundColor: TWColors.slate.shade900,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),

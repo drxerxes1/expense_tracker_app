@@ -999,53 +999,37 @@ class _MainDashboardState extends State<MainDashboard> {
                     context: context,
                     builder: (context) => Dialog(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Container(
-                        padding: const EdgeInsets.all(24),
-                        constraints: const BoxConstraints(maxWidth: 400),
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                        constraints: const BoxConstraints(maxWidth: 320),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Select Transaction Type',
+                              'Select Type',
                               style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey[900],
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: TWColors.slate.shade900,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Choose what type of transaction you want to add',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildTransactionTypeOption(
                               context,
-                              title: 'Expense / Fund',
-                              description: 'Record an expense or add funds',
+                              title: 'Expense/Fund',
                               icon: Icons.account_balance_wallet,
                               color: Colors.blue,
                               value: 'expense_fund',
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 12),
                             _buildTransactionTypeOption(
                               context,
                               title: 'Collection (Dues)',
-                              description: 'Record member dues payments',
                               icon: Icons.payments,
-                              color: Colors.green,
+                              color: Colors.orange,
                               value: 'collection',
-                            ),
-                            const SizedBox(height: 16),
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text('Cancel'),
                             ),
                           ],
                         ),
@@ -1351,60 +1335,39 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget _buildTransactionTypeOption(
     BuildContext context, {
     required String title,
-    required String description,
     required IconData icon,
     required Color color,
     required String value,
   }) {
     return InkWell(
       onTap: () => Navigator.of(context).pop(value),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: color.withOpacity(0.3),
-            width: 2,
+            color: color.withOpacity(0.2),
+            width: 1.5,
           ),
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                size: 32,
-                color: color,
-              ),
+            Icon(
+              icon,
+              size: 24,
+              color: color,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: color.withOpacity(0.8),
-                    ),
-                  ),
-                ],
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: TWColors.slate.shade800,
+                ),
               ),
             ),
             Icon(

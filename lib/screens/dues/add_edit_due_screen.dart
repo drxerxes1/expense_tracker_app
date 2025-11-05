@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_tailwind_colors/flutter_tailwind_colors.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:org_wallet/models/due.dart';
 import 'package:org_wallet/services/dues_service.dart';
 import 'package:org_wallet/services/auth_service.dart';
@@ -127,12 +128,13 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
         // After creating, load payments (there will be none) and enable list
         Navigator.of(context).pop(true);
       } else {
+        // When editing, don't update amount (amount is locked)
         await _duesService.updateDueWithMap(
           orgId: widget.orgId,
           dueId: widget.existing!.id,
           updates: {
             'name': name,
-            'amount': amount,
+            // 'amount': amount, // Amount cannot be changed when editing
             'frequency': _frequency,
             'dueDate': Timestamp.fromDate(_startDate),
             'startDate': Timestamp.fromDate(_startDate),
@@ -225,15 +227,30 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                       // Amount Field
                       TextFormField(
                         controller: _amountCtrl,
+                        readOnly: widget.existing != null,
                         decoration: InputDecoration(
                           labelText: 'Amount',
                           hintText: '0.00',
-                          prefixIcon: const Icon(Icons.attach_money),
+                          prefixIcon: Padding(
+                            padding: const EdgeInsets.all(15.0),
+                            child: SvgPicture.asset(
+                              'assets/svg/philippine-peso-icon.svg',
+                              width: 12,
+                              height: 12,
+                              colorFilter: ColorFilter.mode(
+                                TWColors.slate.shade600,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                          ),
+                          suffixIcon: widget.existing != null
+                              ? Icon(Icons.lock_outline, color: TWColors.slate.shade400, size: 20)
+                              : null,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                           filled: true,
-                          fillColor: TWColors.slate.shade50,
+                          fillColor: widget.existing != null ? TWColors.slate.shade100 : TWColors.slate.shade50,
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
@@ -406,7 +423,7 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Start date and frequency cannot be changed after creation',
+                                  'Amount, start date, and frequency cannot be changed after creation',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: TWColors.amber.shade900,
@@ -545,7 +562,7 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                               );
                             }
                             final docs = snap.data?.docs ?? [];
-                            final approvedDocs = docs.where((doc) {
+                            var approvedDocs = docs.where((doc) {
                               final m = doc.data() as Map<String, dynamic>;
                               final status = m['status'];
                               if (status == null) return false;
@@ -566,6 +583,15 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                               
                               return !isModerator;
                             }).toList();
+                            
+                            // Sort alphabetically by name
+                            approvedDocs.sort((a, b) {
+                              final aData = a.data() as Map<String, dynamic>;
+                              final bData = b.data() as Map<String, dynamic>;
+                              final aName = (aData['name'] ?? aData['email'] ?? '').toString().toLowerCase();
+                              final bName = (bData['name'] ?? bData['email'] ?? '').toString().toLowerCase();
+                              return aName.compareTo(bName);
+                            });
                             
                             if (approvedDocs.isEmpty) {
                               return Center(
