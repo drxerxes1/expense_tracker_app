@@ -161,12 +161,14 @@ class AuthService extends ChangeNotifier {
             }
             
             // Check if role changed while in an active session (for safety, logout on role change)
+            // Only check if we're still in the same organization - role changes across orgs are expected
             final oldOfficer = _currentOfficer;
             final oldRole = oldOfficer?.role;
             
-            // If role changed while approved, log out for safety
+            // If role changed while approved AND we're still in the same organization, log out for safety
             if (oldOfficer != null && 
                 oldOfficer.status == OfficerStatus.approved && 
+                oldOfficer.orgId == newOfficer.orgId && // Only check if same organization
                 oldRole != null && 
                 oldRole != newOfficer.role) {
               debugPrint('User role changed from $oldRole to ${newOfficer.role} - signing out for safety');
@@ -427,6 +429,8 @@ class AuthService extends ChangeNotifier {
     // Cancel existing subscription before switching
     await _officerSubscription?.cancel();
     
+    // Clear current officer data to prevent role comparison across organizations
+    _currentOfficer = null;
     _currentOrgId = orgId;
     await _loadCurrentOfficerData();
     await _loadOrganization();
