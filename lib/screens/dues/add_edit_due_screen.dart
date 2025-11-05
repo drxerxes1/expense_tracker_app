@@ -368,11 +368,22 @@ class _AddEditDueScreenState extends State<AddEditDueScreen> {
                               final m = doc.data() as Map<String, dynamic>;
                               final status = m['status'];
                               if (status == null) return false;
-                              if (status is String) return status == 'approved';
-                              if (status is int) {
-                                return status == OfficerStatus.approved.index;
+                              
+                              // Check if status is approved
+                              bool isApproved = false;
+                              if (status is String) {
+                                isApproved = status == 'approved';
+                              } else if (status is int) {
+                                isApproved = status == OfficerStatus.approved.index;
                               }
-                              return false;
+                              if (!isApproved) return false;
+                              
+                              // Exclude moderators from the list
+                              final role = (m['role'] ?? '').toString().toLowerCase();
+                              final roleString = role.contains('.') ? role.split('.').last : role;
+                              final isModerator = roleString == 'moderator';
+                              
+                              return !isModerator;
                             }).toList();
                             
                             if (approvedDocs.isEmpty) {

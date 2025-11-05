@@ -74,7 +74,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
   }
 
   Future<void> _updateStatus(String docId, String status, String memberUserId) async {
-    // Security check: Only presidents can update status, and they cannot update their own status
+    // Security check: Only presidents and moderators can update status, and they cannot update their own status
     if (!_canModifyMember(memberUserId)) {
       if (mounted) {
         SnackBarHelper.showError(
@@ -139,7 +139,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
   }
 
   Future<void> _removeMember(String docId, String userId, String orgId) async {
-    // Security check: Only presidents can remove members, and they cannot remove themselves
+    // Security check: Only presidents and moderators can remove members, and they cannot remove themselves
     if (!_canModifyMember(userId)) {
       if (mounted) {
         SnackBarHelper.showError(
@@ -197,7 +197,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
   }
 
   Future<void> _changeMemberRole(String docId, String newRole, String memberName, String orgId, String memberUserId) async {
-    // Security check: Only presidents can change roles, and they cannot change their own role
+    // Security check: Only presidents and moderators can change roles, and they cannot change their own role
     if (!_canModifyMember(memberUserId)) {
       if (mounted) {
         SnackBarHelper.showError(
@@ -271,7 +271,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
   }
 
   void _showRoleChangeDialog(String docId, String currentRole, String memberName, String orgId, String memberUserId) {
-    // Security check: Only presidents can change roles, and they cannot change their own role
+    // Security check: Only presidents and moderators can change roles, and they cannot change their own role
     if (!_canModifyMember(memberUserId)) {
       SnackBarHelper.showError(
         context,
@@ -620,7 +620,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
         ),
       );
     }
-    if (!auth.isPresident()) {
+    if (!auth.hasFullPrivileges()) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Manage Members'),
@@ -628,7 +628,7 @@ class _ManageMembersScreenState extends State<ManageMembersScreen> {
           iconTheme: const IconThemeData(color: Colors.black),
         ),
         body: const Center(
-          child: Text('Only Presidents can manage members'),
+          child: Text('Only Presidents and Moderators can manage members'),
         ),
       );
     }
