@@ -5,8 +5,15 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
-    namespace = "com.example.org_wallet"
+    namespace = "com.drexomanio.orgwallet"
     compileSdk = flutter.compileSdkVersion
 
     compileOptions {
@@ -19,17 +26,26 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.org_wallet"
+        applicationId = "com.drexomanio.orgwallet"
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+
     buildTypes {
         release {
             // ⚠️ Replace with real signingConfig for Play Store release
-            signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.release
             // Optional: shrink and minify in release
             // minifyEnabled true
             // shrinkResources true
